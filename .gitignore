@@ -5,6 +5,4 @@
 .buildpath
 config/dbconnection.php
 config/symbini.php
-css/main.css
-css/speciesprofile.css
 .settings/org.eclipse.php.core.prefs
