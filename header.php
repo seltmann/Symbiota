@@ -9,7 +9,7 @@ if (top.frames.length!=0)
 		<td class="header" colspan="3">
 			<div style="clear:both;">
 				<div style="clear:both;">
-					<img style="" src="<?php echo $clientRoot; ?>/images/layout/header.jpg" />
+					<img style="" src="<?php echo $clientRoot; ?>/images/layout/logo.jpg" />
 				</div>
 			</div>
 			<div id="top_navbar">
