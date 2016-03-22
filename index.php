@@ -38,8 +38,11 @@ header("Content-Type: text/html; charset=".$CHARSET);
 				?>
 			</div>
 		</div>
-		<div style="padding: 0px 10px;">
-			Description and introduction of project
+		<div style="padding: 0px 15px;">
+			<h1>Welcome to the South Central Coastal California Collection and Natural History Data Portal (SCC)</h1>
+			<h2><div style="margin:50px 130px 130px 150px;">
+			The SCC data portal was created to serve as a gateway to distributed data resources of interest to the environmental research community within Santa Barbara County, University of California Natural Reserve System, Channel Islands, University of California Ecological Restoration Sites and the surrounding areas. Through a common web interface, we offer tools to locate, access and work with a variety of data. SCC is more than just a web site - it is a suite of data access technologies and a distributed network of collections, museums and agencies that provide environmental information.
+			</div><h2>
 		</div>
 	</div>
 
