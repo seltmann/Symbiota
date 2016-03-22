@@ -7,7 +7,7 @@ $ADMIN_EMAIL = 'enicospilus@gmail.com';
 $CHARSET = 'UTF-8';					//ISO-8859-1 or UTF-8
 $PORTAL_GUID = 'b7b3e026-573f-4a7c-b305-dda15648ca8b';
 
-$CLIENT_ROOT = '/Symbiota';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet') 
+$CLIENT_ROOT = '/';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet') 
 $SERVER_ROOT = '/var/www/vhosts/Symbiota';				//Full path to Symbiota project root folder
 $TEMP_DIR_ROOT = '/var/www/vhosts/Symbiota/tmp';				//Must be writable by Apache; will use system default if not specified  
 $LOG_PATH = '';					//Must be writable by Apache; will use <SYMBIOTA_ROOT>/temp/logs if not specified 
