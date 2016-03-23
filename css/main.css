@@ -47,10 +47,9 @@ td.middleright{
 }
 
 td.footer{
-	margin:50px 130px 130px 150px;
-	padding: 50px;
+	padding:15px 150px 25px 150px;
 	font-family: Georgia, Times, 'Times New Roman', serif;
-		font-weight: 14px;
+	font-weight: 14px;
 }
 
 /*Central div in the middle center table div */
@@ -91,17 +90,17 @@ table{
 
 h1{
 	font-family: Georgia, Times, 'Times New Roman', serif;
-		font-weight: normal;
+	font-weight: normal;
 }
 
 h2{
 	font-family: Georgia, Times, 'Times New Roman', serif;
-		font-weight: normal;
+	font-weight: normal;
 }
 
 h3{
 	font-family: Georgia, Times, 'Times New Roman', serif;
-		font-weight: normal;
+	font-weight: normal;
 }
 
 #top_navbar{
