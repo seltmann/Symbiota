@@ -8,12 +8,12 @@ $CHARSET = 'UTF-8';					//ISO-8859-1 or UTF-8
 $PORTAL_GUID = 'b7b3e026-573f-4a7c-b305-dda15648ca8b';
 
 $CLIENT_ROOT = '/';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet') 
-$SERVER_ROOT = '/var/www/vhosts/Symbiota';				//Full path to Symbiota project root folder
-$TEMP_DIR_ROOT = '/var/www/vhosts/Symbiota/tmp';				//Must be writable by Apache; will use system default if not specified  
+$SERVER_ROOT = '/';				//Full path to Symbiota project root folder
+$TEMP_DIR_ROOT = './tmp';				//Must be writable by Apache; will use system default if not specified  
 $LOG_PATH = '';					//Must be writable by Apache; will use <SYMBIOTA_ROOT>/temp/logs if not specified 
 
 //the root for the image directory
-$IMAGE_DOMAIN = '/var/www/vhosts/Symbiota/specimenImages';				//Domain path to images, if different from portal 
+$IMAGE_DOMAIN = './specimenImages';				//Domain path to images, if different from portal 
 $IMAGE_ROOT_URL = '';				//URL path to images
 $IMAGE_ROOT_PATH = '';			//Writable path to images, especially needed for downloading images
 
