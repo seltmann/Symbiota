@@ -71,6 +71,11 @@ class SpecUploadDwca extends SpecUploadBase{
 				$this->errorStr = 'ERROR uploading file: '.$msg;
 			}
 		}
+		else{
+			$msg = 'ERROR upload file path not defined';
+			$this->outputMsg('<li>'.$msg.'</li>');
+			$this->errorStr = $msg;
+		}
 		
 		if($this->baseFolderName && substr($this->baseFolderName,-1) != '/') $this->baseFolderName .= '/';
 		if($this->baseFolderName){
@@ -529,9 +534,9 @@ class SpecUploadDwca extends SpecUploadBase{
 
 				$fieldMap['dbpk']['field'] = 'coreid';
 				//Load data
-				$this->conn->query('SET autocommit=0');
-				$this->conn->query('SET unique_checks=0');
-				$this->conn->query('SET foreign_key_checks=0');
+				//$this->conn->query('SET autocommit=0');
+				//$this->conn->query('SET unique_checks=0');
+				//$this->conn->query('SET foreign_key_checks=0');
 				while($recordArr = $this->getRecordArr($fh)){
 					$recMap = Array();
 					foreach($fieldMap as $symbField => $iMap){
@@ -555,10 +560,10 @@ class SpecUploadDwca extends SpecUploadBase{
 					}
 					unset($recMap);
 				}
-				$this->conn->query('COMMIT');
-				$this->conn->query('SET autocommit=1');
-				$this->conn->query('SET unique_checks=1');
-				$this->conn->query('SET foreign_key_checks=1');
+				//$this->conn->query('COMMIT');
+				//$this->conn->query('SET autocommit=1');
+				//$this->conn->query('SET unique_checks=1');
+				//$this->conn->query('SET foreign_key_checks=1');
 				fclose($fh);
 			}
 			else{

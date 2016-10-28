@@ -41,6 +41,7 @@ $clArray = Array();
 if($clValue || $dynClid){
 	$clArray = $clManager->getClMetaData();
 }
+$activateKey = $KEY_MOD_IS_ACTIVE;
 $showDetails = 0;
 if($clValue && $clArray["defaultSettings"]){
 	$defaultArr = json_decode($clArray["defaultSettings"], true);
@@ -52,11 +53,13 @@ if($clValue && $clArray["defaultSettings"]){
 		if(array_key_exists('dauthors',$defaultArr)){$showAuthors = $defaultArr["dauthors"];}
 		if(array_key_exists('dalpha',$defaultArr)){$showAlphaTaxa = $defaultArr["dalpha"];}
 	}
+	if(isset($defaultArr['activatekey'])) $activateKey = $defaultArr['activatekey'];
 }
 if($pid) $clManager->setProj($pid);
 elseif(array_key_exists("proj",$_REQUEST)) $pid = $clManager->setProj($_REQUEST['proj']);
 if($thesFilter) $clManager->setThesFilter($thesFilter);
 if($taxonFilter) $clManager->setTaxonFilter($taxonFilter);
+$clManager->setLanguage($LANG_TAG);
 if($searchCommon){
 	$showCommon = 1;
 	$clManager->setSearchCommon();
@@ -79,7 +82,7 @@ elseif(array_key_exists('printlist_x',$_POST)){
 }
 
 $isEditor = false;
-if($isAdmin || (array_key_exists("ClAdmin",$userRights) && in_array($clid,$userRights["ClAdmin"]))){
+if($IS_ADMIN || (array_key_exists("ClAdmin",$USER_RIGHTS) && in_array($clid,$USER_RIGHTS["ClAdmin"]))){
 	$isEditor = true;
 	
 	//Add species to checklist
@@ -119,7 +122,7 @@ if($clValue || $dynClid){
 	<script type="text/javascript">
 		<?php if($clid) echo 'var clid = '.$clid.';'; ?>
 	</script>
-	<script type="text/javascript" src="../js/symb/checklists.checklist.js?ver=130330"></script>
+	<script type="text/javascript" src="../js/symb/checklists.checklist.js?ver=201606"></script>
 	<style type="text/css">
 		#sddm{margin:0;padding:0;z-index:30;}
 		#sddm:hover {background-color:#EAEBD8;}
@@ -200,7 +203,7 @@ if($clValue || $dynClid){
 				</a>
 			</div>
 			<?php 
-			if(($keyModIsActive === true || $keyModIsActive === 1) && !$printMode){
+			if($activateKey && !$printMode){
 				?>
 				<div style="float:left;padding:5px;">
 					<a href="../ident/key.php?cl=<?php echo $clValue."&proj=".$pid."&dynclid=".$dynClid;?>&taxon=All+Species">
@@ -291,7 +294,7 @@ if($clValue || $dynClid){
 					<!-- Option box -->
 					<div id="cloptiondiv">
 						<form name="optionform" action="checklist.php" method="post">
-							<fieldset style="background-color:white;padding-bottom;10px;">
+							<fieldset style="background-color:white;padding-bottom:10px;">
 							    <legend><b><?php echo $LANG['OPTIONS'];?></b></legend>
 								<!-- Taxon Filter option -->
 							    <div id="taxonfilterdiv" title="Filter species list by family or genus">
@@ -433,9 +436,22 @@ if($clValue || $dynClid){
 							if($coordArr = $clManager->getCoordinates(0,true)){
 								?>
 								<div style="text-align:center;padding:10px">
-									<a href="../collections/map/mapinterface.php?clid=<?php echo $clid.'&taxonfilter='.$taxonFilter; ?>&db=all&maptype=occquery&type=1&reset=1" target="_blank">
-										<img src="http://maps.google.com/maps/api/staticmap?size=170x170&maptype=terrain&sensor=false&markers=size:tiny|<?php echo implode('|',$coordArr); ?>" style="border:0px;" />
-									</a>
+									<div>
+										<a href="checklistmap.php?clid=<?php echo $clid.'&thesfilter='.$thesFilter.'&taxonfilter='.$taxonFilter; ?>" target="_blank">
+											<?php 
+											$googleUrl = 'http://maps.googleapis.com/maps/api/staticmap?size=170x170&maptype=terrain';
+											if(array_key_exists('GOOGLE_MAP_KEY',$GLOBALS) && $GLOBALS['GOOGLE_MAP_KEY']) $googleUrl .= '&key='.$GLOBALS['GOOGLE_MAP_KEY'];
+											$googleUrl .= '&markers=size:tiny|'.implode('|',$coordArr);
+											?>
+											<img src="<?php echo $googleUrl; ?>" style="border:0px;" /><br/>
+											Simple Map
+										</a>
+									</div>
+									<div>
+										<a href="../collections/map/mapinterface.php?clid=<?php echo $clid.'&taxonfilter='.$taxonFilter; ?>&db=all&maptype=occquery&type=1&reset=1" target="_blank">
+											Advanced Map
+										</a>
+									</div>
 								</div>
 								<?php
 							}
@@ -575,7 +591,7 @@ if($clValue || $dynClid){
 								//Delete species or edit details specific to this taxon (vouchers, notes, habitat, abundance, etc
 								?> 
 								<span class="editspp" style="display:<?php echo ($editMode?'inline':'none'); ?>;">
-									<a href="#" onclick="openPopup('clsppeditor.php?tid=<?php echo $tid."&clid=".$clid; ?>','editorwindow');">
+									<a href="#" onclick="return openPopup('clsppeditor.php?tid=<?php echo $tid."&clid=".$clid; ?>','editorwindow');">
 										<img src='../images/edit.png' style='width:13px;' title='edit details' />
 									</a>
 								</span>
@@ -583,7 +599,7 @@ if($clValue || $dynClid){
 								if($showVouchers && array_key_exists("dynamicsql",$clArray) && $clArray["dynamicsql"]){ 
 									?>
 									<span class="editspp" style="display:none;">
-										<a href="#" onclick="openPopup('../collections/list.php?db=all&thes=1&reset=1&taxa=<?php echo $tid."&targetclid=".$clid."&targettid=".$tid;?>','editorwindow');">
+										<a href="#" onclick="return openPopup('../collections/list.php?db=all&thes=1&reset=1&taxa=<?php echo $tid."&targetclid=".$clid."&targettid=".$tid;?>','editorwindow');">
 											<img src='../images/link.png' style='width:13px;' title='Link Voucher Specimens' />
 										</a>
 									</span>

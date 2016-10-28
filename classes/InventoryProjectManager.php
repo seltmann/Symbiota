@@ -1,5 +1,5 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
  
 class InventoryProjectManager {
 
@@ -7,13 +7,13 @@ class InventoryProjectManager {
 	private $pid;
 	private $googleUrl;
 	private $researchCoord = Array();
-	private $surveyCoord = Array();
 	private $isPublic = 1;
 	private $errorStr;
 
 	public function __construct(){
 		$this->conn = MySQLiConnectionFactory::getCon("readonly");
-		$this->googleUrl = "http://maps.google.com/maps/api/staticmap?size=120x150&maptype=terrain&sensor=false";
+		$this->googleUrl = "http://maps.google.com/maps/api/staticmap?size=120x150&maptype=terrain";
+		if(array_key_exists('GOOGLE_MAP_KEY',$GLOBALS) && $GLOBALS['GOOGLE_MAP_KEY']) $this->googleUrl .= '&key='.$GLOBALS['GOOGLE_MAP_KEY'];
 	}
 
 	public function __destruct(){
@@ -123,16 +123,10 @@ class InventoryProjectManager {
 		return $returnArr;
 	}
 	
-	public function getGoogleStaticMap($type){
+	public function getGoogleStaticMap(){
 		$googleUrlLocal = $this->googleUrl;
 		//$googleUrlLocal .= "&zoom=6";
-		$coordStr = '';
-		if($type == 'research'){
-			$coordStr = implode('%7C',$this->researchCoord);
-		}
-		else{
-			$coordStr = implode('%7C',$this->surveyCoord);
-		}
+		$coordStr = implode('%7C',$this->researchCoord);
 		if(!$coordStr) return ""; 
 		$googleUrlLocal .= "&markers=size:tiny%7C".$coordStr;
 		return $googleUrlLocal;

@@ -1,8 +1,8 @@
 <?php
 include_once('../config/symbini.php');
-include_once($serverRoot.'/classes/InventoryProjectManager.php');
+include_once($SERVER_ROOT.'/classes/InventoryProjectManager.php');
 include_once($SERVER_ROOT.'/content/lang/projects/index.'.$LANG_TAG.'.php');
-header("Content-Type: text/html; charset=".$charset);
+header("Content-Type: text/html; charset=".$CHARSET);
 
 $proj = array_key_exists("proj",$_REQUEST)?$_REQUEST["proj"]:""; 
 $pid = array_key_exists("pid",$_REQUEST)?$_REQUEST["pid"]:""; 
@@ -53,18 +53,17 @@ if($isEditable && $projSubmit){
 		$projManager->deleteChecklist($_POST['clid']);
 	}
 }
- 
 ?>
 <html>
 <head>
-	<title><?php echo $defaultTitle; ?><?php echo $LANG['INVPROJ'];?></title>
+	<title><?php echo $DEFAULT_TITLE; ?><?php echo $LANG['INVPROJ'];?></title>
 	<link href="../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
 	<link href="../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
 	<link type="text/css" href="../css/jquery-ui.css" rel="Stylesheet" />
 	<script type="text/javascript" src="../js/jquery.js"></script>
 	<script type="text/javascript" src="../js/jquery-ui.js"></script>
 	<script type="text/javascript">
-		<?php include_once($serverRoot.'/config/googleanalytics.php'); ?>
+		<?php include_once($SERVER_ROOT.'/config/googleanalytics.php'); ?>
 	</script>
 	<script type="text/javascript">
 	
@@ -103,25 +102,6 @@ if($isEditable && $projSubmit){
 			}
 			var targetStr = "document.getElementById('researchlistpopup').style.display='none'";
 			var t=setTimeout(targetStr,25000);
-		}
-
-		function toggleSurveyInfoBox(anchorObj){
-			var obj = document.getElementById("surveylistpopup");
-			var pos = findPos(anchorObj);
-			var posLeft = pos[0];
-			if(posLeft > 550){
-				posLeft = 550;
-			}
-			obj.style.left = posLeft - 40;
-			obj.style.top = pos[1] + 25;
-			if(obj.style.display=="block"){
-				obj.style.display="none";
-			}
-			else {
-				obj.style.display="block";
-			}
-			var targetStr = "document.getElementById('surveylistpopup').style.display='none'";
-			var t=setTimeout(targetStr,20000);
 		}
 
 		function findPos(obj){
@@ -183,15 +163,17 @@ if($isEditable && $projSubmit){
 <body>
 	<?php
 	$displayLeftMenu = (isset($projects_indexMenu)?$projects_indexMenu:"true");
-	include($serverRoot.'/header.php');
+	include($SERVER_ROOT.'/header.php');
+	echo "<div class='navpath'>";
 	if(isset($projects_indexCrumbs)){
-		?>
-		<div class="navpath">
-			<?php echo $projects_indexCrumbs;?>
-			<b><?php echo $LANG['INVPROJ'];?></b>
-		</div>
-		<?php 
+		if($projects_indexCrumbs) echo $projects_indexCrumbs.' &gt;&gt;';
+		echo '<b>'.$LANG['INVPROJ'].'</b>';
 	}
+	else{
+		echo "<a href='../index.php'>Home</a> &gt;&gt; ";
+		echo '<b>'.$LANG['INVPROJ'].'</b>';
+	}
+	echo "</div>";
 	?>
 	
 	<!-- This is inner text! -->
@@ -342,7 +324,7 @@ if($isEditable && $projSubmit){
 							<span onclick="toggleResearchInfoBox(this);" title="<?php echo $LANG['QUESRESSPEC'];?>" style="cursor:pointer;">
 								<img src="../images/qmark_big.png" style="height:15px;"/>
 							</span> 
-							<a href="../checklists/clgmap.php?cltype=research&proj=<?php echo $pid;?>" title="<?php echo $LANG['MAPCHECK'];?>">
+							<a href="../checklists/clgmap.php?proj=<?php echo $pid;?>" title="<?php echo $LANG['MAPCHECK'];?>">
 								<img src='../images/world.png' style='width:14px;border:0' />
 							</a>
 						</div>
@@ -351,7 +333,7 @@ if($isEditable && $projSubmit){
                             <?php echo $LANG['RESCHECKQUES'];?>
 						</div>
 						<?php 
-						if($keyModIsActive === true || $keyModIsActive === 1){
+						if($KEY_MOD_IS_ACTIVE){
 							?>
 							<div style="margin-left:15px;font-size:90%">
                                 <?php echo $LANG['THE'];?> <img src="../images/key.png" style="width: 12px;" alt="Golden Key Symbol" />
@@ -363,7 +345,7 @@ if($isEditable && $projSubmit){
 						if($gMapUrl){
 							?>
 							<div style="float:right;text-align:center;">
-								<a href="../checklists/clgmap.php?cltype=research&proj=<?php echo $pid;?>" title="Map Checklists">
+								<a href="../checklists/clgmap.php?proj=<?php echo $pid;?>" title="Map Checklists">
 									<img src="<?php echo $gMapUrl; ?>" title="<?php echo $LANG['MAPREP'];?>" alt="Map representation of checklists" />
 									<br/>
                                     <?php echo $LANG['OPENMAP'];?>
@@ -372,26 +354,28 @@ if($isEditable && $projSubmit){
 							<?php
 						} 
 						?>
-						<div style="float:left;">
+						<div>
 							<ul>
-							<?php 	
+								<?php 	
 								foreach($researchList as $key=>$value){
-				            ?>
-								<li>
-									<a href='../checklists/checklist.php?cl=<?php echo $key."&pid=".$pid; ?>'>
-										<?php echo $value; ?>
-									</a> 
-									<?php 
-									if($keyModIsActive === true || $keyModIsActive === 1){
-										?>
-										<a href='../ident/key.php?cl=<?php echo $key; ?>&proj=<?php echo $pid; ?>&taxon=All+Species'>
-											<img style='width:12px;border:0px;' src='../images/key.png'/>
-										</a>
-										<?php
-									}
 									?>
-								</li>
-								<?php } ?>
+									<li>
+										<a href='../checklists/checklist.php?cl=<?php echo $key."&pid=".$pid; ?>'>
+											<?php echo $value; ?>
+										</a> 
+										<?php 
+										if($KEY_MOD_IS_ACTIVE){
+											?>
+											<a href='../ident/key.php?cl=<?php echo $key; ?>&proj=<?php echo $pid; ?>&taxon=All+Species'>
+												<img style='width:12px;border:0px;' src='../images/key.png'/>
+											</a>
+											<?php
+										}
+										?>
+									</li>
+									<?php 
+								} 
+								?>
 							</ul>
 						</div>
 						<?php 
@@ -402,7 +386,7 @@ if($isEditable && $projSubmit){
 			}
 		}
 		else{
-			echo '<h1>'.$defaultTitle.' Projects</h1>'; 
+			echo '<h1>'.$DEFAULT_TITLE.' Projects</h1>'; 
 			$projectArr = $projManager->getProjectList();
 			foreach($projectArr as $pid => $projList){
 				?>
@@ -417,7 +401,7 @@ if($isEditable && $projSubmit){
 		?>
 	</div>
 	<?php
-	include($serverRoot.'/footer.php');
+	include($SERVER_ROOT.'/footer.php');
 	?>
 </body>
 </html>

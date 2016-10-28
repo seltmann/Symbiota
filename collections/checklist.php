@@ -4,9 +4,12 @@ include_once($SERVER_ROOT.'/content/lang/collections/checklist.'.$LANG_TAG.'.php
 include_once($SERVER_ROOT.'/classes/OccurrenceChecklistManager.php');
 
 $checklistManager = new OccurrenceChecklistManager();
-$taxonFilter = array_key_exists("taxonfilter",$_REQUEST)?$_REQUEST["taxonfilter"]:0;
+$taxonFilter = array_key_exists("taxonfilter",$_REQUEST)?$_REQUEST["taxonfilter"]:'';
 $stArrCollJson = array_key_exists("jsoncollstarr",$_REQUEST)?$_REQUEST["jsoncollstarr"]:'';
 $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
+
+//Sanitation
+if(!is_numeric($taxonFilter)) $taxonFilter = 1;
 
 if($stArrCollJson && $stArrSearchJson){
 	$stArrSearchJson = str_replace("%apos;","'",$stArrSearchJson);
@@ -24,7 +27,7 @@ if($stArrCollJson && $stArrSearchJson){
 		</a>
 	</div>
 	<?php 
-	if($keyModIsActive === true || $keyModIsActive === 1){
+	if($KEY_MOD_IS_ACTIVE){
 	?>
 		<div class='button' style='margin:10px;float:right;width:13px;height:13px;' title='<?php echo $LANG['OPEN_KEY']; ?>'>
 			<a href='checklistsymbiota.php?usecookies=false&starr=<?php echo $stArrSearchJson; ?>&jsoncollstarr=<?php echo $stArrCollJson; ?>&taxonfilter=<?php echo $taxonFilter; ?>&interface=key'>

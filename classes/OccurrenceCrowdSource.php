@@ -1,5 +1,5 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
  
 class OccurrenceCrowdSource {
 
@@ -312,7 +312,7 @@ class OccurrenceCrowdSource {
 		return $retArr;
 	}
 
-	//Reveiw functions
+	//Review functions
 	public function getReviewArr($startIndex,$limit,$uid,$rStatus){
 		$retArr = array();
 		if($this->collid || $uid){
@@ -373,9 +373,9 @@ class OccurrenceCrowdSource {
 				}
 				else{
 					$statusStr = 'ERROR submitting reviews; '.$con->error.'<br/>SQL = '.$sql;
-				}
+				} 
 			}
-			if($successArr){
+			if($successArr && isset($postArr['updateProcessingStatus']) && $postArr['updateProcessingStatus']){
 				//Change status to reviewed
 				$sql2 = 'UPDATE omoccurrences SET processingstatus = "reviewed" WHERE occid IN('.implode(',',$successArr).')';
 				$con->query($sql2);

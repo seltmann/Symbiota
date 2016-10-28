@@ -2,8 +2,7 @@
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/OccurrenceDownload.php');
 include_once($SERVER_ROOT.'/classes/DwcArchiverOccurrence.php');
-header("Content-Type: text/html; charset=".$charset);
-if(!$SYMB_UID) header('Location: ../../profile/index.php?refurl=../collections/specprocessor/index.php?'.$_SERVER['QUERY_STRING']);
+header("Content-Type: text/html; charset=".$CHARSET);
 
 $collid = array_key_exists('collid',$_REQUEST)?$_REQUEST['collid']:0;
 $displayMode = array_key_exists('displaymode',$_REQUEST)?$_REQUEST['displaymode']:0;
@@ -26,7 +25,7 @@ $dlManager = new OccurrenceDownload();
 $collMeta = $dlManager->getCollectionMetadata($collid);
 
 $isEditor = false;
-if($IS_ADMIN || (array_key_exists("CollAdmin",$userRights) && in_array($collid,$userRights["CollAdmin"]))){
+if($IS_ADMIN || (array_key_exists("CollAdmin",$USER_RIGHTS) && in_array($collid,$USER_RIGHTS["CollAdmin"]))){
  	$isEditor = true;
 }
 
@@ -48,15 +47,14 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 <html>
 	<head>
 		<title>Occurrence Export Manager</title>
-		<link href="<?php echo $clientRoot; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="<?php echo $clientRoot; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
 		<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
 		<script src="../../js/jquery.js" type="text/javascript"></script>
 		<script src="../../js/jquery-ui.js" type="text/javascript"></script>
 		<script src="../../js/symb/shared.js" type="text/javascript"></script>
-		<script language="javascript">
-			var cogeUrl = "https://www.museum.tulane.edu/coge/symbiota/";
-
+		<script>
+			
 			$(function() {
 				var dialogArr = new Array("schemanative","schemadwc","newrecs");
 				var dialogStr = "";
@@ -74,9 +72,9 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 				}
 	
 			});
-	
+
 			function validateDownloadForm(f){
-				if(f.newrecs.checked == true && (f.processingstatus.value == "unprocessed" || f.processingstatus.value == "")){
+				if(f.newrecs && f.newrecs.checked == true && (f.processingstatus.value == "unprocessed" || f.processingstatus.value == "")){
 					alert("New records cannot have an unprocessed or undefined processing status. Please select a valid processing status.");
 					return false;
 				}
@@ -95,202 +93,18 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 					cbObj.form.images.checked = false;
 				}
 			}
-
-			//CoGe GeoLocate functions
-			function cogeCheckAuthentication(){
-				//$("#cogeStatus").html("");
-				$("#coge-status").css('color', 'orange');
-				$("#coge-status").html("Checking status...");
-
-				$.ajax({
-					type: "GET",
-					url: cogeUrl,
-					crossDomain: true,
-					xhrFields: { withCredentials: true },
-					dataType: 'json'
-				}).done(function( response ) {
-					var result = response.result;
-					if(result == "authentication required"){
-						$("#coge-status").html("Unauthorized");
-						$("#coge-status").css("color", "red");
-						$("#builddwcabutton").prop("disabled",true);
-					}
-					else{
-						$("#coge-status").css('color', 'green');
-						$("#coge-status").html("Connected");
-						$("#builddwcabutton").prop("disabled",false);
-						cogeGetUserCommunityList();
-					}
-				}).fail(function(jqXHR, textStatus, errorThrown ){
-					$("#coge-status").html("Unauthorized");
-					$("#coge-status").css("color", "red");
-					alert( "ERROR: it may be that GeoLocate has not been configured to automatically accept files from this Symbiota portal " );
-				});
-			}			
-
-			function cogePublishDwca(f){
-				if($("#countdiv").html() == 0){
-					alert("No records exist matching search criteria");
-					return false;
-				}
-				$("#coge-download").show();
-				$.ajax({
-					type: "POST",
-					url: "rpc/coge_build_dwca.php",
-					dataType: "json",
-					data: { 
-						collid: f.collid.value, 
-						ps: f.processingstatus.value, 
-						cf1: f.customfield1.value, 
-						ct1: f.customtype1.value,
-						cv1: f.customvalue1.value,
-						cf2: f.customfield2.value, 
-						ct2: f.customtype2.value,
-						cv2: f.customvalue2.value
-					}
-				}).done(function( response ) {
-					var result = response.result;
-					$("#coge-download").hide();
-					if(result == "ERROR"){
-						alert(result);
-					}
-					else{
-						var path =  result.path;
-						cogeSubmitData(path);
-					}
-				});
-			}
-
-			function cogeUpdateCount(formObj){
-				var f = formObj.form;
-				var objName = formObj.name;
-				if(objName == "customtype1" || objName == "customvalue1"){
-					if(f.customfield1.value == '') return false;
-					if(f.customtype1.value == "EQUALS" || f.customtype1.value == "STARTS" || f.customtype1.value == "LIKE"){
-						if(objName == "customtype1" && f.customvalue1.value == '') return false;
-					}
-				}
-				if(objName == "customtype2" || objName == "customvalue2"){
-					if(f.customfield2.value == '') return false;
-					if(f.customtype2.value == "EQUALS" || f.customtype2.value == "STARTS" || f.customtype2.value == "LIKE"){
-						if(objName == "customtype2" && f.customvalue2.value == '') return false;
-					}
-				}
-				$("#recalspan").show();
-				$.ajax({
-					type: "POST",
-					url: "rpc/coge_getCount.php",
-					dataType: "json",
-					data: { 
-						collid: f.collid.value, 
-						ps: f.processingstatus.value, 
-						cf1: f.customfield1.value, 
-						ct1: f.customtype1.value,
-						cv1: f.customvalue1.value,
-						cf2: f.customfield2.value, 
-						ct2: f.customtype2.value,
-						cv2: f.customvalue2.value
-					}
-				}).done(function( response ) {
-					if(response == 0) f.builddwcabutton.disalbed = true;
-					$("#countdiv").html(response);
-					$("#recalspan").hide();
-				});
-			}
-
-			function cogeSubmitData(dwcaPath){
-				$("#coge-push2coge").show();
-				$("#coge-push2coge").html("<a href='"+dwcaPath+"'>"+dwcaPath+"</a>");
-				/*
-				$.ajax({
-					type: "GET",
-					url: cogeUrl,
-					crossDomain: true,
-					xhrFields: { withCredentials: true },
-					dataType: 'json',
-					data: { t: "import", q: dwcaPath }
-				}).done(function( response ) {
-					//{"result":{"datasourceId":"7ab8ffb8-032a-4f7a-8968-a012ce287c2d"}}
-					var result = response.result;
-					alert(result.datasourceId);
-					$("#coge-push2coge").hide();
-				});
-				*/
-			}			
-
-			function cogeCheckStatus(id){
-				$.ajax({
-					type: "GET",
-					url: cogeUrl,
-					crossDomain: true,
-					xhrFields: { withCredentials: true },
-					dataType: 'json',
-					data: { t: "importstatus", q: id }
-				}).done(function( response ) {
-					//{"result":{"importProgess":{"state":"ready"}}}
-					
-				});
-			}			
-
-			function cogeCheckGeorefStatus(id){
-				$.ajax({
-					type: "GET",
-					url: cogeUrl,
-					crossDomain: true,
-					xhrFields: { withCredentials: true },
-					dataType: 'json',
-					data: { t: "dsstatus", q: id }
-				}).done(function( response ) {
-					//{"result":{"datasource":"0a289c73-5317-45f1-9486-656597f98626","stats":{"specimens":{"total":48004,"corrected":774,"skipped":0},"localities":{"total":18876,"corrected":226,"skipped":0}}}}
-					
-				});
-			}			
-
-			function cogeGetUserCommunityList(){
-				$.ajax({
-					type: "GET",
-					url: cogeUrl,
-					crossDomain: true,
-					xhrFields: { withCredentials: true },
-					dataType: 'json',
-					data: { t: "comlist" }
-				}).done(function( response ) {
-					//{"result":[{"name":"Sandbox","description":"Feel free to join and experiment.","role":"Owner"},{"name":"TU Volunteer Georeferencing","description":"This project focuses on georeferencing selected data from FishNet and involves volunteers from the Tulane University student community.","role":"Owner"},{"name":"Empty Community","description":"Testing ONLY","role":"Owner"},{"name":"FSU","description":"Test FSU site","role":"Admin"},{"name":"Penstemon","description":"This web site will focus on georeferencing specimens of Penstemon but its purpose is to help those involved gain a better understanding of how to use collaborative georeferencing.","role":"Admin"},{"name":"FishNet 2","description":"Collaborative georeferencing of data from FishNet 2","role":"Owner"},{"name":"NR Box","description":"","role":"Owner"},{"name":"TU FishNet Service Group","description":"","role":"User"},{"name":"Engine Georeferencing","description":"","role":"User"},{"name":"SIUC FishNet","description":"Records from the SIUC fish Collections","role":"Owner"}]} 
-					//{"result":[{"name":"NR Box","description":"","role":"User"},{"name":"Phoenix","description":"General Areas around Phoenix that need coordinates","role":"Owner"}]}
-					var result = response.result;
-					if(result == "authentication required"){
-						alert("Not Authenicated");
-					}
-					else{
-						$("#coge-communities").show();
-						var htmlOut = "";
-						for(var i in result){
-							htmlOut = htmlOut + '<div style="margin:5px">';
-							var name = result[i].name;
-							htmlOut = htmlOut + "<u>"+name+"</u>";
-							var role = result[i].role;
-							htmlOut = htmlOut + " ("+role+")";
-							var descr = result[i].description;
-							if(descr != "") htmlOut = htmlOut + ": " + descr;
-							htmlOut = htmlOut + '</div>';
-							$("#commlist-div").html(htmlOut);
-						}
-					}
-				});
-			}	
 		</script>
 	</head>
 	<body>
 		<!-- This is inner text! -->
 		<div id="innertext" style="background-color:white;">
-			<div style="float:right;width:165px;margin-right:10px">
+			<div style="float:right;width:165px;margin-right:30px">
 				<fieldset>
 					<legend><b>Export Type</b></legend>
 					<form name="submenuForm" method="post" action="index.php">
 						<select name="displaymode" onchange="this.form.submit()">
 							<option value="0">Custom Export</option>
 							<option value="1" <?php echo ($displayMode==1?'selected':''); ?>>Georeference Export</option>
-							<option value="2" <?php echo ($displayMode==2?'selected':''); ?>>GeoLocate Toolkit</option>
 						</select>
 						<input name="collid" type="hidden" value="<?php echo $collid; ?>" />
 						<input name="tabindex" type="hidden" value="5" />
@@ -426,7 +240,7 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 							<div style="margin:15px;">
 								This module extracts specimens that lack decimal coordinates or have coordinates that needs to be verified.
 								This download will result in a Darwin Core Archive containing a UTF-8 encoded CSV file containing 
-								only georeferencing relavent data columns for the occurrences. By default, occurrences 
+								only georeferencing relevant data columns for the occurrences. By default, occurrences 
 								will be limited to records containing locality information but no decimal coordinates. 
 								This output is particularly useful for creating data extracts that will georeferenced using external tools. 
 							</div>
@@ -505,136 +319,6 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 											<input name="schema" type="hidden" value="dwc" />
 											<input name="extended" type="hidden" value="1" />
 											<input name="submitaction" type="submit" value="Download Records" />
-										</div>
-									</td>
-								</tr>
-							</table>							
-						</fieldset>
-					</form>
-					<?php 
-				}
-				elseif($displayMode == 2){
-					//GeoLocate tools
-					?>
-					<form name="expgeolocateform" action="../download/downloadhandler.php" method="post" onsubmit="">
-						<fieldset>
-							<legend><b>GeoLocate Community Toolkit</b></legend>
-							<div style="margin:15px;">
-								This module extracts specimen records that have text locality details but lack decimal coordinates.  
-								These specimens are packaged and delivered directly into the GeoLocate Community Tools.
-							</div>
-							<table>
-								<tr>
-									<td>
-										<div style="margin:10px;">
-											<b>Processing Status:</b>
-										</div> 
-									</td>
-									<td>
-										<div style="margin:10px 0px;">
-											<select name="processingstatus" onchange="cogeUpdateCount(this)">
-												<option value="">All Records</option>
-												<?php 
-												$statusArr = $dlManager->getProcessingStatusList($collid);
-												foreach($statusArr as $v){
-													echo '<option value="'.$v.'">'.ucwords($v).'</option>';
-												}
-												?>
-											</select>
-										</div> 
-									</td>
-								</tr>
- 								<tr>
-									<td>
-										<div style="margin:10px;">
-											<b>Additional<br/>Filters:</b>
-										</div> 
-									</td>
-									<td>
-										<div style="margin:10px 0px;">
-											<select name="customfield1" style="width:200px">
-												<option value="">Select Field Name</option>
-												<option value="">---------------------------------</option>
-												<?php 
-												foreach($advFieldArr as $k => $v){
-													echo '<option value="'.$k.'" '.($k==$customField1?'SELECTED':'').'>'.$v.'</option>';
-												}
-												?>
-											</select>
-											<select name="customtype1" onchange="cogeUpdateCount(this)">
-												<option value="EQUALS">EQUALS</option>
-												<option <?php echo ($customType1=='STARTS'?'SELECTED':''); ?> value="STARTS">STARTS WITH</option>
-												<option <?php echo ($customType1=='LIKE'?'SELECTED':''); ?> value="LIKE">CONTAINS</option>
-												<option <?php echo ($customType1=='NULL'?'SELECTED':''); ?> value="NULL">IS NULL</option>
-												<option <?php echo ($customType1=='NOTNULL'?'SELECTED':''); ?> value="NOTNULL">IS NOT NULL</option>
-											</select>
-											<input name="customvalue1" type="text" value="<?php echo $customValue1; ?>" style="width:200px;" onchange="cogeUpdateCount(this)" />
-										</div> 
-										<div style="margin:10px 0px;">
-											<select name="customfield2" style="width:200px">
-												<option value="">Select Field Name</option>
-												<option value="">---------------------------------</option>
-												<?php 
-												foreach($advFieldArr as $k => $v){
-													echo '<option value="'.$k.'" '.($k==$customField2?'SELECTED':'').'>'.$v.'</option>';
-												}
-												?>
-											</select>
-											<select name="customtype2" onchange="cogeUpdateCount(this)">
-												<option value="EQUALS">EQUALS</option>
-												<option <?php echo ($customType2=='STARTS'?'SELECTED':''); ?> value="STARTS">STARTS WITH</option>
-												<option <?php echo ($customType2=='LIKE'?'SELECTED':''); ?> value="LIKE">CONTAINS</option>
-												<option <?php echo ($customType2=='NULL'?'SELECTED':''); ?> value="NULL">IS NULL</option>
-												<option <?php echo ($customType2=='NOTNULL'?'SELECTED':''); ?> value="NOTNULL">IS NOT NULL</option>
-											</select>
-											<input name="customvalue2" type="text" value="<?php echo $customValue2; ?>" style="width:200px;" onchange="cogeUpdateCount(this)" />
-										</div> 
-									</td>
-								</tr>
-								<tr>
-									<td colspan="2">
-										<fieldset style="margin:10px;padding:20px;">
-											<legend><b>CoGe Status</b></legend>
-											<div>
-												<b>Match Count:</b> 
-												<?php 
-												$dwcaHandler = new DwcArchiverOccurrence();
-												$dwcaHandler->setCollArr($collid);
-												$dwcaHandler->setVerbose(0);
-												$dwcaHandler->addCondition('decimallatitude','NULL');
-												$dwcaHandler->addCondition('decimallongitude','NULL');
-												$dwcaHandler->addCondition('locality','NOTNULL');
-												echo '<span id="countdiv">'.$dwcaHandler->getOccurrenceCnt().'</span> records'; 
-												?>
-												<span id="recalspan" style="color:orange;display:none;">recalculating... <img src="../../images/workingcircle.gif" style="width:13px;" /></span>
-											</div>
-											<div>
-												<b>CoGe Authentication:</b>
-												<span id="coge-status" style="width:150px;color:red;">Disconnected</span>
-												<span style="margin-left:40px"><input type="button" name="cogeCheckStatusButton" value="Check Status" onclick="cogeCheckAuthentication()" /></span>
-												<span style="margin-left:40px"><a href="https://www.museum.tulane.edu/coge/" target="_blank">Login to CoGe</a></span>
-											</div>
-											<fieldset id="coge-communities" style="display:none;margin:5px;padding:5px;">
-												<legend style="font-weight:bold">Available Communities</legend>
-												<div id="commlist-div" style="margin:10px"></div>
-											</fieldset>
-										</fieldset>
-										<div style="margin:20px;">
-											<input name="collid" type="hidden" value="<?php echo $collid; ?>" />
-											<input name="format" type="hidden" value="csv" />
-											<input name="schema" type="hidden" value="coge" />
-											<div style="margin:5px">
-												<input id="builddwcabutton" name="builddwcabutton" type="button" value="Push Data to GeoLocate CoGe" onclick="cogePublishDwca(this.form)" disabled /> 
-												<span id="coge-download" style="display:none;color:orange">Downloading data... <img src="../../images/workingcircle.gif" style="width:13px;" /></span>
-												<span id="coge-push2coge" style="display:none;color:orange">Pushing data to CoGe... <img src="../../images/workingcircle.gif" style="width:13px;" /></span>
-												 *In development
-											</div>
-											<div style="margin:5px">
-												<input name="submitaction" type="submit" value="Download Records Locally" />
-											</div>
-										</div>
-										<div style="margin-left:20px;">
-											* Default query criteria: locality IS NOT NULL, decimalLatitude IS NULL, decimalLongitude IS NULL
 										</div>
 									</td>
 								</tr>
@@ -864,12 +548,7 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 				echo '</div>';
 			}
 			else{
-				if(!$collid){
-					echo '<div>ERROR: collection identifier not defined. Contact administrator</div>';
-				}
-				else{
-					echo '<div style="font-weight:bold;">Access denied</div>';
-				}
+				echo '<div style="font-weight:bold;">Access denied</div>';
 			}
 			?>
 		</div>

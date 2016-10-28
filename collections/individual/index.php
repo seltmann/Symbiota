@@ -129,6 +129,11 @@ if($SYMB_UID){
 			$statusStr = $indManager->getErrorMessage();
 		}
 	}
+	elseif($submit == "Add Voucher"){
+		if(!$indManager->linkVoucher($_POST)){
+			$statusStr = $indManager->getErrorMessage();
+		}
+	}
 	elseif($submit == "Link to Dataset"){
 		$dsid = (isset($_POST['dsid'])?$_POST['dsid']:0);
 		if(!$indManager->linkToDataset($dsid,$_POST['dsname'],$_POST['notes'],$SYMB_UID)){
@@ -157,7 +162,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 	<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
 	<script src="../../js/jquery.js" type="text/javascript"></script>
 	<script src="../../js/jquery-ui.js" type="text/javascript"></script>
-	<script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false"></script>
+	<script src="//maps.googleapis.com/maps/api/js?<?php echo (isset($GOOGLE_MAP_KEY) && $GOOGLE_MAP_KEY?'key='.$GOOGLE_MAP_KEY:''); ?>"></script>
 	<script type="text/javascript">
 		var tabIndex = <?php echo $tabIndex; ?>;
 		var map;
@@ -383,7 +388,13 @@ header("Content-Type: text/html; charset=".$CHARSET);
 								?>
 								<div>
 									<b>Occurrence ID (GUID):</b> 
-									<?php echo $occArr['occurrenceid']; ?>
+									<?php
+									$resolvableGuid = false;
+									if(substr($occArr['occurrenceid'],0,4) == 'http') $resolvableGuid = true;
+									if($resolvableGuid) echo '<a href="'.$occArr['occurrenceid'].'" target="_blank">';
+									echo $occArr['occurrenceid'];
+									if($resolvableGuid) echo '</a>';
+									?>
 								</div>
 								<?php 
 							}
@@ -733,31 +744,29 @@ header("Content-Type: text/html; charset=".$CHARSET);
 						<?php 
 						if($collMetadata['individualurl']){
 							$indUrl = '';
-							if(strpos($collMetadata['individualurl'],'--DBPK--') && $occArr['dbpk']){
+							if(strpos($collMetadata['individualurl'],'--DBPK--') !== false && $occArr['dbpk']){
 								$indUrl = str_replace('--DBPK--',$occArr['dbpk'],$collMetadata['individualurl']);
 							}
-							elseif(strpos($collMetadata['individualurl'],'--CATALOGNUMBER--') && $occArr['catalognumber']){
+							elseif(strpos($collMetadata['individualurl'],'--CATALOGNUMBER--') !== false && $occArr['catalognumber']){
 								$indUrl = str_replace('--CATALOGNUMBER--',$occArr['catalognumber'],$collMetadata['individualurl']);
 							}
-							elseif(strpos($collMetadata['individualurl'],'--OCCURRENCEID--') && $occArr['occurrenceid']){
+							elseif(strpos($collMetadata['individualurl'],'--OCCURRENCEID--') !== false && $occArr['occurrenceid']){
 								$indUrl = str_replace('--OCCURRENCEID--',$occArr['occurrenceid'],$collMetadata['individualurl']);
 							}
 							if($indUrl){
 								echo '<div style="margin-top:10px;clear:both;">';
-								echo '<b>Source:</b> <a href="'.$indUrl.'" target="_blank">';
+								echo '<b>Link to Source:</b> <a href="'.$indUrl.'" target="_blank">';
 								echo $collMetadata['institutioncode'].' #'.($occArr['catalognumber']?$occArr['catalognumber']:$occArr['dbpk']);
 								echo '</a></div>';
 							}
 						}
-						//GUID
-						echo '<div style="margin:3px 0px;"><b>Record Id:</b> '.$occArr['guid'].'</div>';
 						//Rights
 						$rightsStr = $collMetadata['rights'];
 						if($collMetadata['rights']){
 							$rightsHeading = '';
 							if(isset($rightsTerms)) $rightsHeading = array_search($rightsStr,$rightsTerms);
 							if(substr($collMetadata['rights'],0,4) == 'http'){
-								$rightsStr = '<a href="'.$rightsStr.'">'.($rightsHeading?$rightsHeading:$rightsStr).'</a>';
+								$rightsStr = '<a href="'.$rightsStr.'" target="_blank">'.($rightsHeading?$rightsHeading:$rightsStr).'</a>';
 							}
 							$rightsStr = '<div style="margin-top:2px;"><b>Usage Rights:</b> '.$rightsStr.'</div>';
 						}
@@ -778,6 +787,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 							}
 							?>
 						</div>
+						<div style="margin:3px 0px;"><b>Record Id:</b> <?php echo $occArr['guid']; ?></div>
 						
 						<div style="margin-top:10px;clear:both;">
 							For additional information on this specimen, please contact: 
@@ -913,21 +923,21 @@ header("Content-Type: text/html; charset=".$CHARSET);
 								echo '<div>';
 								echo '<b>'.$comArr['username'].'</b> <span style="color:gray;">posted '.$comArr['initialtimestamp'].'</span>';
 								echo '</div>';
-								if($comArr['reviewstatus'] == 0) echo '<div style="color:red;">Comment not public due to pending abuse report (viewable to administrators only)</div>';
+								if($comArr['reviewstatus'] == 0 || $comArr['reviewstatus'] == 2) echo '<div style="color:red;">Comment not public due to pending abuse report (viewable to administrators only)</div>';
 								echo '<div style="margin:10px;">'.$comArr['comment'].'</div>';
 								if($comArr['reviewstatus']){
 									if($SYMB_UID){
 										?>
-										<div><a href="index.php?repcomid=<?php echo $comId.'&occid='.$occid; ?>">Report as inappropriate or abusive</a></div>
+										<div><a href="index.php?repcomid=<?php echo $comId.'&occid='.$occid.'&tabindex='.($displayMap?2:1); ?>">Report as inappropriate or abusive</a></div>
 										<?php
 									}
 								}
 								else{
 									?>
-									<div><a href="index.php?publiccomid=<?php echo $comId.'&occid='.$occid; ?>">Make comment public</a></div>
+									<div><a href="index.php?publiccomid=<?php echo $comId.'&occid='.$occid.'&tabindex='.($displayMap?2:1); ?>">Make comment public</a></div>
 									<?php
 								}
-								if($isEditor || ($SYMB_UID && $comArr['username'] == $paramsArr['un'])){
+								if($isEditor || ($SYMB_UID && $comArr['username'] == $PARAMS_ARR['un'])){
 									?>
 									<div style="margin:20px;">
 										<form name="delcommentform" action="index.php" method="post" onsubmit="return confirm('Are you sure you want to delete comment?')">
@@ -980,52 +990,96 @@ header("Content-Type: text/html; charset=".$CHARSET);
 				</div>
 				<?php 
 				if($isEditor){
-					$editArr = $indManager->getEditArr();
 					?>
 					<div id="edittab">
 						<div style="padding:15px;">
 							<?php 
-							if(array_key_exists('CollAdmin',$USER_RIGHTS) && in_array($collid,$USER_RIGHTS['CollAdmin'])){
+							if(array_key_exists('CollAdmin',$USER_RIGHTS) && in_array($collid,$USER_RIGHTS['CollAdmin']) && in_array($collid,$USER_RIGHTS['CollEditor'])){
 								?>
 								<div style="float:right;" title="Manage Edits">
 									<a href="../editor/editreviewer.php?collid=<?php echo $collid.'&occid='.$occid; ?>"><img src="../../images/edit.png" style="border:0px;width:14px;" /></a>
 								</div>
 								<?php
 							}
-							echo '<div style="margin:15px;">';
+							echo '<div style="margin:20px 0px 30px 0px;">';
 							echo '<b>Entered By:</b> '.($occArr['recordenteredby']?$occArr['recordenteredby']:'not recorded').'<br/>';
 							echo '<b>Date entered:</b> '.($occArr['dateentered']?$occArr['dateentered']:'not recorded').'<br/>';
 							echo '<b>Date modified:</b> '.($occArr['datelastmodified']?$occArr['datelastmodified']:'not recorded').'<br/>';
 							if($occArr['modified'] && $occArr['modified'] != $occArr['datelastmodified']) echo '<b>Source date modified:</b> '.$occArr['modified'];
 							echo '</div>';
+							$editArr = $indManager->getEditArr();
+							//$externalEdits = $indManager->getExternalEditArr();
+							//if($editArr || $externalEdits){
 							if($editArr){
-								foreach($editArr as $k => $eArr){
+								if($editArr){
 									?>
-									<div>
-										<b>Editor:</b> <?php echo $eArr['editor']; ?>
-										<span style="margin-left:30px;"><b>Date:</b> <?php echo $eArr['ts']; ?></span>
-									</div>
-									<?php 
-									unset($eArr['editor']);
-									unset($eArr['ts']);
-									foreach($eArr as $vArr){
-										echo '<div style="margin:15px;">';
-										echo '<b>Field:</b> '.$vArr['fieldname'].'<br/>';
-										echo '<b>Old Value:</b> '.$vArr['old'].'<br/>';
-										echo '<b>New Value:</b> '.$vArr['new'].'<br/>';
-										$reviewStr = 'OPEN';
-										if($vArr['reviewstatus'] == 2){
-											$reviewStr = 'PENDING';
+									<fieldset style="padding:20px;">
+										<legend><b>Internal Edits</b></legend>
+										<?php 
+										foreach($editArr as $k => $eArr){
+											$reviewStr = 'OPEN';
+											if($eArr['reviewstatus'] == 2) $reviewStr = 'PENDING';
+											elseif($eArr['reviewstatus'] == 3) $reviewStr = 'CLOSED';
+											?>
+											<div>
+												<b>Editor:</b> <?php echo $eArr['editor']; ?>
+												<span style="margin-left:30px;"><b>Date:</b> <?php echo $eArr['ts']; ?></span>
+											</div>
+											<div>
+												<span><b>Applied Status:</b> <?php echo ($eArr['appliedstatus']?'applied':'not applied'); ?></span>
+												<span style="margin-left:30px;"><b>Review Status:</b> <?php echo $reviewStr; ?></span>
+											</div>
+											<?php
+											$edArr = $eArr['edits'];
+											foreach($edArr as $vArr){
+												echo '<div style="margin:15px;">';
+												echo '<b>Field:</b> '.$vArr['fieldname'].'<br/>';
+												echo '<b>Old Value:</b> '.$vArr['old'].'<br/>';
+												echo '<b>New Value:</b> '.$vArr['new'].'<br/>';
+												echo '</div>';
+											}
+											echo '<div style="margin:15px 0px;"><hr/></div>';
 										}
-										elseif($vArr['reviewstatus'] == 3){
-											$reviewStr = 'CLOSED';
-										}
-										echo '<b>Applied Status:</b> '.($vArr['appliedstatus']?'applied':'not applied').'; ';
-										echo '<b>Reveiw Status:</b> '.$reviewStr;
-										echo '</div>';
-									}
-									echo '<div style="margin:15px 0px;"><hr/></div>';
+										?>
+									</fieldset>
+									<?php
 								}
+								/*
+								if($externalEdits){
+									?>
+									<fieldset style="margin-top:20px;padding:20px;">
+										<legend><b>External Edits</b></legend>
+										<?php 
+										foreach($externalEdits as $ts => $eArr){
+											$reviewStr = 'OPEN';
+											if($eArr['reviewstatus'] == 2) $reviewStr = 'PENDING';
+											elseif($eArr['reviewstatus'] == 3) $reviewStr = 'CLOSED';
+											?>
+											<div>
+												<b>Editor:</b> <?php echo $eArr['editor']; ?>
+												<span style="margin-left:30px;"><b>Date:</b> <?php echo $ts; ?></span>
+												<span style="margin-left:30px;"><b>Source:</b> <?php echo $eArr['source']; ?></span>
+											</div>
+											<div>
+												<span><b>Applied Status:</b> <?php echo ($eArr['appliedstatus']?'applied':'not applied'); ?></span>
+												<span style="margin-left:30px;"><b>Review Status:</b> <?php echo $reviewStr; ?></span>
+											</div>
+											<?php
+											$edArr = $eArr['edits'];
+											foreach($edArr as $vArr){
+												echo '<div style="margin:15px;">';
+												echo '<b>Field:</b> '.$vArr['fieldname'].'<br/>';
+												echo '<b>Old Value:</b> '.$vArr['old'].'<br/>';
+												echo '<b>New Value:</b> '.$vArr['new'].'<br/>';
+												echo '</div>';
+											}
+											echo '<div style="margin:15px 0px;"><hr/></div>';
+										}
+										?>
+									</fieldset>
+									<?php
+								}
+								*/
 							}
 							else{
 								echo '<div style="margin:25px 15px;"><b>Record has not been edited</b></div>';
@@ -1049,8 +1103,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 					<?php
 					ob_flush();
 					flush();
-					$rawArchArr = array();
-					//$rawArchArr = $indManager->checkArchive();
+					$rawArchArr = $indManager->checkArchive();
 					//print_r($rawArchArr);
 					if($rawArchArr && $rawArchArr['obj']){
 						$archArr = $rawArchArr['obj'];
@@ -1068,7 +1121,14 @@ header("Content-Type: text/html; charset=".$CHARSET);
 						}
 						echo '<table class="styledtable" style="font-family:Arial;font-size:12px;"><tr><th>Field</th><th>Value</th></tr>';
 						foreach($archArr as $f => $v){
-							echo '<tr><td style="width:175px;"><b>'.$f.'</b></td><td>'.$v.'</td></tr>';
+							echo '<tr><td style="width:175px;"><b>'.$f.'</b></td><td>';
+							if(is_array($v)){
+								echo implode(', ',$v);
+							}
+							else{
+								echo $v;
+							}
+							echo '</td></tr>';
 						}
 						if($dets){
 							foreach($dets as $id => $dArr){

@@ -83,7 +83,7 @@ if($action){
 		<?php include_once($serverRoot.'/config/googleanalytics.php'); ?>
 	</script>
 	<script type="text/javascript">
-		var phArr = <?php echo (($previousCriteria&&$previousCriteria["phjson"])?"JSON.parse('".$previousCriteria["phjson"]."')":"new Array()"); ?>;
+		var phArr = <?php echo (isset($previousCriteria["phjson"])&&$previousCriteria["phjson"]?"JSON.parse('".$previousCriteria["phjson"]."')":"new Array()"); ?>;
 		
 		$(document).ready(function() {
 			$('#tabs').tabs({
@@ -265,7 +265,7 @@ if($action){
 					</div>
 					<div style="clear:both;margin:5 0 5 0;"><hr /></div>
 					<?php
-					/*$tagArr = $imgLibManager->getTagArr();
+					$tagArr = $imgLibManager->getTagArr();
 					if($tagArr){
 						?>
 						<div>
@@ -281,7 +281,7 @@ if($action){
 							</select>
 						</div>
 						<?php
-					}*/
+					}
 					?>
 					<div style="margin-top:5px;">
 						<div style="float:left;margin-right:8px;padding-top:8px;">
@@ -307,15 +307,24 @@ if($action){
 							<option value="taxalist" <?php echo ((array_key_exists("imagedisplay",$previousCriteria))&&($previousCriteria["imagedisplay"]=='taxalist')?'SELECTED ':''); ?>>Taxa List</option>
 						</select>
 					</div>
-					<div style="margin-top:5px;">
-						<input type='radio' name='imagetype' value='all' <?php if((!array_key_exists("imagetype",$previousCriteria)) || (array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'all')) echo "CHECKED"; ?> > All Images
-					</div>
-					<div style="margin-top:5px;">
-						<input type='radio' name='imagetype' value='specimenonly' <?php if(array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'specimenonly') echo "CHECKED"; ?> > Limit to Specimen Images Only
-					</div>
-					<div style="margin-top:5px;">
-						<input type='radio' name='imagetype' value='fieldonly' <?php if(array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'fieldonly') echo "CHECKED"; ?> > Limit to Field Images Only
-					</div>
+					<table>
+						<tr>
+							<td>
+								<div style="margin-top:5px;">
+									<p><b>Limit Image Type:</b></p>
+								</div>
+								<div style="margin-top:5px;">
+									<input type='radio' name='imagetype' value='all' <?php if((!array_key_exists("imagetype",$previousCriteria)) || (array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'all')) echo "CHECKED"; ?> > All Images
+								</div>
+								<div style="margin-top:5px;">
+									<input type='radio' name='imagetype' value='specimenonly' <?php if(array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'specimenonly') echo "CHECKED"; ?> > Limit to Specimen Images Only
+								</div>
+								<div style="margin-top:5px;">
+									<input type='radio' name='imagetype' value='fieldonly' <?php if(array_key_exists("imagetype",$previousCriteria) && $previousCriteria["imagetype"] == 'fieldonly') echo "CHECKED"; ?> > Limit to Field Images Only
+								</div>
+							</td>
+						</tr>
+					</table>
 					<div><hr></div>
 					<input id="taxastr" name="taxastr" type="hidden" value="<?php if(array_key_exists("taxastr",$previousCriteria)) echo $previousCriteria["taxastr"]; ?>" />
 					<input id="countrystr" name="countrystr" type="hidden" value="<?php if(array_key_exists("countrystr",$previousCriteria)) echo $previousCriteria["countrystr"]; ?>" />
@@ -324,6 +333,7 @@ if($action){
 					<input id="phuidstr" name="phuidstr" type="hidden" value="<?php if(array_key_exists("phuidstr",$previousCriteria)) echo $previousCriteria["phuidstr"]; ?>" />
 					<input id="phjson" name="phjson" type="hidden" value='<?php if(array_key_exists("phjson",$previousCriteria)) echo $previousCriteria["phjson"]; ?>' />
 					<button id="loadimages" style='float:right;' name="submitaction" type="submit" value="Load Images" >Load Images</button>
+					<div style="clear:both;"></div>
 				</div>
 				
 				<div id="collectiondiv">

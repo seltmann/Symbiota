@@ -71,14 +71,16 @@ function geoLocateLocality(){
 	if(!state) state = "unknown";
 	var county = encodeURIComponent(f.county.value);
 	if(!county) county = "unknown";
+	var municipality = encodeURIComponent(f.municipality.value);
+	if(!municipality) municipality = "unknown";
 	var locality = encodeURIComponent(f.locality.value);
+	if(!locality){
+		locality = country+"; "+state+"; "+county+"; "+municipality;
+	}
 	if(f.verbatimcoordinates.value) locality = locality + "; " + encodeURIComponent(f.verbatimcoordinates.value);
-	
+
 	if(!country){
 		alert("Country is blank and it is a required field for GeoLocate");
-	}
-	else if(!locality){
-		alert("Locality is blank and it is a required field for GeoLocate");
 	}
 	else{
 		geolocWindow=open("../georef/geolocate.php?country="+country+"&state="+state+"&county="+county+"&locality="+locality,"geoloctool","resizable=1,scrollbars=1,toolbar=1,width=1050,height=700,left=20,top=20");
@@ -227,7 +229,7 @@ function insertLatLng(f) {
 			}
 			else{
 				var vcStr = f.verbatimcoordinates.value;
-				vcStr = vcStr.replace(/-*\d{2}[°\u00B0]+[NS\d\.\s\'\"-°\u00B0]+[EW;]+/g, "");
+				vcStr = vcStr.replace(/-*\d{2}[ï¿½\u00B0]+[NS\d\.\s\'\"-ï¿½\u00B0]+[EW;]+/g, "");
 				vcStr = vcStr.replace(/^\s+|\s+$/g, "");
 				vcStr = vcStr.replace(/^;|;$/g, "");
 				if(vcStr != ""){
@@ -316,7 +318,7 @@ function searchDupesCatalogNumber(f,verbose){
 		}).done(function( msg ) {
 			if(msg){
 				if(confirm("Record(s) of same catalog number already exists. Do you want to view this record?")){
-					var occWindow=open("dupesearch.php?occidquery=catnu:"+msg+"&collid="+collId+"&curoccid="+occid,"occsearch","resizable=1,scrollbars=1,toolbar=1,width=900,height=600,left=20,top=20");
+					var occWindow=open("dupesearch.php?occidquery=catnu:"+msg+"&collid="+f.collid.value+"&curoccid="+occid,"occsearch","resizable=1,scrollbars=1,toolbar=1,width=900,height=600,left=20,top=20");
 					if(occWindow != null){
 						if (occWindow.opener == null) occWindow.opener = self;
 						occWindow.focus();

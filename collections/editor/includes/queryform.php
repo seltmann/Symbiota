@@ -5,7 +5,7 @@ $qCatalogNumber=''; $qOtherCatalogNumbers='';
 $qRecordedBy=''; $qRecordNumber=''; $qEventDate=''; 
 $qRecordEnteredBy=''; $qObserverUid='';$qDateLastModified='';$qDateEntered='';
 $qProcessingStatus='';$qOrderBy='';$qOrderByDir='';
-$qImgOnly='';$qWithoutImg='';
+$qImgOnly='';$qWithoutImg='';$qExsiccatiId='';
 $qCustomField1='';$qCustomType1='';$qCustomValue1='';
 $qCustomField2='';$qCustomType2='';$qCustomValue2='';
 $qCustomField3='';$qCustomType3='';$qCustomValue3='';
@@ -21,6 +21,7 @@ if($qryArr){
 	$qProcessingStatus = (array_key_exists('ps',$qryArr)?$qryArr['ps']:'');
 	$qDateEntered = (array_key_exists('de',$qryArr)?$qryArr['de']:'');
 	$qDateLastModified = (array_key_exists('dm',$qryArr)?$qryArr['dm']:'');
+	$qExsiccatiId = (array_key_exists('exid',$qryArr)?$qryArr['exid']:'');
 	$qImgOnly = (array_key_exists('io',$qryArr)?$qryArr['io']:0);
 	$qWithoutImg = (array_key_exists('woi',$qryArr)?$qryArr['woi']:0);
 	$qCustomField1 = (array_key_exists('cf1',$qryArr)?$qryArr['cf1']:'');
@@ -142,14 +143,24 @@ else{
 						}
 						?>
 					</select>
-					<span style="margin-left:20px">
+					<span style="margin-left:8px">
 						<input name="q_imgonly" type="checkbox" value="1" <?php echo ($qImgOnly==1?'checked':''); ?> onchange="this.form.q_withoutimg.checked = false;" /> 
 						<b>With images</b>
 					</span>
-					<span style="margin-left:10px">
+					<span style="margin-left:8px">
 						<input name="q_withoutimg" type="checkbox" value="1" <?php echo ($qWithoutImg==1?'checked':''); ?> onchange="this.form.q_imgonly.checked = false;" /> 
 						<b>Without images</b>
 					</span>
+					<?php
+					if($ACTIVATE_EXSICCATI){
+						?>
+						<span style="margin-left:15px" title="Enter Exsiccati ID (ometid)">
+							<b>Exsiccati ID (ometid):</b> 
+							<input type="text" name="q_exsiccatiid" id="q_exsiccatiid" value="<?php echo $qExsiccatiId; ?>" style="width:70px" onchange="" />
+						</span>
+						<?php
+					}
+					?>
 				</div>
 				<?php
 			}
@@ -160,22 +171,29 @@ else{
 					'recordedby'=>'Collector','recordnumber'=>'Collector Number','eventdate'=>'Collection Date');
 			}
 			else{
-				$advFieldArr = array('family'=>'Family','genus'=>'Genus','specificEpithet'=>'Specific Epithet','sciname'=>'Scientific Name','scientificNameAuthorship'=>'Author','identifiedBy'=>'Identified By',
-					'identificationReferences'=>'Identification References','identificationRemarks'=>'Identification Remarks','taxonRemarks'=>'Taxon Remarks',
-					'identificationQualifier'=>'Identification Qualifier','typeStatus'=>'Type Status',
-					'catalogNumber'=>'Catalog Number','otherCatalogNumbers'=>'Other Catalog Numbers',
-					'recordedBy'=>'Collector/Observer','recordNumber'=>'Collector Number','associatedCollectors'=>'Associated Collectors',
-					'verbatimEventDate'=>'Verbatim Date','habitat'=>'Habitat','substrate'=>'Substrate','occurrenceRemarks'=>'Notes (Occurrence Remarks)',
-					'associatedTaxa'=>'Associated Taxa','verbatimAttributes'=>'Description','reproductiveCondition'=>'Reproductive Condition',
-					'establishmentMeans'=>'Establishment Means','lifeStage'=>'Life Stage','sex'=>'Sex','preparations'=>'Preparations',
-					'individualCount'=>'Individual Count','samplingProtocol'=>'Sampling Protocol','country'=>'Country',
-					'stateProvince'=>'State/Province','county'=>'County','municipality'=>'Municipality','locality'=>'Locality',
-					'decimalLatitude'=>'Decimal Latitude','decimalLongitude'=>'Decimal Longitude','geodeticDatum'=>'Geodetic Datum',
-					'coordinateUncertaintyInMeters'=>'Uncertainty (m)','verbatimCoordinates'=>'Verbatim Coordinates',
-					'georeferencedBy'=>'Georeferenced By','georeferenceProtocol'=>'Georeference Protocol','georeferenceSources'=>'Georeference Sources',
-					'georeferenceVerificationStatus'=>'Georeference Verification Status','georeferenceRemarks'=>'Georeference Remarks',
-					'minimumElevationInMeters'=>'Elevation Minimum (m)','maximumElevationInMeters'=>'Elevation Maximum (m)',
-					'verbatimElevation'=>'Verbatim Elevation','disposition'=>'Disposition','ocrFragment'=>'OCR Fragment','username'=>'Modified By','dateEntered'=>'Date Entered');
+				$advFieldArr = array('associatedCollectors'=>'Associated Collectors','associatedOccurrences'=>'Associated Occurrences',
+					'associatedTaxa'=>'Associated Taxa','attributes'=>'Attributes','scientificNameAuthorship'=>'Author',
+					'basisOfRecord'=>'Basis Of Record','behavior'=>'Behavior','catalogNumber'=>'Catalog Number','recordNumber'=>'Collection Number',
+					'recordedBy'=>'Collector/Observer','coordinateUncertaintyInMeters'=>'Coordinate Uncertainty (m)','country'=>'Country',
+					'county'=>'County','cultivationStatus'=>'Cultivation Status','dataGeneralizations'=>'Data Generalizations','eventDate'=>'Date',
+					'dateEntered'=>'Date Entered','dateLastModified'=>'Date Last Modified','dbpk'=>'dbpk','decimalLatitude'=>'Decimal Latitude',
+					'decimalLongitude'=>'Decimal Longitude','maximumDepthInMeters'=>'Depth Maximum (m)','minimumDepthInMeters'=>'Depth Minimum (m)',
+					'verbatimAttributes'=>'Description','disposition'=>'Disposition','dynamicProperties'=>'Dynamic Properties',
+					'maximumElevationInMeters'=>'Elevation Maximum (m)','minimumElevationInMeters'=>'Elevation Minimum (m)',
+					'establishmentMeans'=>'Establishment Means','family'=>'Family','fieldNotes'=>'Field Notes','fieldnumber'=>'Field Number',
+					'genus'=>'Genus','geodeticDatum'=>'Geodetic Datum','georeferenceProtocol'=>'Georeference Protocol',
+					'georeferenceRemarks'=>'Georeference Remarks','georeferenceSources'=>'Georeference Sources',
+					'georeferenceVerificationStatus'=>'Georeference Verification Status','georeferencedBy'=>'Georeferenced By','habitat'=>'Habitat',
+					'identificationQualifier'=>'Identification Qualifier','identificationReferences'=>'Identification References',
+					'identificationRemarks'=>'Identification Remarks','identifiedBy'=>'Identified By','individualCount'=>'Individual Count',
+					'informationWithheld'=>'Information Withheld','labelProject'=>'Label Project','lifeStage'=>'Life Stage','locality'=>'Locality',
+					'localitySecurity'=>'Locality Security','localitySecurityReason'=>'Locality Security Reason','locationRemarks'=>'Location Remarks',
+					'username'=>'Modified By','municipality'=>'Municipality','occurrenceRemarks'=>'Notes (Occurrence Remarks)',
+					'otherCatalogNumbers'=>'Other Catalog Numbers','ownerInstitutionCode'=>'Owner Code','preparations'=>'Preparations',
+					'reproductiveCondition'=>'Reproductive Condition','samplingEffort'=>'Sampling Effort','samplingProtocol'=>'Sampling Protocol',
+					'sciname'=>'Scientific Name','sex'=>'Sex','specificEpithet'=>'Specific Epithet','stateProvince'=>'State/Province',
+					'substrate'=>'Substrate','taxonRemarks'=>'Taxon Remarks','typeStatus'=>'Type Status','verbatimCoordinates'=>'Verbatim Coordinates',
+					'verbatimEventDate'=>'Verbatim Date','verbatimDepth'=>'Verbatim Depth','verbatimElevation'=>'Verbatim Elevation','ocrFragment'=>'OCR Fragment');
 			}
 			//sort($advFieldArr);
 			?>
@@ -192,6 +210,7 @@ else{
 				</select>
 				<select name="q_customtype1">
 					<option>EQUALS</option>
+					<option <?php echo ($qCustomType1=='NOT EQUALS'?'SELECTED':''); ?> value="NOT EQUALS">NOT EQUALS</option>
 					<option <?php echo ($qCustomType1=='STARTS'?'SELECTED':''); ?> value="STARTS">STARTS WITH</option>
 					<option <?php echo ($qCustomType1=='LIKE'?'SELECTED':''); ?> value="LIKE">CONTAINS</option>
 					<option <?php echo ($qCustomType1=='GREATER'?'SELECTED':''); ?> value="GREATER">GREATER THAN</option>
@@ -217,6 +236,7 @@ else{
 				</select>
 				<select name="q_customtype2">
 					<option>EQUALS</option>
+					<option <?php echo ($qCustomType2=='NOT EQUALS'?'SELECTED':''); ?> value="NOT EQUALS">NOT EQUALS</option>
 					<option <?php echo ($qCustomType2=='STARTS'?'SELECTED':''); ?> value="STARTS">STARTS WITH</option>
 					<option <?php echo ($qCustomType2=='LIKE'?'SELECTED':''); ?> value="LIKE">CONTAINS</option>
 					<option <?php echo ($qCustomType2=='GREATER'?'SELECTED':''); ?> value="GREATER">GREATER THAN</option>
@@ -242,6 +262,7 @@ else{
 				</select>
 				<select name="q_customtype3">
 					<option>EQUALS</option>
+					<option <?php echo ($qCustomType3=='NOT EQUALS'?'SELECTED':''); ?> value="NOT EQUALS">NOT EQUALS</option>
 					<option <?php echo ($qCustomType3=='STARTS'?'SELECTED':''); ?> value="STARTS">STARTS WITH</option>
 					<option <?php echo ($qCustomType3=='LIKE'?'SELECTED':''); ?> value="LIKE">CONTAINS</option>
 					<option <?php echo ($qCustomType3=='GREATER'?'SELECTED':''); ?> value="GREATER">GREATER THAN</option>

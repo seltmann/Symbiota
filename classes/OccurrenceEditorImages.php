@@ -198,19 +198,32 @@ class OccurrenceEditorImages extends OccurrenceEditorManager {
 		return $status;
 	}
 
-	public function remapImage($imgId, $occId){
-		$statusStr = '';
-		$sql = 'UPDATE images SET occid = '.$occId.' WHERE (imgid = '.$imgId.')';
-		if($this->conn->query($sql)){
-			$imgSql = 'UPDATE images i INNER JOIN omoccurrences o ON i.occid = o.occid '.
-				'SET i.tid = o.tidinterpreted WHERE (i.imgid = '.$imgId.')';
-			//echo $imgSql;
-			$this->conn->query($imgSql);
+	public function remapImage($imgId, $targetOccid = 0){
+		$status = true;
+		if(!is_numeric($imgId) || !is_numeric($targetOccid)){
+			return false;
+		}
+		if($targetOccid){
+			$sql = 'UPDATE images SET occid = '.$targetOccid.' WHERE (imgid = '.$imgId.')';
+			if($this->conn->query($sql)){
+				$imgSql = 'UPDATE images i INNER JOIN omoccurrences o ON i.occid = o.occid '.
+					'SET i.tid = o.tidinterpreted WHERE (i.imgid = '.$imgId.')';
+				//echo $imgSql;
+				$this->conn->query($imgSql);
+			}
+			else{
+				$this->errorArr[] = 'ERROR: Unalbe to remap image to another occurrence record. Error msg: '.$this->conn->error;
+				$status = false;
+			}
 		}
 		else{
-			$statusStr = 'ERROR: Unalbe to remap image to another occurrence record. Error msg: '.$this->conn->error;
+			$sql = 'UPDATE images SET occid = NULL WHERE (imgid = '.$imgId.')';
+			if(!$this->conn->query($sql)){
+				$this->errorArr[] = 'ERROR: Unalbe to disassociate from occurrence record. Error msg: '.$this->conn->error;
+				$status = false;
+			}
 		}
-		return $statusStr;
+		return $status;
 	}
 	
 	public function addImage($postArr){
@@ -220,8 +233,25 @@ class OccurrenceEditorImages extends OccurrenceEditorManager {
 		//Set target path
 		$subTargetPath = $this->collMap['institutioncode'];
 		if($this->collMap['collectioncode']) $subTargetPath .= '_'.$this->collMap['collectioncode'];
+		$subTargetPath .= '/';
+		if(!$this->occurrenceMap) $this->setOccurArr();
+		$catNum = $this->occurrenceMap[$this->occid]['catalognumber'];
+		if($catNum){
+			$catNum = str_replace(array('/','\\',' '), '', $catNum);
+			if(preg_match('/^(\D{0,8}\d{4,})/', $catNum, $m)){
+				$catPath = substr($m[1], 0, -3);
+				if(is_numeric($catPath) && strlen($catPath)<5) $catPath = str_pad($catPath, 5, "0", STR_PAD_LEFT);
+				$subTargetPath .= $catPath.'/';
+			}
+			else{
+				$subTargetPath .= '00000/';
+			}
+		}
+		else{
+			$subTargetPath .= date('Ym').'/';
+		}
 		$imgManager->setTargetPath($subTargetPath);
-		
+
 		//Import large image or not
 		if(array_key_exists('nolgimage',$postArr) && $postArr['nolgimage']==1){
 			$imgManager->setMapLargeImg(false);
@@ -258,6 +288,7 @@ class OccurrenceEditorImages extends OccurrenceEditorManager {
 			}
 		}
 		$imgManager->setOccid($this->occid);
+		if(isset($this->occurrenceMap[$this->occid]['tidinterpreted'])) $imgManager->setTid($this->occurrenceMap[$this->occid]['tidinterpreted']);
 		if($imgManager->processImage()){
 			$this->activeImgId = $imgManager->getActiveImgId();
 		}
@@ -362,8 +393,6 @@ class OccurrenceEditorImages extends OccurrenceEditorManager {
        }
        return $resultArr;
     }
-
-    
 }
 
 class ImageTagUse { 
@@ -373,5 +402,4 @@ class ImageTagUse {
    public $sortorder;
    public $value;  // 0 or 1
 }
-
 ?>

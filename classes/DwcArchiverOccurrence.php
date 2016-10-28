@@ -1,6 +1,6 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
-include_once($serverRoot.'/classes/UuidFactory.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/classes/UuidFactory.php');
 
 class DwcArchiverOccurrence{
 
@@ -39,8 +39,9 @@ class DwcArchiverOccurrence{
 	private $charSetSource = '';
 	private $charSetOut = '';
 
+	private $geolocateVariables = array();
+	
 	public function __construct(){
-		global $serverRoot, $charset;
 
 		//Ensure that PHP DOMDocument class is installed
 		if(!class_exists('DOMDocument')){
@@ -49,12 +50,12 @@ class DwcArchiverOccurrence{
 		$this->conn = MySQLiConnectionFactory::getCon('readonly');
 		$this->ts = time();
 		if(!$this->logFH && $this->verbose){
-			$logFile = $serverRoot.(substr($serverRoot,-1)=='/'?'':'/')."temp/logs/DWCA_".date('Y-m-d').".log";
+			$logFile = $GLOBALS['SERVER_ROOT'].(substr($GLOBALS['SERVER_ROOT'],-1)=='/'?'':'/')."temp/logs/DWCA_".date('Y-m-d').".log";
 			$this->logFH = fopen($logFile, 'a');
 		}
 
 		//Character set
-		$this->charSetSource = strtoupper($charset);
+		$this->charSetSource = strtoupper($GLOBALS['CHARSET']);
 		$this->charSetOut = $this->charSetSource;
 		
 		$this->condAllowArr = array('catalognumber','othercatalognumbers','occurrenceid','family','sciname',
@@ -84,6 +85,8 @@ class DwcArchiverOccurrence{
 		$occurFieldArr['institutionCode'] = 'IFNULL(o.institutionCode,c.institutionCode) AS institutionCode';
 		$occurTermArr['collectionCode'] = 'http://rs.tdwg.org/dwc/terms/collectionCode';
 		$occurFieldArr['collectionCode'] = 'IFNULL(o.collectionCode,c.collectionCode) AS collectionCode';
+		$occurTermArr['ownerInstitutionCode'] = 'http://rs.tdwg.org/dwc/terms/ownerInstitutionCode';
+		$occurFieldArr['ownerInstitutionCode'] = 'o.ownerInstitutionCode';
 		$occurTermArr['collectionID'] = 'http://rs.tdwg.org/dwc/terms/collectionID';
 		$occurFieldArr['collectionID'] = 'IFNULL(o.collectionID, c.collectionguid) AS collectionID';
 		$occurTermArr['basisOfRecord'] = 'http://rs.tdwg.org/dwc/terms/basisOfRecord';
@@ -185,7 +188,7 @@ class DwcArchiverOccurrence{
 		$occurTermArr['sex'] = 'http://rs.tdwg.org/dwc/terms/sex';
 		$occurFieldArr['sex'] = 'o.sex';
 		$occurTermArr['individualCount'] = 'http://rs.tdwg.org/dwc/terms/individualCount';
-		$occurFieldArr['individualCount'] = 'o.individualCount';
+		$occurFieldArr['individualCount'] = 'CASE WHEN o.individualCount REGEXP("(^[0-9]+$)") THEN o.individualCount ELSE NULL END AS individualCount';
 		$occurTermArr['samplingProtocol'] = 'http://rs.tdwg.org/dwc/terms/samplingProtocol';
 		$occurFieldArr['samplingProtocol'] = 'o.samplingProtocol';
 		$occurTermArr['samplingEffort'] = 'http://rs.tdwg.org/dwc/terms/samplingEffort';
@@ -486,14 +489,14 @@ class DwcArchiverOccurrence{
 		$imgFieldArr['providerManagedID'] = 'g.guid AS providermanagedid';
 		$imgTermArr['MetadataDate'] = 'http://ns.adobe.com/xap/1.0/MetadataDate';	//timestamp
 		$imgFieldArr['MetadataDate'] = 'i.initialtimestamp AS metadatadate';
+		$imgTermArr['format'] = 'http://purl.org/dc/terms/format';		//jpg
+		$imgFieldArr['format'] = 'i.format';
 		$imgTermArr['associatedSpecimenReference'] = 'http://rs.tdwg.org/ac/terms/associatedSpecimenReference';	//reference url in portal
 		$imgFieldArr['associatedSpecimenReference'] = '';
 		$imgTermArr['type'] = 'http://purl.org/dc/terms/type';		//StillImage
 		$imgFieldArr['type'] = '';
 		$imgTermArr['subtype'] = 'http://rs.tdwg.org/ac/terms/subtype';		//Photograph
 		$imgFieldArr['subtype'] = '';
-		$imgTermArr['format'] = 'http://purl.org/dc/terms/format';		//jpg
-		$imgFieldArr['format'] = '';
 		$imgTermArr['metadataLanguage'] = 'http://rs.tdwg.org/ac/terms/metadataLanguage';	//en
 		$imgFieldArr['metadataLanguage'] = '';
 
@@ -638,6 +641,28 @@ class DwcArchiverOccurrence{
 			}
 			$rs->free();
 		}
+	}
+
+    public function verifyCollRecords($collId){
+		$sql = '';
+		$recArr = array();
+		$sql = 'SELECT COUNT(CASE WHEN ISNULL(o.occurrenceID) THEN o.occid ELSE NULL END) AS nullOccurID, '.
+			'COUNT(CASE WHEN ISNULL(o.basisOfRecord) THEN o.occid ELSE NULL END) AS nullBasisRec, '.
+			'COUNT(CASE WHEN ISNULL(o.catalogNumber) THEN o.occid ELSE NULL END) AS nullCatNum, '.
+			'COUNT(CASE WHEN ISNULL(g.guid) THEN o.occid ELSE NULL END) AS nullSymUUID '.
+			'FROM omoccurrences AS o LEFT JOIN guidoccurrences AS g ON o.occid = g.occid '.
+			'WHERE o.collid = '.$collId;
+		//echo 'SQL: '.$sql.'<br/>';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$recArr['nullOccurID'] = $r->nullOccurID;
+			$recArr['nullBasisRec'] = $r->nullBasisRec;
+			$recArr['nullCatNum'] = $r->nullCatNum;
+			$recArr['nullSymUUID'] = $r->nullSymUUID;
+		}
+		$rs->free();
+		
+		return $recArr;
 	}
 
 	public function getCollArr(){
@@ -986,7 +1011,6 @@ class DwcArchiverOccurrence{
     }
 
     private function getDwcArray() { 
-		global $clientRoot;
 		$result = Array();
 		if(!$this->occurrenceFieldArr){
 			$this->initOccurrenceArr();
@@ -1027,13 +1051,13 @@ class DwcArchiverOccurrence{
 		if($rs = $this->conn->query($sql,MYSQLI_USE_RESULT)){
 			if(!$this->serverDomain){
 				$this->serverDomain = "http://";
-				if(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+				if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
 				$this->serverDomain .= $_SERVER["SERVER_NAME"];
 				if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
 			}
 			$urlPathPrefix = '';
 			if($this->serverDomain){
-				$urlPathPrefix = $this->serverDomain.$clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
+				$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
 			}
 			$hasRecords = false;
 			$cnt = 0;
@@ -1055,14 +1079,15 @@ class DwcArchiverOccurrence{
 						$r['informationWithheld'] = trim($r['informationWithheld'].'; field values redacted: '.implode(', ',$protectedFields),' ;');
 					}
 				}
-				
-				//Set occurrence GUID based on GUID target
-				$guidTarget = $this->collArr[$r['collid']]['guidtarget'];
-				if($guidTarget == 'catalogNumber'){
-					$r['occurrenceID'] = $r['catalogNumber'];
-				}
-				elseif($guidTarget == 'symbiotaUUID'){
-					$r['occurrenceID'] = $r['recordId'];
+				if(!$r['occurrenceID']){
+					//Set occurrence GUID based on GUID target, but only if occurrenceID field isn't already populated
+					$guidTarget = $this->collArr[$r['collid']]['guidtarget'];
+					if($guidTarget == 'catalogNumber'){
+						$r['occurrenceID'] = $r['catalogNumber'];
+					}
+					elseif($guidTarget == 'symbiotaUUID'){
+						$r['occurrenceID'] = $r['recordId'];
+					}
 				}
 				
 				$r['recordId'] = 'urn:uuid:'.$r['recordId'];
@@ -1330,7 +1355,6 @@ class DwcArchiverOccurrence{
 	}
 
 	private function getEmlArr(){
-		global $clientRoot, $defaultTitle, $adminEmail;
 		
 		if(!$this->serverDomain){
 			$this->serverDomain = "http://";
@@ -1340,7 +1364,7 @@ class DwcArchiverOccurrence{
 		}
 		$urlPathPrefix = '';
 		if($this->serverDomain){
-			$urlPathPrefix = $this->serverDomain.$clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
+			$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
 		}
 		$localDomain = $this->serverDomain;
 		
@@ -1369,7 +1393,7 @@ class DwcArchiverOccurrence{
 			$emlArr['intellectualRights'] = $cArr['rights'];
 		}
 		else{
-			$emlArr['title'] = $defaultTitle.' general data extract';
+			$emlArr['title'] = $GLOBALS['DEFAULT_TITLE'].' general data extract';
 		}
 		if(isset($GLOBALS['USER_DISPLAY_NAME']) && $GLOBALS['USER_DISPLAY_NAME']){
 			//$emlArr['creator'][0]['individualName'] = $GLOBALS['USER_DISPLAY_NAME'];
@@ -1380,12 +1404,12 @@ class DwcArchiverOccurrence{
 		if(array_key_exists('PORTAL_GUID',$GLOBALS) && $GLOBALS['PORTAL_GUID']){
 			$emlArr['creator'][0]['attr']['id'] = $GLOBALS['PORTAL_GUID'];
 		}
-		$emlArr['creator'][0]['organizationName'] = $defaultTitle;
-		$emlArr['creator'][0]['electronicMailAddress'] = $adminEmail;
+		$emlArr['creator'][0]['organizationName'] = $GLOBALS['DEFAULT_TITLE'];
+		$emlArr['creator'][0]['electronicMailAddress'] = $GLOBALS['ADMIN_EMAIL'];
 		$emlArr['creator'][0]['onlineUrl'] = $urlPathPrefix.'index.php';
 		
-		$emlArr['metadataProvider'][0]['organizationName'] = $defaultTitle;
-		$emlArr['metadataProvider'][0]['electronicMailAddress'] = $adminEmail;
+		$emlArr['metadataProvider'][0]['organizationName'] = $GLOBALS['DEFAULT_TITLE'];
+		$emlArr['metadataProvider'][0]['electronicMailAddress'] = $GLOBALS['ADMIN_EMAIL'];
 		$emlArr['metadataProvider'][0]['onlineUrl'] = $urlPathPrefix.'index.php';
 		
 		$emlArr['pubDate'] = date("Y-m-d");
@@ -1458,9 +1482,17 @@ class DwcArchiverOccurrence{
 	 * USED BY: this class, DwcArchiverExpedition, and emlhandler.php 
 	 */
 	public function getEmlDom($emlArr = null){
-		
-		if(!$emlArr) $emlArr = $this->getEmlArr();
-		//Create new DOM document 
+        global $RIGHTS_TERMS_DEFS;
+        $usageTermArr = Array();
+
+        if(!$emlArr) $emlArr = $this->getEmlArr();
+        foreach($RIGHTS_TERMS_DEFS as $k => $v){
+            if($k == $emlArr['intellectualRights']){
+                $usageTermArr = $v;
+            }
+        }
+
+        //Create new DOM document
 		$newDoc = new DOMDocument('1.0',$this->charSetOut);
 
 		//Add root element 
@@ -1602,8 +1634,15 @@ class DwcArchiverOccurrence{
 		if(array_key_exists('intellectualRights',$emlArr)){
 			$rightsElem = $newDoc->createElement('intellectualRights');
 			$paraElem = $newDoc->createElement('para');
-			$paraElem->appendChild($newDoc->createTextNode($emlArr['intellectualRights']));
-			$rightsElem->appendChild($paraElem);
+            $paraElem->appendChild($newDoc->createTextNode('To the extent possible under law, the publisher has waived all rights to these data and has dedicated them to the'));
+            $ulinkElem = $newDoc->createElement('ulink');
+            $citetitleElem = $newDoc->createElement('citetitle');
+            $citetitleElem->appendChild($newDoc->createTextNode((array_key_exists('title',$usageTermArr)?$usageTermArr['title']:'')));
+            $ulinkElem->appendChild($citetitleElem);
+            $ulinkElem->setAttribute('url',(array_key_exists('url',$usageTermArr)?$usageTermArr['url']:$emlArr['intellectualRights']));
+            $paraElem->appendChild($ulinkElem);
+            $paraElem->appendChild($newDoc->createTextNode((array_key_exists('def',$usageTermArr)?$usageTermArr['def']:'')));
+            $rightsElem->appendChild($paraElem);
 			$datasetElem->appendChild($rightsElem);
 		}
 
@@ -1663,6 +1702,29 @@ class DwcArchiverOccurrence{
 		
 		$metaElem = $newDoc->createElement('metadata');
 		$metaElem->appendChild($symbElem);
+		if($this->schemaType == 'coge' && $this->geolocateVariables){
+			if(!$this->serverDomain){
+				$this->serverDomain = "http://";
+				if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+				$this->serverDomain .= $_SERVER["SERVER_NAME"];
+				if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
+			}
+			$urlPathPrefix = '';
+			if($this->serverDomain){
+				$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
+				$urlPathPrefix .= 'collections/individual/index.php';
+				//Add Geolocate metadata
+				$glElem = $newDoc->createElement('geoLocate');
+				$glElem->appendChild($newDoc->createElement('dataSourcePrimaryName',$this->geolocateVariables['cogename']));
+				$glElem->appendChild($newDoc->createElement('dataSourceSecondaryName',$this->geolocateVariables['cogedescr']));
+				$glElem->appendChild($newDoc->createElement('targetCommunityName',$this->geolocateVariables['cogecomm']));
+				#if(isset($this->geolocateVariables['targetcommunityidentifier'])) $glElem->appendChild($newDoc->createElement('targetCommunityIdentifier',''));
+				$glElem->appendChild($newDoc->createElement('specimenHyperlinkBase',$urlPathPrefix));
+				$glElem->appendChild($newDoc->createElement('specimenHyperlinkParameter','occid'));
+				$glElem->appendChild($newDoc->createElement('specimenHyperlinkValueField','Id'));
+				$metaElem->appendChild($glElem);
+			}
+		}
 		$addMetaElem = $newDoc->createElement('additionalMetadata');
 		$addMetaElem->appendChild($metaElem);
 		$rootElem->appendChild($addMetaElem);
@@ -1672,10 +1734,13 @@ class DwcArchiverOccurrence{
 
 	//Generate Data files
 	private function writeOccurrenceFile(){
-		global $clientRoot;
 		$this->logOrEcho("Creating occurrence file (".date('h:i:s A').")... ");
 		$filePath = $this->targetPath.$this->ts.'-occur'.$this->fileExt;
 		$fh = fopen($filePath, 'w');
+		if(!$fh){
+			$this->logOrEcho('ERROR establishing output file ('.$filePath.'), perhaps target folder is not readable by web server.');
+			return false;
+		}
 		$hasRecords = false;
 		
 		if(!$this->occurrenceFieldArr){
@@ -1741,13 +1806,13 @@ class DwcArchiverOccurrence{
 		if($rs = $this->conn->query($sql,MYSQLI_USE_RESULT)){
 			if(!$this->serverDomain){
 				$this->serverDomain = "http://";
-				if(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+				if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
 				$this->serverDomain .= $_SERVER["SERVER_NAME"];
 				if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
 			}
 			$urlPathPrefix = '';
 			if($this->serverDomain){
-				$urlPathPrefix = $this->serverDomain.$clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
+				$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
 			}
 			
 			while($r = $rs->fetch_assoc()){
@@ -1759,7 +1824,7 @@ class DwcArchiverOccurrence{
 				elseif($guidTarget == 'symbiotaUUID'){
 					$r['occurrenceID'] = $r['recordId'];
 				}
-				if($this->limitToGuids && !$r['occurrenceID']){
+				if($this->limitToGuids && (!$r['occurrenceID'] || !$r['basisOfRecord'])){
 					// Skip record because there is no occurrenceID guid
 					continue;
 				}
@@ -1842,6 +1907,10 @@ class DwcArchiverOccurrence{
 	private function writeDeterminationFile(){
 		$this->logOrEcho("Creating identification file (".date('h:i:s A').")... ");
 		$fh = fopen($this->targetPath.$this->ts.'-det'.$this->fileExt, 'w');
+		if(!$fh){
+			$this->logOrEcho('ERROR establishing output file ('.$filePath.'), perhaps target folder is not readable by web server.');
+			return false;
+		}
 		
 		if(!$this->determinationFieldArr){
 			$this->initDeterminationArr();
@@ -1870,11 +1939,14 @@ class DwcArchiverOccurrence{
 	}
 
 	private function writeImageFile(){
-		global $clientRoot,$imageDomain;
 
 		$this->logOrEcho("Creating image file (".date('h:i:s A').")... ");
 		$fh = fopen($this->targetPath.$this->ts.'-images'.$this->fileExt, 'w');
-		
+		if(!$fh){
+			$this->logOrEcho('ERROR establishing output file ('.$filePath.'), perhaps target folder is not readable by web server.');
+			return false;
+		}
+
 		if(!$this->imageFieldArr){
 			$this->initImageArr();
 		}
@@ -1888,18 +1960,18 @@ class DwcArchiverOccurrence{
 			
 			if(!$this->serverDomain){
 				$this->serverDomain = "http://";
-				if(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+				if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
 				$this->serverDomain .= $_SERVER["SERVER_NAME"];
 				if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
 			}
 			$urlPathPrefix = '';
 			if($this->serverDomain){
-				$urlPathPrefix = $this->serverDomain.$clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
+				$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
 			}
 			
 			$localDomain = '';
-			if(isset($imageDomain) && $imageDomain){
-				$localDomain = $imageDomain;
+			if(isset($GLOBALS['IMAGE_DOMAIN']) && $GLOBALS['IMAGE_DOMAIN']){
+				$localDomain = $GLOBALS['IMAGE_DOMAIN'];
 			}
 			else{
 				$localDomain = $this->serverDomain;
@@ -1940,20 +2012,22 @@ class DwcArchiverOccurrence{
 				$r['type'] = 'StillImage';
 				$r['subtype'] = 'Photograph';
 				$extStr = strtolower(substr($r['accessURI'],strrpos($r['accessURI'],'.')+1));
-				if($extStr == 'jpg' || $extStr == 'jpeg'){
-					$r['format'] = 'image/jpeg';
-				}
-				elseif($extStr == 'gif'){
-					$r['format'] = 'image/gif';
-				}
-				elseif($extStr == 'png'){
-					$r['format'] = 'image/png';
-				}
-				elseif($extStr == 'tiff' || $extStr == 'tif'){
-					$r['format'] = 'image/tiff';
-				}
-				else{
-					$r['format'] = '';
+				if($r['format'] == ''){
+					if($extStr == 'jpg' || $extStr == 'jpeg'){
+						$r['format'] = 'image/jpeg';
+					}
+					elseif($extStr == 'gif'){
+						$r['format'] = 'image/gif';
+					}
+					elseif($extStr == 'png'){
+						$r['format'] = 'image/png';
+					}
+					elseif($extStr == 'tiff' || $extStr == 'tif'){
+						$r['format'] = 'image/tiff';
+					}
+					else{
+						$r['format'] = '';
+					}
 				}
 				$r['metadataLanguage'] = 'en';
 				//Load record array into output file
@@ -1987,7 +2061,6 @@ class DwcArchiverOccurrence{
 
 	//DWCA publishing and RSS related functions 
 	public function batchCreateDwca($collIdArr){
-		global $serverRoot;
 		$status = false;
 		$this->logOrEcho("Starting batch process (".date('Y-m-d h:i:s A').")\n");
 		$this->logOrEcho("\n-----------------------------------------------------\n\n");
@@ -2009,7 +2082,6 @@ class DwcArchiverOccurrence{
 	}
 	
 	public function writeRssFile(){
-		global $defaultTitle, $serverRoot, $clientRoot;
 
 		$this->logOrEcho("Mapping data to RSS feed... \n");
 		
@@ -2029,18 +2101,18 @@ class DwcArchiverOccurrence{
 		
 		//Add title, link, description, language
 		$titleElem = $newDoc->createElement('title');
-		$titleElem->appendChild($newDoc->createTextNode($defaultTitle.' Darwin Core Archive rss feed'));
+		$titleElem->appendChild($newDoc->createTextNode($GLOBALS['DEFAULT_TITLE'].' Darwin Core Archive rss feed'));
 		$channelElem->appendChild($titleElem);
 		
 		if(!$this->serverDomain){
 			$this->serverDomain = "http://";
-			if(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+			if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
 			$this->serverDomain .= $_SERVER["SERVER_NAME"];
 			if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
 		}
 		$urlPathPrefix = '';
 		if($this->serverDomain){
-			$urlPathPrefix = $this->serverDomain.$clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
+			$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
 		}
 		$localDomain = $this->serverDomain;
 		
@@ -2048,7 +2120,7 @@ class DwcArchiverOccurrence{
 		$linkElem->appendChild($newDoc->createTextNode($urlPathPrefix));
 		$channelElem->appendChild($linkElem);
 		$descriptionElem = $newDoc->createElement('description');
-		$descriptionElem->appendChild($newDoc->createTextNode($defaultTitle.' Darwin Core Archive rss feed'));
+		$descriptionElem->appendChild($newDoc->createTextNode($GLOBALS['DEFAULT_TITLE'].' Darwin Core Archive rss feed'));
 		$channelElem->appendChild($descriptionElem);
 		$languageElem = $newDoc->createElement('language','en-us');
 		$channelElem->appendChild($languageElem);
@@ -2120,7 +2192,7 @@ class DwcArchiverOccurrence{
 		}
 
 		//Add existing items
-		$rssFile = $serverRoot.(substr($serverRoot,-1)=='/'?'':'/').'webservices/dwc/rss.xml';
+		$rssFile = $GLOBALS['SERVER_ROOT'].(substr($GLOBALS['SERVER_ROOT'],-1)=='/'?'':'/').'webservices/dwc/rss.xml';
 		if(file_exists($rssFile)){
 			//Get other existing DWCAs by reading and parsing current rss.xml
 			$oldDoc = new DOMDocument();
@@ -2145,8 +2217,7 @@ class DwcArchiverOccurrence{
 	}
 	
 	public function deleteArchive($collId){
-		global $serverRoot;
-		$rssFile = $serverRoot.(substr($serverRoot,-1)=='/'?'':'/').'webservices/dwc/rss.xml';
+		$rssFile = $GLOBALS['SERVER_ROOT'].(substr($GLOBALS['SERVER_ROOT'],-1)=='/'?'':'/').'webservices/dwc/rss.xml';
 		if(!file_exists($rssFile)) return false;
 		$doc = new DOMDocument();
 		$doc->load($rssFile);
@@ -2156,7 +2227,7 @@ class DwcArchiverOccurrence{
 			if($i->getAttribute('collid') == $collId){
 				$link = $i->getElementsByTagName("link");
 				$nodeValue = $link->item(0)->nodeValue;
-				$filePath = $serverRoot.(substr($serverRoot,-1)=='/'?'':'/');
+				$filePath = $GLOBALS['SERVER_ROOT'].(substr($GLOBALS['SERVER_ROOT'],-1)=='/'?'':'/');
 				$filePath .= 'collections/datasets/dwc'.substr($nodeValue,strrpos($nodeValue,'/'));
 				unlink($filePath);
 				$emlPath = str_replace('.zip','.eml',$filePath);
@@ -2170,9 +2241,8 @@ class DwcArchiverOccurrence{
 
 	//getters, setters, and misc functions
 	public function getDwcaItems($collid = 0){
-		global $serverRoot;
 		$retArr = Array();
-		$rssFile = $serverRoot.(substr($serverRoot,-1)=='/'?'':'/').'webservices/dwc/rss.xml';
+		$rssFile = $GLOBALS['SERVER_ROOT'].(substr($GLOBALS['SERVER_ROOT'],-1)=='/'?'':'/').'webservices/dwc/rss.xml';
 		if(file_exists($rssFile)){
 			$xmlDoc = new DOMDocument();
 			$xmlDoc->load($rssFile);
@@ -2338,6 +2408,10 @@ class DwcArchiverOccurrence{
 		if($cs == 'ISO-8859-1' || $cs == 'UTF-8'){
 			$this->charSetOut = $cs;
 		}
+	}
+	
+	public function setGeolocateVariables($geolocateArr){
+		$this->geolocateVariables = $geolocateArr;
 	}
 
 	private function logOrEcho($str){

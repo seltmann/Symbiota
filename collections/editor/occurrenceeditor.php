@@ -1,8 +1,8 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/OccurrenceEditorManager.php');
-include_once($serverRoot.'/classes/ProfileManager.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/OccurrenceEditorManager.php');
+include_once($SERVER_ROOT.'/classes/ProfileManager.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 header('Access-Control-Allow-Origin: http://www.catalogueoflife.org/col/webservice');
 //header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
 //header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
@@ -211,7 +211,21 @@ if($symbUid){
 				}
 			}
 			elseif($action == "Remap Image"){
-				$statusStr = $occManager->remapImage($_POST["imgid"], $_POST["occid"]);
+				if($occManager->remapImage($_POST["imgid"], $_POST["targetoccid"])){
+					$statusStr = 'SUCCESS: Image remapped to record <a href="occurrenceeditor.php?occid='.$_POST["targetoccid"].'" target="_blank">'.$_POST["targetoccid"].'</a>';
+				}
+				else{
+					$statusStr = 'ERROR linking image to new specimen: '.$occManager->getErrorStr();
+				}
+			}
+			elseif($action == "Disassociate Image"){
+				if($occManager->remapImage($_POST["imgid"])){
+					$statusStr = 'SUCCESS disassociating image <a href="../../imagelib/imgdetails.php?imgid='.$_POST["imgid"].'" target="_blank">#'.$_POST["imgid"].'</a>';
+				}
+				else{
+					$statusStr = 'ERROR disassociating image: '.$occManager->getErrorStr();
+				}
+				
 			}
 			elseif($action == "Apply Determination"){
 				$makeCurrent = 0;
@@ -226,6 +240,12 @@ if($symbUid){
 			elseif($action == "Submit Verification Edits"){
 				$statusStr = $occManager->editIdentificationRanking($_POST['confidenceranking'],$_POST['notes']);
 				$tabTarget = 1;
+			}
+			elseif($action == 'Link to Checklist as Voucher'){
+				$statusStr = $occManager->linkChecklistVoucher($_POST['clidvoucher'],$_POST['tidvoucher']);
+			}
+			elseif($action == 'deletevoucher'){
+				$statusStr = $occManager->deleteChecklistVoucher($_REQUEST['delclid']);
 			}
 			elseif($action == 'editgeneticsubmit'){
 				$statusStr = $occManager->editGeneticResource($_POST);
@@ -265,7 +285,7 @@ if($symbUid){
 				$occManager->setSqlWhere($occIndex);
 			}
 			else{
-				setCookie('editorquery','',time()-3600,($clientRoot?$clientRoot:'/'));
+				setCookie('editorquery','',time()-3600,($CLIENT_ROOT?$CLIENT_ROOT:'/'));
 				$occIndex = false;
 			}
 		}
@@ -282,7 +302,7 @@ if($symbUid){
 	}
 	elseif(isset($_COOKIE["editorquery"])){
 		//Make sure query is null
-		setCookie('editorquery','',time()-3600,($clientRoot?$clientRoot:'/'));
+		setCookie('editorquery','',time()-3600,($CLIENT_ROOT?$CLIENT_ROOT:'/'));
 	}
 
 	if(!$goToMode){
@@ -360,8 +380,8 @@ else{
 ?>
 <html>
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=<?php echo $charset; ?>">
-	<title><?php echo $defaultTitle; ?> Occurrence Editor</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=<?php echo $CHARSET; ?>">
+	<title><?php echo $DEFAULT_TITLE; ?> Occurrence Editor</title>
 	<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
     <?php
     if($crowdSourceMode == 1){
@@ -418,8 +438,8 @@ else{
 	</script>
 	<script type="text/javascript" src="../../js/symb/collections.occureditormain.js?ver=150910"></script>
 	<script type="text/javascript" src="../../js/symb/collections.occureditortools.js?ver=151120"></script>
-	<script type="text/javascript" src="../../js/symb/collections.occureditorimgtools.js?ver=150910"></script>
-	<script type="text/javascript" src="../../js/symb/collections.occureditorshare.js?ver=141211"></script>
+	<script type="text/javascript" src="../../js/symb/collections.occureditorimgtools.js?ver=161012"></script>
+	<script type="text/javascript" src="../../js/symb/collections.occureditorshare.js?ver=141212"></script>
 </head>
 <body>
 	<!-- inner text -->

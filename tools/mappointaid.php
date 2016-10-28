@@ -1,6 +1,8 @@
 <?php
 include_once('../config/symbini.php');
-header("Content-Type: text/html; charset=".$charset);
+header("Content-Type: text/html; charset=".$CHARSET);
+
+
 $formName = array_key_exists("formname",$_REQUEST)?$_REQUEST["formname"]:""; 
 $latName = array_key_exists("latname",$_REQUEST)?$_REQUEST["latname"]:""; 
 $longName = array_key_exists("longname",$_REQUEST)?$_REQUEST["longname"]:""; 
@@ -17,8 +19,8 @@ if(is_numeric($latDef) && is_numeric($lngDef)){
 	$lat = $latDef; 
 	$lng = $lngDef; 
 }
-elseif($mappingBoundaries){
-	$boundaryArr = explode(";",$mappingBoundaries);
+elseif($MAPPING_BOUNDARIES){
+	$boundaryArr = explode(";",$MAPPING_BOUNDARIES);
 	$lat = ($boundaryArr[0]>$boundaryArr[2]?((($boundaryArr[0]-$boundaryArr[2])/2)+$boundaryArr[2]):((($boundaryArr[2]-$boundaryArr[0])/2)+$boundaryArr[0]));
 	$lng = ($boundaryArr[1]>$boundaryArr[3]?((($boundaryArr[1]-$boundaryArr[3])/2)+$boundaryArr[3]):((($boundaryArr[3]-$boundaryArr[1])/2)+$boundaryArr[1]));
 }
@@ -29,10 +31,9 @@ else{
 ?>
 <html>
 	<head>
-		<title><?php echo $defaultTitle; ?> - Coordinate Aid</title>
+		<title><?php echo $DEFAULT_TITLE; ?> - Coordinate Aid</title>
 		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-		<script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false">
-		</script>
+		<script src="//maps.googleapis.com/maps/api/js?<?php echo (isset($GOOGLE_MAP_KEY) && $GOOGLE_MAP_KEY?'key='.$GOOGLE_MAP_KEY:''); ?>"></script>
 	    <script type="text/javascript">
 		    var map;
 		    var currentMarker;
@@ -91,11 +92,14 @@ else{
 
 	        function updateParentForm() {
 				try{
-		            opener.document.<?php echo $formName.'.'.$latName; ?>.value = document.getElementById("latbox").value;
-		            opener.document.<?php echo $formName.'.'.$longName; ?>.value = document.getElementById("lngbox").value;
+					var latObj = opener.document.<?php echo $formName.'.'.$latName; ?>;
+					var lngObj = opener.document.<?php echo $formName.'.'.$longName; ?>;
+					latObj.value = document.getElementById("latbox").value;
+					lngObj.value = document.getElementById("lngbox").value;
+					lngObj.onchange();
 				}
 				catch(myErr){
-					alert("Unable to transfer data. Please let an administrator know.");
+					//alert("Unable to transfer data. Please let an administrator know.");
 				}
 	            self.close();
 	            return false;

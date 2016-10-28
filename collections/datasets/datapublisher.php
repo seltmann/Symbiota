@@ -1,37 +1,75 @@
 <?php
 include_once('../../config/symbini.php');
 include_once($serverRoot.'/classes/DwcArchiverOccurrence.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($serverRoot.'/classes/CollectionProfileManager.php');
+header('Content-Type: text/html; charset=' .$charset);
 
-$collId = array_key_exists("collid",$_REQUEST)?$_REQUEST["collid"]:0;
-$emode = array_key_exists("emode",$_REQUEST)?$_REQUEST["emode"]:0;
-$action = array_key_exists("formsubmit",$_REQUEST)?$_REQUEST["formsubmit"]:'';
-$cSet = array_key_exists("cset",$_REQUEST)?$_REQUEST["cset"]:'';
-$schema = array_key_exists("schema",$_REQUEST)?$_REQUEST["schema"]:1;
+$collId = array_key_exists('collid',$_REQUEST)?$_REQUEST['collid']:0;
+$emode = array_key_exists('emode',$_REQUEST)?$_REQUEST['emode']:0;
+$action = array_key_exists('formsubmit',$_REQUEST)?$_REQUEST['formsubmit']:'';
+$cSet = array_key_exists('cset',$_REQUEST)?$_REQUEST['cset']:'';
+$schema = array_key_exists('schema',$_REQUEST)?$_REQUEST['schema']:1;
 
 $dwcaManager = new DwcArchiverOccurrence();
+$collManager = new CollectionProfileManager();
 
 $includeDets = 1;
 $includeImgs = 1;
 $redactLocalities = 1;
+$recFlagArr = array();
+$collPubArr = array();
+$publishGBIF = false;
+$publishIDIGBIO = false;
+$organizationKey = '';
+$installationKey = '';
+$datasetKey = '';
+$endpointKey = '';
+$idigbioKey = '';
+if(isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY)){
+    $collPubArr = $collManager->getCollPubArr($collId);
+    if($collPubArr[$collId]['publishToGbif']){
+        $publishGBIF = true;
+    }
+    if($collPubArr[$collId]['publishToIdigbio']){
+        $publishIDIGBIO = true;
+    }
+}
 if($action){
-	if(!array_key_exists('dets',$_POST)){
-		$includeDets = 0;
-		$dwcaManager->setIncludeDets(0);
+	if($action == 'Save Key'){
+		$collManager->setAggKeys($_POST['aggKeysStr']);
+        $collManager->updateAggKeys($collId);
 	}
-	if(!array_key_exists('imgs',$_POST)){
-		$includeImgs = 0;
-		$dwcaManager->setIncludeImgs(0);
+	else{
+		if (!array_key_exists('dets', $_POST)) {
+			$includeDets = 0;
+			$dwcaManager->setIncludeDets(0);
+		}
+		if (!array_key_exists('imgs', $_POST)) {
+			$includeImgs = 0;
+			$dwcaManager->setIncludeImgs(0);
+		}
+		if (!array_key_exists('redact', $_POST)) {
+			$redactLocalities = 0;
+			$dwcaManager->setRedactLocalities(0);
+		}
+		$dwcaManager->setTargetPath($serverRoot . (substr($serverRoot, -1) == '/' ? '' : '/') . 'collections/datasets/dwc/');
 	}
-	if(!array_key_exists('redact',$_POST)){
-		$redactLocalities = 0;
-		$dwcaManager->setRedactLocalities(0);
-	}
-	$dwcaManager->setTargetPath($serverRoot.(substr($serverRoot,-1)=='/'?'':'/').'collections/datasets/dwc/');
+}
+if(isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY)){
+	$installationKey = $collManager->getInstallationKey();
+    $datasetKey = $collManager->getDatasetKey();
+    $endpointKey = $collManager->getEndpointKey();
+    $idigbioKey = $collManager->getIdigbioKey();
+	if($publishIDIGBIO && !$idigbioKey){
+        $idigbioKey = $collManager->findIdigbioKey($collPubArr[$collId]['collectionguid']);
+        if($idigbioKey){
+            $collManager->updateAggKeys($collId);
+        }
+    }
 }
 
 $isEditor = 0;
-if($isAdmin || array_key_exists("CollAdmin",$userRights) && in_array($collId,$userRights["CollAdmin"])){
+if($isAdmin || (array_key_exists('CollAdmin',$userRights) && in_array($collId,$userRights['CollAdmin']))){
 	$isEditor = 1;
 }
 
@@ -52,9 +90,13 @@ if($isEditor){
 	<title>Darwin Core Archiver Publisher</title>
 	<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
     <link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet">
+	<link href="../../css/jquery-ui.css" type="text/css" rel="Stylesheet" />
 	<style type="text/css">
 		.nowrap { white-space: nowrap; }
 	</style>
+	<script type="text/javascript" src="../../js/jquery.js"></script>
+	<script type="text/javascript" src="../../js/jquery-ui.js"></script>
+	<script type="text/javascript" src="../../js/symb/collections.gbifpublisher.js"></script>
 	<script type="text/javascript">
 		function toggle(target){
 			var objDiv = document.getElementById(target);
@@ -119,8 +161,8 @@ if($isEditor){
 </head>
 <body>
 <?php 
-$displayLeftMenu = (isset($collections_datasets_datapublisherMenu)?$collections_datasets_datapublisherMenu:"true");
-include($serverRoot."/header.php");
+$displayLeftMenu = (isset($collections_datasets_datapublisherMenu)?$collections_datasets_datapublisherMenu: 'true');
+include($serverRoot. '/header.php');
 ?>
 <div class='navpath'>
 	<a href="../../index.php">Home</a> &gt;&gt;
@@ -145,7 +187,7 @@ include($serverRoot."/header.php");
 		?>
 		<div style="float:right;">
 			<a href="#" title="Display Publishing Control Panel" onclick="toggle('dwcaadmindiv')">
-				<img style="border:0px;width:12px;" src="../../images/edit.png" />
+				<img style="border:0;width:12px;" src="../../images/edit.png" />
 			</a>
 		</div>
 		<?php
@@ -158,11 +200,11 @@ include($serverRoot."/header.php");
 		echo '<div style="font-weight:bold;font-size:120%;">'.$collArr[$collId]['collname'].'</div>';
 		?>
 		<div style="margin:10px;">
-			Use the controls below to publically publish occurrence data within this collection as a 
-			<a href="http://rs.tdwg.org/dwc/terms/guides/text/index.htm">Darwin Core Archive (DWCA)</a> file.
-			A DWCA file is a single compressed ZIP file that contains one to several data files along with a meta.xml 
+			Use the controls below to publish occurrence data within this collection as a
+			<a href="http://rs.tdwg.org/dwc/terms/guides/text/index.htm">Darwin Core Archive (DwC-A)</a> file.
+			A DwC-A file is a single compressed ZIP file that contains one to several data files along with a meta.xml
 			document that describes the content. 
-			The occurrence data file required, but identifications (determinations) and images data are optional. 
+			The occurrence data file is required, but identifications (determinations) and image metadata are optional.
 			Fields within the occurrences.csv file are defined by the <a href="http://rs.tdwg.org/dwc/terms/index.htm">Darwin Core</a> 
 			exchange standard. 
 		</div>
@@ -173,12 +215,12 @@ include($serverRoot."/header.php");
 		<div style="margin:10px;">
 			The following downloads are occurrence data packages from collections 
 			that have chosen to publish their complete dataset as a
-			<a href="http://rs.tdwg.org/dwc/terms/guides/text/index.htm">Darwin Core Archive (DWCA)</a> file.
-			A DWCA file is a single compressed ZIP file that contains one to several data files along with a meta.xml 
+			<a href="http://rs.tdwg.org/dwc/terms/guides/text/index.htm">Darwin Core Archive (DwC-A)</a> file.
+			A DwC-A file is a single compressed ZIP file that contains one to several data files along with a meta.xml
 			document that describes the content. 
-			The archives below contain three comma separated (CSV) files containing occurrences, identifications (determinations), and images data. 
+			The archives below contain three comma separated (CSV) files containing occurrences, identifications (determinations), and image metadata.
 			Fields within the occurrences.csv file are defined by the <a href="http://rs.tdwg.org/dwc/terms/index.htm">Darwin Core</a> 
-			exchange standard. The identifications and images files follow the DwC extensions for those data types. 
+			exchange standard. The identification and image files follow the DwC extensions for those data types.
 		</div>
 		<div style="margin:10px;">
 			<h3>Data Usage Policy:</h3>
@@ -193,8 +235,8 @@ include($serverRoot."/header.php");
 	<div style="margin:20px;">
 		RSS Feed: 
 		<?php 
-		$urlPrefix = 'http://'.$_SERVER["SERVER_NAME"];
-		if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $urlPrefix .= ':'.$_SERVER["SERVER_PORT"];
+		$urlPrefix = 'http://'.$_SERVER['SERVER_NAME'];
+		if($_SERVER['SERVER_PORT'] && $_SERVER['SERVER_PORT'] != 80) $urlPrefix .= ':'.$_SERVER['SERVER_PORT'];
 		$urlPrefix .= $clientRoot.(substr($clientRoot,-1)=='/'?'':'/');
 		if(file_exists('../../webservices/dwc/rss.xml')){
 			$feedLink = $urlPrefix.'webservices/dwc/rss.xml';
@@ -207,6 +249,7 @@ include($serverRoot."/header.php");
 	</div>
 	<?php 
 	if($collId){
+		$recFlagArr = $dwcaManager->verifyCollRecords($collId);
 		if($action == 'Create/Refresh Darwin Core Archive'){
 			echo '<ul>';
 			$dwcaManager->setVerbose(1);
@@ -214,9 +257,16 @@ include($serverRoot."/header.php");
 			$dwcaManager->createDwcArchive();
 			$dwcaManager->writeRssFile();
 			echo '</ul>';
+			if($publishGBIF && $endpointKey){
+				$collManager->triggerGBIFCrawl($datasetKey);
+			}
 		}
 		if($dwcaArr = $dwcaManager->getDwcaItems($collId)){
-			foreach($dwcaArr as $k => $v){ 
+			$dwcUri = '';
+			foreach($dwcaArr as $k => $v){
+				if($v['collid'] == $collId){
+					$dwcUri = $v['link'];
+				}
 				?>
 				<div style="margin:10px;">
 					<div>
@@ -244,9 +294,88 @@ include($serverRoot."/header.php");
 			echo '<div style="margin:20px;font-weight:bold;color:red;">No data archives have been published for this collection</div>';
 		}
 		?>
+		<fieldset style="padding:5px;">
+			<legend><b>Publishing Information</b></legend>
+			<?php
+			if(!$collArr[$collId]['guidtarget']){
+				echo '<div style="margin:10px;font-weight:bold;color:red;">The GUID source has not been set for this collection. Please go to the <a href="../misc/collmetadata.php?collid='.$collId.'">Edit Metadata page</a> to set GUID source.</div>';
+			}
+			else{
+				echo '<div style="margin:10px;font-weight:bold;">The GUID source for this collection is set to '.$collArr[$collId]['guidtarget'].'</div>';
+			}
+			if($recFlagArr['nullSymUUID']){
+				echo '<div style="margin:10px;font-weight:bold;color:red;">There are '.$recFlagArr['nullSymUUID'].' records missing Symbiota GUID (recordID) assignments and will not be published. Please go to the <a href="../../admin/guidmapper.php?collid='.$collId.'">Collection GUID Mapper</a> to set Symbiota GUIDs.</div>';
+			}
+			if($recFlagArr['nullBasisRec']){
+				echo '<div style="margin:10px;font-weight:bold;color:red;">There are '.$recFlagArr['nullBasisRec'].' records missing basisOfRecord and will not be published. Please go to <a href="../editor/occurrencetabledisplay.php?q_recordedby=&q_recordnumber=&q_eventdate=&q_catalognumber=&q_othercatalognumbers=&q_observeruid=&q_recordenteredby=&q_dateentered=&q_datelastmodified=&q_processingstatus=&q_customfield1=basisOfRecord&q_customtype1=NULL&q_customvalue1=Something&q_customfield2=&q_customtype2=EQUALS&q_customvalue2=&q_customfield3=&q_customtype3=EQUALS&q_customvalue3=&collid='.$collId.'&csmode=0&occid=&occindex=0&orderby=&orderbydir=ASC">Edit Existing Occurrence Records</a> to correct this.</div>';
+			}
+			if((!$collArr[$collId]['guidtarget'] || $collArr[$collId]['guidtarget'] == 'occurrenceId') && $recFlagArr['nullOccurID']){
+				echo '<div style="margin:10px;font-weight:bold;color:red;">There are '.$recFlagArr['nullOccurID'].' records missing Occurrence IDs and will not be published. ';
+				if($collArr[$collId]['guidtarget'] == 'occurrenceId'){
+					echo '<span style="font-weight:normal;color:black;">As the GUID source is set to occurrenceID, those records missing this field will be excluded from the published archive.';
+				}
+				else{
+					echo '<span style="font-weight:normal;color:black;">As the GUID source is not set for this collection occurrenceID is used by default, records missing this field will be excluded from the published archive. Please use the link above to set the GUID source for this collection.';
+				}
+				echo '</div>';
+			}
+			if($collArr[$collId]['guidtarget'] == 'catalogNumber' && $recFlagArr['nullCatNum']){
+				echo '<div style="margin:10px;font-weight:bold;color:red;">There are '.$recFlagArr['nullCatNum'].' records missing Catalog Numbers. Since this has been selected as your GUID source these records will not be published. ';
+				echo '<span style="font-weight:normal;color:black;">As the GUID source is set to catalog number, those records missing this field will be excluded from the published archive.';
+				echo '</div>';
+			}
+			if(($publishGBIF || $publishIDIGBIO) && $dwcUri && isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY)){
+				if($publishGBIF && !$datasetKey) {
+					?>
+					<div style="margin:10px;">
+						You have selected to have this collection's DwC archives published to GBIF. Please go to the
+						<a href="http://www.gbif.org/publishing-data/request-endorsement#/intro" target="_blank">GBIF Endorsement Request page</a> to
+						register your collection with GBIF and enter the organization key provided by GBIF below.
+						Please note that organization keys are often assigned per instituiton, so if your institution is found in the GBIF
+						Organization lookup, there is already a GBIF Organization Key assigned. The organization key is the remaining part of
+						the url after the last backslash of your institution's GBIF Data Provider page. If your collection is found,
+                        please ensure that your data is not already published in GBIF. DO NOT PUBLISH your data if there is any chance it is
+                        already published. Before activating your GBIF Organization Key in this portal, you will also need to contact GBIF and
+						request that the user: <?php echo $GBIF_USERNAME; ?> has permissions to create and edit datatsets for your organization.
+						<form style="margin-top:10px;" name="gbifpubform" action="datapublisher.php" method="post" onsubmit="return processGbifOrgKey(this.form);">
+							GBIF Organization Key <input type="text" name="gbifOrgKey" id="gbifOrgKey" value="" style="width:250px;"/>
+							<input type="hidden" name="collid" value="<?php echo $collId; ?>"/>
+							<input type="hidden" name="portalname" id="portalname" value='<?php echo $DEFAULT_TITLE; ?>'/>
+							<input type="hidden" name="collname" id="collname" value='<?php echo $collArr[$collId]['collname']; ?>'/>
+							<input type="hidden" name="aggKeysStr" id="aggKeysStr" value=''/>
+							<input type="hidden" id="gbifInstOrgKey" value='<?php echo $GBIF_ORG_KEY; ?>'/>
+							<input type="hidden" id="gbifInstKey" value='<?php echo $installationKey; ?>'/>
+							<input type="hidden" id="gbifDataKey" value=''/>
+							<input type="hidden" id="gbifEndKey" value=''/>
+							<input type="hidden" name="dwcUri" id="dwcUri" value="<?php echo $dwcUri; ?>"/>
+							<input type="submit" name="formsubmit" value="Save Key"/>
+						</form>
+					</div>
+					<?php
+				}
+				if($publishGBIF && $datasetKey){
+                    $dataUrl = 'http://www.gbif.org/dataset/'.$datasetKey;
+                    ?>
+                    <div style="margin:10px;">
+                        <div><b>GBIF Dataset page:</b> <a href="<?php echo $dataUrl; ?>"
+                                                          target="_blank"><?php echo $dataUrl; ?></a></div>
+                    </div>
+                    <?php
+                }
+                if($publishIDIGBIO && $idigbioKey){
+                    $dataUrl = 'https://www.idigbio.org/portal/recordsets/'.$idigbioKey;
+                    ?>
+                    <div style="margin:10px;">
+                        <div><b>iDigBio Dataset page:</b> <a href="<?php echo $dataUrl; ?>" target="_blank"><?php echo $dataUrl; ?></a></div>
+                    </div>
+                    <?php
+                }
+			}
+			?>
+		</fieldset>
 		<form name="dwcaform" action="datapublisher.php" method="post" onsubmit="return verifyDwcaForm(this)">
 			<fieldset style="padding:15px;margin:15px;">
-				<legend><b>Publish / Refresh DWCA File</b></legend>
+				<legend><b>Publish/Refresh DwC-A File</b></legend>
 				<!-- 
 				<div>
 					<?php 
@@ -290,6 +419,9 @@ include($serverRoot."/header.php");
 				$dwcaManager->setLimitToGuids(true);
 				$dwcaManager->batchCreateDwca($_POST['coll']);
 				echo '</ul>';
+				if($publishGBIF){
+					$collManager->batchTriggerGBIFCrawl($_POST['coll']);
+				}
 			}
 			?>
 			<div id="dwcaadmindiv" style="margin:10px;display:<?php echo ($emode?'block':'none'); ?>;" >
@@ -359,7 +491,7 @@ include($serverRoot."/header.php");
 							}
 							?>
 						</td> 
-						<td class="nowrap"><?php echo date("Y-m-d", strtotime($v['pubDate'])); ?></td>
+						<td class="nowrap"><?php echo date('Y-m-d', strtotime($v['pubDate'])); ?></td>
 					</tr>
 					<?php 
 				}
@@ -374,7 +506,7 @@ include($serverRoot."/header.php");
 	?>
 </div>
 <?php 
-include($serverRoot."/footer.php");
+include($serverRoot. '/footer.php');
 ?>
 </body>
 </html>

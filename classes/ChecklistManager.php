@@ -149,6 +149,8 @@ class ChecklistManager {
 		//Get species list
 		$familyPrev="";$genusPrev="";$speciesPrev="";$taxonPrev="";
 		$tidReturn = Array();
+        $genusCntArr = Array();
+        $familyCntArr = Array();
 		if($this->showImages && $retLimit) $retLimit = $this->imageLimit;
 		if(!$this->basicSql) $this->setClSql();
 		$result = $this->conn->query($this->basicSql);
@@ -185,11 +187,17 @@ class ChecklistManager {
 					$this->taxaList[$tid]["author"] = $this->cleanOutStr($row->author);
 				}
     		}
-    		if($family != $familyPrev) $this->familyCount++;
-    		$familyPrev = $family;
-    		if($taxonTokens[0] != $genusPrev) $this->genusCount++;
+    		//if($family != $familyPrev) $this->familyCount++;
+            if(!in_array($family,$familyCntArr)){
+                $familyCntArr[] = $family;
+            }
+            if(!in_array($taxonTokens[0],$genusCntArr)){
+                $genusCntArr[] = $taxonTokens[0];
+            }
+    		//$familyPrev = $family;
+    		//if($taxonTokens[0] != $genusPrev) $this->genusCount++;
 			$this->filterArr[$taxonTokens[0]] = "";
-    		$genusPrev = $taxonTokens[0];
+    		//$genusPrev = $taxonTokens[0];
     		if(count($taxonTokens) > 1 && $taxonTokens[0]." ".$taxonTokens[1] != $speciesPrev){
     			$this->speciesCount++;
     			$speciesPrev = $taxonTokens[0]." ".$taxonTokens[1];
@@ -199,6 +207,8 @@ class ChecklistManager {
     		}
     		$taxonPrev = implode(" ",$taxonTokens);
 		}
+        $this->familyCount = count($familyCntArr);
+        $this->genusCount = count($genusCntArr);
 		$this->filterArr = array_keys($this->filterArr);
 		sort($this->filterArr);
 		$result->free();
@@ -285,29 +295,18 @@ class ChecklistManager {
 	private function setVernaculars($tidReturn){
 		if($tidReturn){
 			$tempVernArr = array();
-			$sql = 'SELECT DISTINCT ts1.tid, v.`Language`, v.VernacularName '.
-				'FROM taxstatus AS ts1 INNER JOIN taxstatus AS ts2 ON ts1.tidaccepted = ts2.tidaccepted '. 
-				'INNER JOIN taxavernaculars AS v ON ts2.tid = v.tid '.
-				'WHERE ts1.taxauthid = 1 AND ts2.taxauthid = 1 AND (ts1.tid IN('.implode(',',$tidReturn).')) '.
-				'ORDER BY v.TID, v.`Language`, v.VernacularName ';
-			//echo $sql;
+			$sql = 'SELECT ts1.tid, v.vernacularname '.
+				'FROM taxstatus ts1 INNER JOIN taxstatus ts2 ON ts1.tidaccepted = ts2.tidaccepted '. 
+				'INNER JOIN taxavernaculars v ON ts2.tid = v.tid '.
+				'WHERE ts1.taxauthid = 1 AND ts2.taxauthid = 1 AND (ts1.tid IN('.implode(',',$tidReturn).')) ';
+			if($this->language) $sql .= 'AND v.language = "'.$this->language.'" ';
+			$sql .= 'ORDER BY v.sortsequence DESC ';
+			//echo $sql; exit;
 			$rs = $this->conn->query($sql);
-			while($row = $rs->fetch_object()){
-				$vern = $row->VernacularName;
-				if($vern){
-					$tempVernArr[$row->tid]['language'][$row->Language][] = $this->cleanOutStr($vern);
-				}
+			while($r = $rs->fetch_object()){
+				if($r->vernacularname) $this->taxaList[$r->tid]['vern'] = $this->cleanOutStr($r->vernacularname);
 			}
 			$rs->free();
-			foreach($tempVernArr as $tid => $tidArr){
-				$vernStrParts = array();
-				$langArr = $tidArr['language'];
-				foreach($langArr as $lang => $vernArr){
-					$vernStr = $lang.': '.implode(', ',$vernArr);
-					$vernStrParts[] = $vernStr;
-				}
-				$this->taxaList[$tid]["vern"] = $this->cleanOutStr(implode('; ',$vernStrParts));
-			}
 		}
 	}
 
@@ -505,7 +504,72 @@ class ChecklistManager {
 		//echo $this->basicSql; exit;
 	}
 
-	//Misc set/get functions
+	//Checklist index page fucntions
+	public function getChecklists(){
+		$retArr = Array();
+		$sql = 'SELECT p.pid, p.projname, p.ispublic, c.clid, c.name, c.access '.
+			'FROM fmchecklists c LEFT JOIN fmchklstprojlink cpl ON c.clid = cpl.clid '.
+			'LEFT JOIN fmprojects p ON cpl.pid = p.pid '.
+			'WHERE ((c.access LIKE "public%") ';
+		if(isset($GLOBALS['USER_RIGHTS']['ClAdmin']) && $GLOBALS['USER_RIGHTS']['ClAdmin']) $sql .= 'OR (c.clid IN('.implode(',',$GLOBALS['USER_RIGHTS']['ClAdmin']).'))';
+		$sql .= ') AND ((p.pid IS NULL) OR (p.ispublic = 1) ';
+		if(isset($GLOBALS['USER_RIGHTS']['ProjAdmin']) && $GLOBALS['USER_RIGHTS']['ProjAdmin']) $sql .= 'OR (p.pid IN('.implode(',',$GLOBALS['USER_RIGHTS']['ProjAdmin']).'))';
+		$sql .= ') ';
+		if($this->pid) $sql .= 'AND (p.pid = '.$this->pid.') ';
+		$sql .= 'ORDER BY p.projname, c.Name';
+		//echo $sql;
+		$rs = $this->conn->query($sql);
+		while($row = $rs->fetch_object()){
+			if($row->pid){
+				$pid = $row->pid;
+				$projName = $row->projname.(!$row->ispublic?' (Private)':'');
+			}
+			else{
+				$pid = 0;
+				$projName = 'Undefinded Inventory Project';
+			}
+			$retArr[$pid]['name'] = $this->cleanOutStr($projName);
+			$retArr[$pid]['clid'][$row->clid] = $this->cleanOutStr($row->name).($row->access=='private'?' (Private)':'');
+		}
+		$rs->free();
+		if(isset($retArr[0])){
+			$tempArr = $retArr[0];
+			unset($retArr[0]);
+			$retArr[0] = $tempArr;
+		}
+		return $retArr;
+	}
+
+	public function echoResearchPoints($target){
+		$sql = "SELECT c.clid, c.name, c.longcentroid, c.latcentroid ".
+				"FROM (fmchecklists c INNER JOIN fmchklstprojlink cpl ON c.CLID = cpl.clid) ".
+				"INNER JOIN fmprojects p ON cpl.pid = p.pid ".
+				"WHERE c.access = 'public' AND c.LongCentroid IS NOT NULL AND p.pid = ".$this->pid;
+		$result = $this->conn->query($sql);
+		while($row = $result->fetch_object()){
+			$idStr = $row->clid;
+			$nameStr = $this->cleanOutStr($row->name);
+			echo "var point".$idStr." = new google.maps.LatLng(".$row->latcentroid.", ".$row->longcentroid.");\n";
+			echo "points.push( point".$idStr." );\n";
+			echo 'var marker'.$idStr.' = new google.maps.Marker({ position: point'.$idStr.', map: map, title: "'.$nameStr.'" });'."\n";
+			//Single click event
+			echo 'var infoWin'.$idStr.' = new google.maps.InfoWindow({ content: "<div style=\'width:300px;\'><b>'.$nameStr.'</b><br/>Double Click to open</div>" });'."\n";
+			echo "infoWins.push( infoWin".$idStr." );\n";
+			echo "google.maps.event.addListener(marker".$idStr.", 'click', function(){ closeAllInfoWins(); infoWin".$idStr.".open(map,marker".$idStr."); });\n";
+			//Double click event
+			if($target == 'keys'){
+				echo "var lStr".$idStr." = '../ident/key.php?cl=".$idStr."&proj=".$this->pid."&taxon=All+Species';\n";
+			}
+			else{
+				echo "var lStr".$idStr." = 'checklist.php?cl=".$idStr."&proj=".$this->pid."';\n";
+			}
+			echo "google.maps.event.addListener(marker".$idStr.", 'dblclick', function(){ closeAllInfoWins(); marker".$idStr.".setAnimation(google.maps.Animation.BOUNCE); window.location.href = lStr".$idStr."; });\n";
+		}
+		$result->free();
+	}
+
+	
+	//Setters and getters
     public function setThesFilter($filt){
 		$this->thesFilter = $filt;
 	}
@@ -568,7 +632,7 @@ class ChecklistManager {
 			$sql .= 'WHERE (pid = '.$pValue.')';
 		}
 		else{
-			$sql .= 'WHERE (projname = "'.$this->conn->real_escape_string($pValue).'")';
+			$sql .= 'WHERE (projname = "'.$this->cleanInStr($pValue).'")';
 		}
 		$rs = $this->conn->query($sql);
 		if($rs){
@@ -593,7 +657,16 @@ class ChecklistManager {
 	}
 	
 	public function setLanguage($l){
-		$this->language = $l;
+		$l = strtolower($l);
+		if($l == "en"){
+			$this->language = 'English';
+		}
+		elseif($l == "es"){
+			$this->language = 'Spanish';
+		}
+		else{
+			$this->language = $l;
+		}
 	}
 	
 	public function setImageLimit($cnt){

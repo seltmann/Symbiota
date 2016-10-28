@@ -3,8 +3,8 @@ include_once('../../config/symbini.php');
 @include_once('Image/Barcode.php');
 @include_once('Image/Barcode2.php');
 
-include_once($serverRoot.'/classes/OccurrenceLabel.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/OccurrenceLabel.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 
 if(!$SYMB_UID) header('Location: ../../profile/index.php?refurl=../collections/reports/labelmanager.php?'.$_SERVER['QUERY_STRING']);
 
@@ -16,7 +16,7 @@ $datasetManager = new OccurrenceLabel();
 $datasetManager->setCollid($collid);
 
 $reportsWritable = false;
-if(is_writable($serverRoot.'/temp/report')){
+if(is_writable($SERVER_ROOT.'/temp/report')){
 	$reportsWritable = true;
 }
 
@@ -36,24 +36,67 @@ if($isEditor){
 	}
 }
 ?>
-
 <html>
 	<head>
-	    <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $charset;?>">
-		<title><?php echo $defaultTitle; ?> Specimen Label Manager</title>
+	    <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $CHARSET;?>">
+		<title><?php echo $DEFAULT_TITLE; ?> Specimen Label Manager</title>
 		<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
 	    <link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
 		<link href="../../css/jquery-ui.css" type="text/css" rel="Stylesheet" />
 		<script src="../../js/jquery.js" type="text/javascript"></script>
 		<script src="../../js/jquery-ui.js" type="text/javascript"></script>
-		<script language="javascript" type="text/javascript">
+		<script type="text/javascript">
 			$(document).ready(function() {
 				if(!navigator.cookieEnabled){
 					alert("Your browser cookies are disabled. To be able to login and access your profile, they must be enabled for this domain.");
 				}
+				
+				function split( val ) {
+					return val.split( /,\s*/ );
+				}
+				function extractLast( term ) {
+					return split( term ).pop();
+				}
+				
 				$("#tabs").tabs({
 					active: <?php echo (is_numeric($tabTarget)?$tabTarget:'0'); ?>
 				});
+				
+				$( "#taxa" )
+				// don't navigate away from the field on tab when selecting an item
+				.bind( "keydown", function( event ) {
+					if ( event.keyCode === $.ui.keyCode.TAB &&
+							$( this ).data( "autocomplete" ).menu.active ) {
+						event.preventDefault();
+					}
+				})
+				.autocomplete({
+					source: function( request, response ) {
+						$.getJSON( "../rpc/taxalist.php", {
+							term: extractLast( request.term )
+						}, response );
+					},
+					search: function() {
+						// custom minLength
+						var term = extractLast( this.value );
+						if ( term.length < 4 ) {
+							return false;
+						}
+					},
+					focus: function() {
+						// prevent value inserted on focus
+						return false;
+					},
+					select: function( event, ui ) {
+						var terms = split( this.value );
+						// remove the current input
+						terms.pop();
+						// add the selected item
+						terms.push( ui.item.value );
+						this.value = terms.join( ", " );
+						return false;
+					}
+				},{});
 			});
 			
 			function selectAll(cb){
@@ -167,7 +210,7 @@ if($isEditor){
 	<body>
 	<?php
 	$displayLeftMenu = (isset($collections_reports_labelmanagerMenu)?$collections_reports_labelmanagerMenu:false);
-	include($serverRoot."/header.php");
+	include($SERVER_ROOT."/header.php");
 	?>
 	<div class='navpath'>
 		<a href='../../index.php'>Home</a> &gt;&gt; 
@@ -210,16 +253,22 @@ if($isEditor){
 						<fieldset>
 							<legend><b>Define Specimen Recordset</b></legend>
 							<div style="margin:3px;">
+								<span title="Scientific name as entered in database.">
+									Scientific Name: 
+									<input type="text" name="taxa" id="taxa" size="60" value="<?php echo (array_key_exists('taxa',$_REQUEST)?$_REQUEST['taxa']:''); ?>" />
+								</span>
+							</div>
+							<div style="margin:3px;">
 								<span title="Full or last name of collector as entered in database.">
 									Collector: 
 									<input type="text" name="recordedby" style="width:150px;" value="<?php echo (array_key_exists('recordedby',$_REQUEST)?$_REQUEST['recordedby']:''); ?>" />
 								</span>
 								<span style="margin-left:20px;" title="Enter a range delimited by ' - ' (space before and after dash required), e.g.: 3700 - 3750">
-									Number(s): 
+									Record Number(s): 
 									<input type="text" name="recordnumber" style="width:150px;" value="<?php echo (array_key_exists('recordnumber',$_REQUEST)?$_REQUEST['recordnumber']:''); ?>" />
 								</span>
 								<span style="margin-left:20px;" title="Separate multiples by comma and ranges by ' - ' (space before and after dash required), e.g.: 3542,3602,3700 - 3750">
-									Identifier: 
+									Catalog Number(s): 
 									<input type="text" name="identifier" style="width:150px;" value="<?php echo (array_key_exists('identifier',$_REQUEST)?$_REQUEST['identifier']:''); ?>" />
 								</span>
 							</div>
@@ -321,9 +370,15 @@ if($isEditor){
 													<a href="#" onclick="openIndPopup(<?php echo $occId; ?>); return false;">
 														<?php echo $recArr["c"]; ?>
 													</a>
-													<a href="#" onclick="openEditorPopup(<?php echo $occId; ?>); return false;">
-														<img src="../../images/edit.png" />
-													</a>
+													<?php
+													if($isAdmin || (array_key_exists("CollAdmin",$userRights) && in_array($recArr["collid"],$userRights["CollAdmin"])) || (array_key_exists("CollEditor",$userRights) && in_array($recArr["collid"],$userRights["CollEditor"]))){
+														?>
+														<a href="#" onclick="openEditorPopup(<?php echo $occId; ?>); return false;">
+															<img src="../../images/edit.png" />
+														</a>
+														<?php
+													}
+													?>
 												</td>
 												<td>
 													<?php echo $recArr["s"]; ?>
@@ -527,7 +582,7 @@ if($isEditor){
 		?>
 	</div>
 	<?php
-	include($serverRoot."/footer.php");
+	include($SERVER_ROOT."/footer.php");
 	?>
 	</body>
 </html>

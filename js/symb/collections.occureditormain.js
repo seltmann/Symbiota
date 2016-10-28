@@ -1,7 +1,6 @@
 var pauseSubmit = false;
 var imgAssocCleared = false;
 var voucherAssocCleared = false;
-var surveyAssocCleared = false;
 var abortFormVerification = false;
 
 $(document).ready(function() {
@@ -128,6 +127,17 @@ $(document).ready(function() {
 		}
 	});
 
+	$("#ffmunicipality").autocomplete({ 
+		source: function( request, response ) {
+			$.getJSON( "rpc/lookupMunicipality.php", { term: request.term, "state": document.fullform.stateprovince.value }, response );
+		},
+		minLength: 2,
+		autoFocus: true,
+		change: function(event, ui){
+			fieldChanged("municipality");
+		}
+	});
+
 	$("#catalognumber").keydown(function(evt){
 		var evt  = (evt) ? evt : ((event) ? event : null);
 		if ((evt.keyCode == 13)) { return false; }
@@ -182,6 +192,12 @@ function verifyFullFormSciName(){
 			$( "#tidinterpreted" ).val(data.tid);
 			$( 'input[name=family]' ).val(data.family);
 			$( 'input[name=scientificnameauthorship]' ).val(data.author);
+			if(data.rankid < 220){
+				$( 'select[name=confidenceranking]' ).val(2);
+			}
+			else{
+				$( 'select[name=confidenceranking]' ).val(8);
+			}
 			if(data.status == 1){ 
 				$( 'input[name=localitysecurity]' ).prop('checked', true);
 			}
@@ -195,6 +211,7 @@ function verifyFullFormSciName(){
 			}
 		}
 		else{
+			$( 'select[name=confidenceranking]' ).val(5);
 			alert("WARNING: Taxon not found. It may be misspelled or needs to be added to taxonomic thesaurus. You can continue entering specimen and name will be add to thesaurus later.");
 		}
 	});
@@ -338,6 +355,7 @@ function parseVerbatimCoordinates(f,verbose){
 		var latDec = null;
 		var lngDec = null;
 		var verbCoordStr = f.verbatimcoordinates.value;
+		verbCoordStr = verbCoordStr.replace(/’/g,"'");
 		
 		var tokenArr = verbCoordStr.split(" ");
 		
@@ -596,11 +614,11 @@ function verifyCoordinates(f){
 	var lngValue = f.decimallongitude.value;
 	var latValue = f.decimallatitude.value;
 	if(latValue && lngValue){
-		var url = "http://maps.googleapis.com/maps/api/geocode/json?latlng="+latValue+","+lngValue+"&sensor=false";
+		var url = "http://maps.googleapis.com/maps/api/geocode/json?latlng="+latValue+","+lngValue;
 		
 		$.ajax({
 			type: "GET",
-			url: "http://maps.googleapis.com/maps/api/geocode/json?sensor=false",
+			url: "http://maps.googleapis.com/maps/api/geocode/json",
 			dataType: "json",
 			data: { latlng: latValue+","+lngValue }
 		}).done(function( data ) {
@@ -709,10 +727,6 @@ function verifyDeletion(f){
 	//Restriction when vouchers are linked
 	document.getElementById("delvervouspan").style.display = "block";
 	verifyAssocVouchers(occId);
-	
-	//Restriction when surveys are linked
-	document.getElementById("delversurspan").style.display = "block";
-	verifyAssocSurveys(occId);
 }
 
 function verifyAssocImages(occidIn){
@@ -758,32 +772,8 @@ function verifyAssocVouchers(occidIn){
 	});
 }
 
-function verifyAssocSurveys(occidIn){
-	$.ajax({
-		type: "POST",
-		url: "rpc/getassocsurveys.php",
-		dataType: "json",
-		data: { occid: occidIn }
-	}).done(function( sList ) {
-		document.getElementById("delversurspan").style.display = "none";
-		if(sList != ''){
-			document.getElementById("delsurlistdiv").style.display = "block";
-			var strOut = "";
-			for(var key in sList){
-				strOut = strOut + "<li><a href='../../checklists/survey.php?surveyid="+key+"' target='_blank'>"+sList[key]+"</a></li>";
-			}
-			document.getElementById("surveylist").innerHTML = strOut;
-		}
-		else{
-			document.getElementById("delsurappdiv").style.display = "block";
-		}
-		surveyAssocCleared = true;
-		displayDeleteSubmit();
-	});
-}
-
 function displayDeleteSubmit(){
-	if(imgAssocCleared && voucherAssocCleared && surveyAssocCleared){
+	if(imgAssocCleared && voucherAssocCleared){
 		var elem = document.getElementById("delapprovediv");
 		elem.style.display = "block";
 	}
@@ -791,53 +781,53 @@ function displayDeleteSubmit(){
 
 function eventDateChanged(eventDateInput){
 	var dateStr = eventDateInput.value;
-	if(dateStr == "") return true;
-
-	var dateArr = parseDate(dateStr);
-	if(dateArr['y'] == 0){
-		alert("Unable to interpret Date. Please use the following formats: yyyy-mm-dd, mm/dd/yyyy, or dd mmm yyyy");
-		return false;
-	}
-	else{
-		//Check to see if date is in the future 
-		try{
-			var testDate = new Date(dateArr['y'],dateArr['m']-1,dateArr['d']);
-			var today = new Date();
-			if(testDate > today){
-				alert("Was this plant really collected in the future? The date you entered has not happened yet. Please revise.");
-				return false;
-			}
-		}
-		catch(e){
-		}
-
-		//Invalid format is month > 12
-		if(dateArr['m'] > 12){
-			alert("Month cannot be greater than 12. Note that the format should be YYYY-MM-DD");
+	if(dateStr != ""){
+		var dateArr = parseDate(dateStr);
+		if(dateArr['y'] == 0){
+			alert("Unable to interpret Date. Please use the following formats: yyyy-mm-dd, mm/dd/yyyy, or dd mmm yyyy");
 			return false;
 		}
-
-		//Check to see if day is valid
-		if(dateArr['d'] > 28){
-			if(dateArr['d'] > 31 
-				|| (dateArr['d'] == 30 && dateArr['m'] == 2) 
-				|| (dateArr['d'] == 31 && (dateArr['m'] == 4 || dateArr['m'] == 6 || dateArr['m'] == 9 || dateArr['m'] == 11))){
-				alert("The Day (" + dateArr['d'] + ") is invalid for that month");
+		else{
+			//Check to see if date is in the future 
+			try{
+				var testDate = new Date(dateArr['y'],dateArr['m']-1,dateArr['d']);
+				var today = new Date();
+				if(testDate > today){
+					alert("Was this plant really collected in the future? The date you entered has not happened yet. Please revise.");
+					return false;
+				}
+			}
+			catch(e){
+			}
+	
+			//Invalid format is month > 12
+			if(dateArr['m'] > 12){
+				alert("Month cannot be greater than 12. Note that the format should be YYYY-MM-DD");
 				return false;
 			}
+	
+			//Check to see if day is valid
+			if(dateArr['d'] > 28){
+				if(dateArr['d'] > 31 
+					|| (dateArr['d'] == 30 && dateArr['m'] == 2) 
+					|| (dateArr['d'] == 31 && (dateArr['m'] == 4 || dateArr['m'] == 6 || dateArr['m'] == 9 || dateArr['m'] == 11))){
+					alert("The Day (" + dateArr['d'] + ") is invalid for that month");
+					return false;
+				}
+			}
+	
+			//Enter date into date fields
+			var mStr = dateArr['m'];
+			if(mStr.length == 1){
+				mStr = "0" + mStr;
+			}
+			var dStr = dateArr['d'];
+			if(dStr.length == 1){
+				dStr = "0" + dStr;
+			}
+			eventDateInput.value = dateArr['y'] + "-" + mStr + "-" + dStr;
+			if(dateArr['y'] > 0) distributeEventDate(dateArr['y'],dateArr['m'],dateArr['d']);
 		}
-
-		//Enter date into date fields
-		var mStr = dateArr['m'];
-		if(mStr.length == 1){
-			mStr = "0" + mStr;
-		}
-		var dStr = dateArr['d'];
-		if(dStr.length == 1){
-			dStr = "0" + dStr;
-		}
-		eventDateInput.value = dateArr['y'] + "-" + mStr + "-" + dStr;
-		if(dateArr['y'] > 0) distributeEventDate(dateArr['y'],dateArr['m'],dateArr['d']);
 	}
 	fieldChanged('eventdate');
 	var f = eventDateInput.form;
@@ -1098,6 +1088,14 @@ function verifyImgDelForm(f){
 		return true;
 	}
 	return false;
+}
+
+function verifyImgRemapForm(f){
+	if(f.targetoccid.value == ''){
+		alert("Enter the occurrence record identifier (occid) of the occurrence record you want to transfer to");
+		return false;
+	}
+	return true;
 }
 
 //Misc

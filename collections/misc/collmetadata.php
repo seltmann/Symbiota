@@ -14,6 +14,10 @@ $collManager = new CollectionProfileManager();
 if(!$collManager->setCollid($collid)) $collid = '';
 
 $isEditor = 0;
+$collPubArr = array();
+$publishGBIF = false;
+$publishIDIGBIO = false;
+
 if($IS_ADMIN){
 	$isEditor = 1;
 }
@@ -57,6 +61,15 @@ if($isEditor){
 		}
 	}
 }
+if(isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY) && $collid){
+	$collPubArr = $collManager->getCollPubArr($collid);
+	if($collPubArr[$collid]['publishToGbif']){
+		$publishGBIF = true;
+	}
+	if($collPubArr[$collid]['publishToIdigbio']){
+		$publishIDIGBIO = true;
+	}
+}
 $collData = $collManager->getCollectionData(true);
 ?>
 <html>
@@ -70,7 +83,7 @@ $collData = $collManager->getCollectionData(true);
 	<script language=javascript>
 
 		$(function() {
-			var dialogArr = new Array("instcode","collcode","pedits","rights","rightsholder","accessrights","guid","colltype","management","icon","collectionguid","sourceurl","sort");
+			var dialogArr = new Array("instcode","collcode","pedits","pubagg","rights","rightsholder","accessrights","guid","colltype","management","icon","collectionguid","sourceurl","sort");
 			var dialogStr = "";
 			for(i=0;i<dialogArr.length;i++){
 				dialogStr = dialogArr[i]+"info";
@@ -130,6 +143,18 @@ $collData = $collManager->getCollectionData(true);
 			else if(f.managementtype.value == "Aggregate" && f.guidtarget.value != "" && f.guidtarget.value != "occurrenceId"){
 				alert("An Aggregate dataset (e.g. specimens coming from multiple collections) can only have occurrenceID selected for the GUID source");
 				f.guidtarget.value = 'occurrenceId';
+			}
+			if(!f.guidtarget.value){
+				f.publishToGbif.checked = false;
+			}
+		}
+		
+		function checkGUIDSource(f){
+			if(f.publishToGbif.checked == true){
+				if(!f.guidtarget.value){
+					alert("You must select a GUID source in order to publish to data aggregators.");
+					f.publishToGbif.checked = false;
+				}
 			}
 		}
 
@@ -494,6 +519,32 @@ $collData = $collManager->getCollectionData(true);
 									</div>
 								</td>
 							</tr>
+							<?php
+							if(isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY)){
+								?>
+								<tr>
+									<td>
+										Publish to Aggregators:
+									</td>
+									<td>
+										<div>
+											GBIF <input type="checkbox" name="publishToGbif" value="1" onchange="checkGUIDSource(this.form);" <?php echo($publishGBIF?'CHECKED':''); ?> />
+											<a id="pubagginfo" href="#" onclick="return false" title="More information about Publishing to Aggregators">
+												<img src="../../images/info.png" style="width:15px;"/>
+											</a>
+										</div>
+										<div>
+											iDigBio <input type="checkbox" name="publishToIdigbio" value="1" onchange="checkGUIDSource(this.form);" <?php echo($publishIDIGBIO?'CHECKED':''); ?> />
+										</div>
+										<div id="pubagginfodialog">
+											Check boxes to make Darwin Core Archives published from this collection
+											available to iDigBio and/or GBIF.
+										</div>
+									</td>
+								</tr>
+								<?php
+							}
+							?>
 							<tr>
 								<td>
 									Source Record URL:

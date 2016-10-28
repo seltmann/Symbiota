@@ -21,7 +21,7 @@ class OccurrenceChecklistManager extends OccurrenceManager{
 		$returnVec = Array();
 		$this->checklistTaxaCnt = 0;
 		$sql = "";
-        if($taxonAuthorityId){
+        if($taxonAuthorityId && is_numeric($taxonAuthorityId)){
 			$sql = 'SELECT DISTINCT ts.family, t.sciname '.
                 'FROM ((omoccurrences o INNER JOIN taxstatus ts1 ON o.TidInterpreted = ts1.Tid) '.
                 'INNER JOIN taxa t ON ts1.TidAccepted = t.Tid) '.
@@ -37,7 +37,7 @@ class OccurrenceChecklistManager extends OccurrenceManager{
 			if(array_key_exists("clid",$this->searchTermsArr)) $sql .= "INNER JOIN fmvouchers v ON o.occid = v.occid ";
 			$sql .= $this->getSqlWhere()." AND (t.rankid > 140) AND (ts.taxauthid = 1) ";
         }
-		//echo "<div>".$sql."</div>";
+		//echo "<div>".$sql."</div>"; 
         $result = $this->conn->query($sql);
 		while($row = $result->fetch_object()){
 			$family = strtoupper($row->family);
@@ -69,16 +69,16 @@ class OccurrenceChecklistManager extends OccurrenceManager{
 			$dynClid = $conn->insert_id;
 			//Get checklist and append to dyncltaxalink
 			$sqlTaxaInsert = "INSERT IGNORE INTO fmdyncltaxalink ( tid, dynclid ) ";
-			if(!$taxonAuthorityId){
-				$sqlTaxaInsert .= "SELECT DISTINCT t.tid, ".$dynClid." FROM (omoccurrences o INNER JOIN taxa t ON o.TidInterpreted = t.tid) ";
-				if(array_key_exists("clid",$this->searchTermsArr)) $sqlTaxaInsert .= "INNER JOIN fmvouchers v ON o.occid = v.occid ";
-				$sqlTaxaInsert .= $this->getSqlWhere()." AND t.RankId > 180";
-			}
-			else{
+			if(is_numeric($taxonAuthorityId)){
 				$sqlTaxaInsert .= "SELECT DISTINCT t.tid, ".$dynClid." ".
                 "FROM ((omoccurrences o INNER JOIN taxstatus ts ON o.TidInterpreted = ts.Tid) INNER JOIN taxa t ON ts.TidAccepted = t.Tid) ";
 				if(array_key_exists("clid",$this->searchTermsArr)) $sqlTaxaInsert .= "INNER JOIN fmvouchers v ON o.occid = v.occid ";
 				$sqlTaxaInsert .= str_ireplace("o.sciname","t.sciname",str_ireplace("o.family","ts.family",$this->getSqlWhere()))."AND ts.taxauthid = ".$taxonAuthorityId." AND t.RankId > 180";
+			}
+			else{
+				$sqlTaxaInsert .= "SELECT DISTINCT t.tid, ".$dynClid." FROM (omoccurrences o INNER JOIN taxa t ON o.TidInterpreted = t.tid) ";
+				if(array_key_exists("clid",$this->searchTermsArr)) $sqlTaxaInsert .= "INNER JOIN fmvouchers v ON o.occid = v.occid ";
+				$sqlTaxaInsert .= $this->getSqlWhere()." AND t.RankId > 180";
 			}
 			//echo "sqlTaxaInsert: ".$sqlTaxaInsert;
 			$conn->query($sqlTaxaInsert);

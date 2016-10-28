@@ -1,5 +1,5 @@
 <?php
-include_once($serverRoot.'/classes/UuidFactory.php');
+include_once($SERVER_ROOT.'/classes/UuidFactory.php');
 
 class ImageShared{
 
@@ -31,19 +31,18 @@ class ImageShared{
 	private $photographer;
 	private $photographerUid;
 	private $sourceUrl;
-	private $copyright;
+	private $format;
 	private $owner;
 	private $locality;
 	private $occid;
 	private $tid;
-	private $notes;
-	private $sortSeq;
-
-    // 0.9.1.14 additions
     private $sourceIdentifier;
     private $rights;
-    private $accessrights;
-	
+    private $accessRights;
+    private $copyright;
+    private $notes;
+    private $sortSeq;
+
 	private $activeImgId = 0;
 	
     private $errArr = array();
@@ -124,11 +123,15 @@ class ImageShared{
 		$this->photographer = '';
 		$this->photographerUid = '';
 		$this->sourceUrl = '';
-		$this->copyright = '';
+		$this->format = '';
 		$this->owner = '';
 		$this->locality = '';
 		$this->occid = '';
 		$this->tid = '';
+		$this->sourceIdentifier = '';
+		$this->rights = '';
+		$this->accessRights = '';
+		$this->copyright = '';
 		$this->notes = '';
 		$this->sortSeq = '';
 	
@@ -136,7 +139,7 @@ class ImageShared{
 	
 		unset($this->errArr);
 		$this->errArr = array();
- 		
+		
  	}
 
 	public function uploadImage($imgFile = 'imgfile'){
@@ -218,6 +221,7 @@ class ImageShared{
 			}
 		}
 
+		$this->sourceUrl = $url;
 		if($this->uriExists($url)){
 			$this->sourcePath = $url;
 	    	$this->imgName = $this->cleanFileName($url);
@@ -242,24 +246,29 @@ class ImageShared{
 				$fName = substr($fName,$pos+1);
 			}
 		}
-		//Parse extension
-		if($p = strrpos($fName,".")){
-			$this->imgExt = strtolower(substr($fName,$p));
-			$fName = substr($fName,0,$p);
-		}
-		
-		if(!$this->imgExt && $imgInfo){
+		if($imgInfo){
 			if($imgInfo[2] == IMAGETYPE_GIF){
 				$this->imgExt = '.gif';
+				$this->format = 'image/gif';
 			}
 			elseif($imgInfo[2] == IMAGETYPE_PNG){
 				$this->imgExt = '.png';
+				$this->format = 'image/png';
 			}
 			elseif($imgInfo[2] == IMAGETYPE_JPEG){
 				$this->imgExt = '.jpg';
+				$this->format = 'image/jpeg';
 			}
 		}
 
+		//Continue cleaning and parsing file name and extension
+		if(strpos($fName,'?')) $fName = substr($fName,0,strpos($fName,'?'));
+		if($p = strrpos($fName,'.')){
+			$this->sourceIdentifier = 'filename: '.$fName;
+			if(!$this->imgExt) $this->imgExt = strtolower(substr($fName,$p));
+			$fName = substr($fName,0,$p);
+		}
+		
 		$fName = str_replace(".","",$fName);
 		$fName = str_replace(array("%20","%23"," ","__"),"_",$fName);
 		$fName = str_replace("__","_",$fName);
@@ -290,8 +299,8 @@ class ImageShared{
 		
 		//Returns file name without extension
 		return $fName;
- 	}
- 	
+	}
+
 	public function setTargetPath($subPath = ''){
 		$path = $this->imageRootPath;
 		$url = $this->imageRootUrl;
@@ -300,18 +309,15 @@ class ImageShared{
 			trigger_error('Path empty in setTargetPath method',E_USER_ERROR);
 			return false;
 		}
-		//if(!$url){
-			//$this->errArr[] = 'URL empty in setTargetPath method';
-			//trigger_error('URL empty in setTargetPath method',E_USER_ERROR);
-			//return false;
-		//}
 		if($subPath){
-			if(substr($subPath,-1) != "/") $subPath .= "/";  
+			$badChars = array(' ',':','.','"',"'",'>','<','%','*','|','?');
+			$subPath = str_replace($badChars, '', $subPath);
 		}
 		else{
-			$subPath = 'misc/';
+			$subPath = 'misc/'.date('Ym').'/';
 		}
-		$subPath .= date('Ym').'/';
+		if(substr($subPath,-1) != '/') $subPath .= '/';  
+
 		$path .= $subPath;
 		$url .= $subPath;
 		if(!file_exists($path)){
@@ -326,11 +332,10 @@ class ImageShared{
 		return true;
 	}
 	
-	public function processImage($tid=0){
-		global $paramsArr;
+	public function processImage(){
 
 		if(!$this->imgName){
-			$this->errArr[] = 'FATAL ERROR: Image file name null in processImage fucntion';
+			$this->errArr[] = 'FATAL ERROR: Image file name null in processImage function';
 			//trigger_error('Image file name null in processImage function',E_USER_ERROR);
 			return false;
 		}
@@ -395,7 +400,7 @@ class ImageShared{
 
 		$status = true;
 		if($imgWebUrl){
-			$status = $this->databaseImage($imgWebUrl,$imgTnUrl,$imgLgUrl,$tid);
+			$status = $this->databaseImage($imgWebUrl,$imgTnUrl,$imgLgUrl);
 		}
 		return $status;
 	}
@@ -403,7 +408,7 @@ class ImageShared{
 	public function createNewImage($subExt, $targetWidth, $qualityRating = 0){
 		global $useImageMagick;
 		$status = false;
-		if($this->sourcePath && $this->uriExists($this->sourcePath)){
+		if($this->sourcePath){
 			if(!$qualityRating) $qualityRating = $this->jpgCompression;
 			
 	        if($useImageMagick) {
@@ -445,7 +450,7 @@ class ImageShared{
 
 	private function createNewImageGD($subExt, $newWidth, $qualityRating = 0){
 		$status = false;
-		//ini_set('memory_limit','512M');
+		ini_set('memory_limit','512M');
 
 		if(!$this->sourceWidth || !$this->sourceHeight){
 			list($this->sourceWidth, $this->sourceHeight) = getimagesize($this->sourcePath);
@@ -459,13 +464,16 @@ class ImageShared{
 			if(!$this->sourceGdImg){
 				if($this->imgExt == '.gif'){
 			   		$this->sourceGdImg = imagecreatefromgif($this->sourcePath);
+					if(!$this->format) $this->format = 'image/gif';
 				}
 				elseif($this->imgExt == '.png'){
 			   		$this->sourceGdImg = imagecreatefrompng($this->sourcePath);
+					if(!$this->format) $this->format = 'image/png';
 				}
 				else{
 					//JPG assumed
 			   		$this->sourceGdImg = imagecreatefromjpeg($this->sourcePath);
+					if(!$this->format) $this->format = 'image/jpeg';
 				}
 			}
 			
@@ -474,7 +482,7 @@ class ImageShared{
 				//imagecopyresampled($tmpImg,$sourceImg,0,0,0,0,$newWidth,$newHeight,$sourceWidth,$sourceHeight);
 				imagecopyresized($tmpImg,$this->sourceGdImg,0,0,0,0,$newWidth,$newHeight,$this->sourceWidth,$this->sourceHeight);
 		
-				//Irrelavent of import image, output JPG 
+				//Irrelevant of import image, output JPG 
 				$targetPath = $this->targetPath.$this->imgName.$subExt.'.jpg';
 				if($qualityRating){
 					$status = imagejpeg($tmpImg, $targetPath, $qualityRating);
@@ -499,8 +507,7 @@ class ImageShared{
 		return $status;
 	}
 	
-	public function databaseImage($imgWebUrl,$imgTnUrl,$imgLgUrl,$tid){
-		global $paramsArr;
+	private function databaseImage($imgWebUrl,$imgTnUrl,$imgLgUrl){
 		$status = true;
 		if($imgWebUrl){
 			$urlBase = $this->getUrlBase();
@@ -515,24 +522,25 @@ class ImageShared{
 			}
 			
 			//If is an occurrence image, get tid from occurrence  
-			if(!$tid && $this->occid){
+			if(!$this->tid && $this->occid){
 				$sql1 = 'SELECT tidinterpreted FROM omoccurrences WHERE tidinterpreted IS NOT NULL AND occid = '.$this->occid;
 				$rs1 = $this->conn->query($sql1);
 				if($r1 = $rs1->fetch_object()){
-					$tid = $r1->tidinterpreted;
+					$this->tid = $r1->tidinterpreted;
 				}
 				$rs1->free();
 			}
 			
 			//Save currently loaded record
-			$sql = 'INSERT INTO images (tid, url, thumbnailurl, originalurl, photographer, photographeruid, caption, '.
+			$sql = 'INSERT INTO images (tid, url, thumbnailurl, originalurl, photographer, photographeruid, format, caption, '.
 				'owner, sourceurl, copyright, locality, occid, notes, username, sortsequence, sourceIdentifier, ' .
                 ' rights, accessrights) '.
-				'VALUES ('.($tid?$tid:'NULL').',"'.$imgWebUrl.'",'.
+				'VALUES ('.($this->tid?$this->tid:'NULL').',"'.$imgWebUrl.'",'.
 				($imgTnUrl?'"'.$imgTnUrl.'"':'NULL').','.
 				($imgLgUrl?'"'.$imgLgUrl.'"':'NULL').','.
 				($this->photographer?'"'.$this->photographer.'"':'NULL').','.
 				($this->photographerUid?$this->photographerUid:'NULL').','.
+				($this->format?'"'.$this->format.'"':'NULL').','.
 				($this->caption?'"'.$this->caption.'"':'NULL').','.
 				($this->owner?'"'.$this->owner.'"':'NULL').','.
 				($this->sourceUrl?'"'.$this->sourceUrl.'"':'NULL').','.
@@ -540,18 +548,18 @@ class ImageShared{
 				($this->locality?'"'.$this->locality.'"':'NULL').','.
 				($this->occid?$this->occid:'NULL').','.
 				($this->notes?'"'.$this->notes.'"':'NULL').',"'.
-				$this->cleanInStr($paramsArr['un']).'",'.
+				$this->cleanInStr($GLOBALS['USERNAME']).'",'.
 				($this->sortSeq?$this->sortSeq:'50').','.
 				($this->sourceIdentifier?'"'.$this->sourceIdentifier.'"':'NULL').','.
 				($this->rights?'"'.$this->rights.'"':'NULL').','.
-				($this->accessrights?'"'.$this->accessrights.'"':'NULL').')';
+				($this->accessRights?'"'.$this->accessRights.'"':'NULL').')';
 			//echo $sql; exit;
 			if($this->conn->query($sql)){
 				//Create and insert Symbiota GUID for image(UUID)
 				$guid = UuidFactory::getUuidV4();
 				$this->activeImgId = $this->conn->insert_id;
 				if(!$this->conn->query('INSERT INTO guidimages(guid,imgid) VALUES("'.$guid.'",'.$this->activeImgId.')')) {
-					$this->errArr[] = ' (Warning: Symbiota GUID mapping failed)';
+					$this->errArr[] = ' Warning: Symbiota GUID mapping failed';
 				}
 			}
 			else{
@@ -663,7 +671,7 @@ class ImageShared{
      *
      * @return an empty string on success, otherwise a string containing an error message.
      */
-	public function databaseImageRecord($imgWebUrl,$imgTnUrl,$imgLgUrl,$tid,$caption,$phototrapher,$photographerUid,$sourceUrl,$copyright,$owner,$locality,$occid,$notes,$sortSequence,$imagetype,$anatomy,$sourceIdentifier,$rights,$accessrights){
+	public function databaseImageRecord($imgWebUrl,$imgTnUrl,$imgLgUrl,$tid,$caption,$phototrapher,$photographerUid,$sourceUrl,$copyright,$owner,$locality,$occid,$notes,$sortSequence,$imagetype,$anatomy,$sourceIdentifier,$rights,$accessRights){
 		$status = "";
 		$sql = 'INSERT INTO images (tid, url, thumbnailurl, originalurl, photographer, photographeruid, caption, '.
 			'owner, sourceurl, copyright, locality, occid, notes, username, sortsequence, imagetype, anatomy, '.
@@ -687,7 +695,7 @@ class ImageShared{
 		    		$imgLgUrl = $urlPrefix.$imgLgUrl;
 	    		}
 	    	}
-        	$statement->bind_param("issssisssssississsss",$tid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$photographer,$photographerUid,$caption,$owner,$sourceUrl,$copyright,$locality,$occid,$notes,$username,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessrights);
+        	$statement->bind_param("issssisssssississsss",$tid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$photographer,$photographerUid,$caption,$owner,$sourceUrl,$copyright,$locality,$occid,$notes,$username,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessRights);
 
            $statement->execute();
            $rows = $statement->affected_rows;
@@ -713,7 +721,7 @@ class ImageShared{
      *
      * @return an empty string on success, otherwise a string containing an error message.
      */
-    public function updateImageRecord($imgid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$tid,$caption,$phototrapher,$photographerUid,$sourceUrl,$copyright,$owner,$locality,$occid,$notes,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessrights){
+    public function updateImageRecord($imgid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$tid,$caption,$phototrapher,$photographerUid,$sourceUrl,$copyright,$owner,$locality,$occid,$notes,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessRights){
         $status = "";
         $sql = 'update images set tid=?, url=?, thumbnailurl=?, originalurl=?, photographer=?, photographeruid=?, caption=?, '.
             'owner=?, sourceurl=?, copyright=?, locality=?, occid=?, notes=?, username=?, sortsequence=?, imagetype=?, anatomy=?, '.
@@ -738,7 +746,7 @@ class ImageShared{
 	    		}
 	    	}
         	
-        	$statement->bind_param("issssisssssississsssi",$tid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$photographer,$photographerUid,$caption,$owner,$sourceUrl,$copyright,$locality,$occid,$notes,$username,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessrights, $imgid);
+        	$statement->bind_param("issssisssssississsssi",$tid,$imgWebUrl,$imgTnUrl,$imgLgUrl,$photographer,$photographerUid,$caption,$owner,$sourceUrl,$copyright,$locality,$occid,$notes,$username,$sortSequence,$imagetype,$anatomy, $sourceIdentifier, $rights, $accessRights, $imgid);
 
            $statement->execute();
            $rows = $statement->affected_rows;
@@ -794,7 +802,7 @@ class ImageShared{
 						$stmt->bind_param('is',$this->activeImgId,$key);
 						if(!$stmt->execute()){ 
 							$status = false;
-							$this->errArr[] = " (Warning: Failed to add image tag [$key] for $this->activeImgId.  " . $stmt->error;
+							$this->errArr[] = "Warning: Failed to add image tag [$key] for $this->activeImgId.  " . $stmt->error;
 						} 
 						$stmt->close();
 					}
@@ -905,10 +913,10 @@ class ImageShared{
 		return $this->targetPath;
 	}
 
-	public function setCopyright($v){
-		$this->copyright = $this->cleanInStr($v);
+	public function setFormat($v){
+		$this->format = $this->cleanInStr($v);
 	}
-
+	
 	public function setOwner($v){
 		$this->owner = $this->cleanInStr($v);
 	}
@@ -920,6 +928,12 @@ class ImageShared{
 	public function setOccid($v){
 		if(is_numeric($v)){
 			$this->occid = $v;
+		}
+	}
+	
+	public function setTid($v){
+		if(is_numeric($v)){
+			$this->tid = $v;
 		}
 	}
 	
@@ -937,32 +951,42 @@ class ImageShared{
 		}
 	}
 	
-	public function getErrArr(){
-		return $this->errArr;
-	}
-	
-    // sourceIdentifier
-	public function getsourceIdentifier(){
+	public function getSourceIdentifier(){
 		return $this->sourceIdentifier;
 	}
-	public function setsourceIdentifier($value){
-		$this->sourceIdentifier = $this->cleanInStr($value);
+	public function setSourceIdentifier($value){
+		if($this->sourceIdentifier) $this->sourceIdentifier = '; '.$this->sourceIdentifier;
+		$this->sourceIdentifier = $this->cleanInStr($value).$this->sourceIdentifier;
 	}
 
-    // rights
-	public function getrights(){
+	public function getRights(){
 		return $this->rights;
 	}
-	public function setrights($value){
+	public function setRights($value){
 		$this->rights = $this->cleanInStr($value);
 	}
 
-    // accessrights
-	public function getaccessrights(){
-		return $this->accessrights;
+	public function getAccessRights(){
+		return $this->accessRights;
 	}
-	public function setaccessrights($value){
-		$this->accessrights = $this->cleanInStr($value);
+	public function setAccessRights($value){
+		$this->accessRights = $this->cleanInStr($value);
+	}
+
+	public function setCopyright($v){
+		$this->copyright = $this->cleanInStr($v);
+	}
+	
+	public function getErrArr(){
+		$retArr = $this->errArr;
+		unset($this->errArr);
+		return $retArr;
+	}
+
+	public function getErrStr(){
+		$retStr = implode('; ',$this->errArr);
+		unset($this->errArr);
+		return $retStr;
 	}
 
 	//Misc functions
@@ -1032,10 +1056,11 @@ class ImageShared{
 			if(strtolower(substr($this->sourcePath,0,7)) == 'http://' || strtolower(substr($this->sourcePath,0,8)) == 'https://'){
 				$x = array_change_key_case(get_headers($this->sourcePath, 1),CASE_LOWER); 
 				if ( strcasecmp($x[0], 'HTTP/1.1 200 OK') != 0 ) { 
-					$fileSize = $x['content-length'][1]; 
+					if(isset($x['content-length'][1])) $fileSize = $x['content-length'][1];
+					elseif(isset($x['content-length'])) $fileSize = $x['content-length'];
 				}
 	 			else { 
-	 				$fileSize = $x['content-length']; 
+	 				if(isset($x['content-length'])) $fileSize = $x['content-length']; 
 	 			}
 	 			/*
 				$ch = curl_init($this->sourcePath);
@@ -1059,54 +1084,53 @@ class ImageShared{
 		return $fileSize;
 	}
 
-	public function uriExists($url) {
+	public function uriExists($uri) {
 		$exists = false;
-		$localUrl = '';
-		if(substr($url,0,1) == '/'){
+
+		$secondaryUrl = '';
+		if(substr($uri,0,1) == '/'){
 			if(isset($GLOBALS['imageDomain']) && $GLOBALS['imageDomain']){
-				$url = $GLOBALS['imageDomain'].$url;
+				$secondaryUrl = $GLOBALS['imageDomain'].$uri;
 			}
-			elseif($GLOBALS['imageRootUrl'] && strpos($url,$GLOBALS['imageRootUrl']) === 0){
-				$localUrl = str_replace($GLOBALS['imageRootUrl'],$GLOBALS['imageRootPath'],$url);
+			elseif($GLOBALS['imageRootUrl'] && strpos($uri,$GLOBALS['imageRootUrl']) === 0){
+				$secondaryUrl = str_replace($GLOBALS['imageRootUrl'],$GLOBALS['imageRootPath'],$uri);
 			}
 			else{
 				$urlPrefix = "http://";
 				if(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) $urlPrefix = "https://";
 				$urlPrefix .= $_SERVER["SERVER_NAME"];
 				if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $urlPrefix .= ':'.$_SERVER["SERVER_PORT"];
-				$url = $urlPrefix.$url;
+				$secondaryUrl = $urlPrefix.$uri;
 			}
 		}
 		
 		//First simple check
-		if(file_exists($url) || ($localUrl && file_exists($localUrl))){
+		if(file_exists($uri) || ($secondaryUrl && file_exists($secondaryUrl))){
 			return true;
 	    }
-
 	    //Second check
 	    if(!$exists){
 		    // Version 4.x supported
-		    $handle   = curl_init($url);
+		    $handle   = curl_init($uri);
 		    if (false === $handle){
 				$exists = false;
 		    }
 		    curl_setopt($handle, CURLOPT_HEADER, false);
-		    curl_setopt($handle, CURLOPT_FAILONERROR, true);  // this works
+		    curl_setopt($handle, CURLOPT_FAILONERROR, true); 
 		    curl_setopt($handle, CURLOPT_HTTPHEADER, Array("User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.15) Gecko/20080623 Firefox/2.0.0.15") ); // request as if Firefox   
 		    curl_setopt($handle, CURLOPT_NOBODY, true);
 		    curl_setopt($handle, CURLOPT_RETURNTRANSFER, false);
+		    curl_setopt($handle, CURLOPT_FOLLOWLOCATION, true);
 		    $exists = curl_exec($handle);
 		    curl_close($handle);
 	    }
 	     
 	    //One last check
 	    if(!$exists){
-	    	$exists = (@fclose(@fopen($url,"r")));
+	    	$exists = (@fclose(@fopen($uri,"r")));
 	    }
-	    
 	    //Test to see if file is an image 
-	    if(!@exif_imagetype($url)) $exists = false;
-
+	    if(!@exif_imagetype($uri)) $exists = false;
 	    return $exists;
 	}	
 

@@ -32,10 +32,14 @@ if($collid && is_numeric($collid)){
 		$dwcaHandler->setIncludeImgs(0);
 		$dwcaHandler->addCondition('decimallatitude','NULL');
 		$dwcaHandler->addCondition('decimallongitude','NULL');
+		$dwcaHandler->addCondition('catalognumber','NOTNULL');
 		$dwcaHandler->addCondition('locality','NOTNULL');
 		if($processingStatus) $dwcaHandler->addCondition('processingstatus','EQUALS',$processingStatus);
 		if($customField1) $dwcaHandler->addCondition($customField1,$_POST['ct1'],$_POST['cv1']);
 		if($customField2) $dwcaHandler->addCondition($customField2,$_POST['ct2'],$_POST['cv2']);
+
+		//Set GeoLocate CoGe variables
+		$dwcaHandler->setGeolocateVariables(array('cogecomm'=>$_POST['cogecomm'],'cogename'=>$_POST['cogename'],'cogedescr'=>$_POST['cogedescr'],));
 
 		//Set direct path to file
 		$tPath = $SERVER_ROOT;

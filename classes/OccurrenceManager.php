@@ -231,8 +231,14 @@ class OccurrenceManager{
 			$searchStr = str_replace("%apos;","'",$this->searchTermsArr["country"]);
 			$countryArr = explode(";",$searchStr);
 			$tempArr = Array();
-			foreach($countryArr as $value){
-				$tempArr[] = '(o.Country = "'.trim($value).'")';
+			foreach($countryArr as $k => $value){
+				if($value == 'NULL'){
+					$countryArr[$k] = 'Country IS NULL';
+					$tempArr[] = '(o.Country IS NULL)';
+				}
+				else{
+					$tempArr[] = '(o.Country = "'.trim($value).'")';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(' OR ',$countryArr);
@@ -241,8 +247,14 @@ class OccurrenceManager{
 			$searchStr = str_replace("%apos;","'",$this->searchTermsArr["state"]);
 			$stateAr = explode(";",$searchStr);
 			$tempArr = Array();
-			foreach($stateAr as $value){
-				$tempArr[] = '(o.StateProvince = "'.trim($value).'")';
+			foreach($stateAr as $k => $value){
+				if($value == 'NULL'){
+					$tempArr[] = '(o.StateProvince IS NULL)';
+					$stateAr[$k] = 'State IS NULL';
+				}
+				else{
+					$tempArr[] = '(o.StateProvince = "'.trim($value).'")';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(' OR ',$stateAr);
@@ -251,9 +263,15 @@ class OccurrenceManager{
 			$searchStr = str_replace("%apos;","'",$this->searchTermsArr["county"]);
 			$countyArr = explode(";",$searchStr);
 			$tempArr = Array();
-			foreach($countyArr as $value){
-				$value = trim(str_ireplace(' county',' ',$value));
-				$tempArr[] = '(o.county LIKE "'.trim($value).'%")';
+			foreach($countyArr as $k => $value){
+				if($value == 'NULL'){
+					$tempArr[] = '(o.county IS NULL)';
+					$countyArr[$k] = 'County IS NULL';
+				}
+				else{
+					$value = trim(str_ireplace(' county',' ',$value));
+					$tempArr[] = '(o.county LIKE "'.trim($value).'%")';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(' OR ',$countyArr);
@@ -262,8 +280,14 @@ class OccurrenceManager{
 			$searchStr = str_replace("%apos;","'",$this->searchTermsArr["local"]);
 			$localArr = explode(";",$searchStr);
 			$tempArr = Array();
-			foreach($localArr as $value){
-				$tempArr[] = '(o.municipality LIKE "'.trim($value).'%" OR o.Locality LIKE "%'.trim($value).'%")';
+			foreach($localArr as $k => $value){
+				if($value == 'NULL'){
+					$tempArr[] = '(o.locality IS NULL)';
+					$localArr[$k] = 'Locality IS NULL';
+				}
+				else{
+					$tempArr[] = '(o.municipality LIKE "'.trim($value).'%" OR o.Locality LIKE "%'.trim($value).'%")';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(' OR ',$localArr);
@@ -306,8 +330,14 @@ class OccurrenceManager{
 			$searchStr = str_replace("%apos;","'",$this->searchTermsArr["collector"]);
 			$collectorArr = explode(";",$searchStr);
 			$tempArr = Array();
-			foreach($collectorArr as $value){
-				$tempArr[] = '(o.recordedBy LIKE "%'.trim($value).'%")';
+			foreach($collectorArr as $k => $value){
+				if($value == 'NULL'){
+					$tempArr[] = '(o.recordedBy IS NULL)';
+					$collectorArr[$k] = 'Collector IS NULL';
+				}
+				else{
+					$tempArr[] = '(o.recordedBy LIKE "%'.trim($value).'%")';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(', ',$collectorArr);
@@ -354,7 +384,11 @@ class OccurrenceManager{
 					$dateArr[] = $this->searchTermsArr['eventdate2'];
 				}
 			}
-			if($eDate1 = $this->formatDate($dateArr[0])){
+			if($dateArr[0] == 'NULL'){
+				$sqlWhere .= 'AND (o.eventdate IS NULL) ';
+				$this->localSearchArr[] = 'Date IS NULL';
+			}
+			elseif($eDate1 = $this->formatDate($dateArr[0])){
 				$eDate2 = (count($dateArr)>1?$this->formatDate($dateArr[1]):'');
 				if($eDate2){
 					$sqlWhere .= 'AND (o.eventdate BETWEEN "'.$eDate1.'" AND "'.$eDate2.'") ';
@@ -370,16 +404,13 @@ class OccurrenceManager{
 						$sqlWhere .= 'AND (o.eventdate = "'.$eDate1.'") ';
 					}
 				}
+				$this->localSearchArr[] = $this->searchTermsArr['eventdate1'].(isset($this->searchTermsArr['eventdate2'])?' to '.$this->searchTermsArr['eventdate2']:'');
 			}
-			$this->localSearchArr[] = $this->searchTermsArr['eventdate1'].(isset($this->searchTermsArr['eventdate2'])?' to '.$this->searchTermsArr['eventdate2']:'');
 		}
 		if(array_key_exists('catnum',$this->searchTermsArr)){
 			$catStr = $this->searchTermsArr['catnum'];
-			$isOccid = false;
-			if(substr($catStr,0,5) == 'occid'){
-				$catStr = trim(substr($catStr,5));
-				$isOccid = true;
-			}
+			$includeOtherCatNum = array_key_exists('othercatnum',$this->searchTermsArr)?true:false;
+
 			$catArr = explode(',',str_replace(';',',',$catStr));
 			$betweenFrag = array();
 			$inFrag = array();
@@ -388,17 +419,18 @@ class OccurrenceManager{
 					$term1 = trim(substr($v,0,$p));
 					$term2 = trim(substr($v,$p+3));
 					if(is_numeric($term1) && is_numeric($term2)){
-						if($isOccid){
-							$betweenFrag[] = '(o.occid BETWEEN '.$term1.' AND '.$term2.')';
-						}
-						else{
-							$betweenFrag[] = '(o.catalogNumber BETWEEN '.$term1.' AND '.$term2.')';
+						$betweenFrag[] = '(o.catalogNumber BETWEEN '.$term1.' AND '.$term2.')';
+						if($includeOtherCatNum){
+							$betweenFrag[] = '(o.othercatalognumbers BETWEEN '.$term1.' AND '.$term2.')';
 						}
 					}
 					else{
 						$catTerm = 'o.catalogNumber BETWEEN "'.$term1.'" AND "'.$term2.'"';
 						if(strlen($term1) == strlen($term2)) $catTerm .= ' AND length(o.catalogNumber) = '.strlen($term2);
 						$betweenFrag[] = '('.$catTerm.')';
+						if($includeOtherCatNum){
+							$betweenFrag[] = '(o.othercatalognumbers BETWEEN "'.$term1.'" AND "'.$term2.'")';
+						}
 					}
 				}
 				else{
@@ -414,56 +446,13 @@ class OccurrenceManager{
 				$catWhere .= 'OR '.implode(' OR ',$betweenFrag);
 			}
 			if($inFrag){
-				if($isOccid){
-					$catWhere .= 'OR (o.occid IN('.implode(',',$inFrag).')) ';
-				}
-				else{
-					$catWhere .= 'OR (o.catalogNumber IN("'.implode('","',$inFrag).'")) ';
+				$catWhere .= 'OR (o.catalogNumber IN("'.implode('","',$inFrag).'")) ';
+				if($includeOtherCatNum){
+					$catWhere .= 'OR (o.othercatalognumbers IN("'.implode('","',$inFrag).'")) ';
 				}
 			}
 			$sqlWhere .= 'AND ('.substr($catWhere,3).') ';
 			$this->localSearchArr[] = $this->searchTermsArr['catnum'];
-		}
-		if(array_key_exists('othercatnum',$this->searchTermsArr)){
-			$otherCatStr = $this->searchTermsArr['othercatnum'];
-			
-			/*
-			 * Restrict search to a single term until field is fully indexed 
-			$otherCatArr = explode(',',str_replace(';',',',$otherCatStr));
-			$betweenFrag = array();
-			$inFrag = array();
-			foreach($otherCatArr as $v){
-				if($p = strpos($v,' - ')){
-					$term1 = trim(substr($v,0,$p));
-					$term2 = trim(substr($v,$p+3));
-					if(is_numeric($term1) && is_numeric($term2)){
-						$betweenFrag[] = '(o.otherCatalogNumbers BETWEEN '.$term1.' AND '.$term2.')';
-					}
-					else{
-						$otherCatTerm = 'o.otherCatalogNumbers BETWEEN "'.$term1.'" AND "'.$term2.'"';
-						if(strlen($term1) == strlen($term2)) $otherCatTerm .= ' AND length(o.otherCatalogNumbers) = '.strlen($term2);
-						$betweenFrag[] = '('.$otherCatTerm.')';
-					}
-				}
-				else{
-					$vStr = trim($v);
-					$inFrag[] = $vStr;
-					if(is_numeric($vStr) && substr($vStr,0,1) == '0'){
-						$inFrag[] = ltrim($vStr,0);
-					}
-				}
-			}
-			$otherCatWhere = '';
-			if($betweenFrag){
-				$otherCatWhere .= 'OR '.implode(' OR ',$betweenFrag);
-			}
-			if($inFrag){
-				$otherCatWhere .= 'OR (o.otherCatalogNumbers IN("'.implode('","',$inFrag).'")) ';
-			}
-			$sqlWhere .= 'AND ('.substr($otherCatWhere,3).') ';
-			*/
-			$sqlWhere .= 'AND (o.otherCatalogNumbers IN("'.$otherCatStr.'")) ';
-			$this->localSearchArr[] = $this->searchTermsArr['othercatnum'];
 		}
 		if(array_key_exists("typestatus",$this->searchTermsArr)){
 			$sqlWhere .= "AND (o.typestatus IS NOT NULL) ";
@@ -593,7 +582,7 @@ class OccurrenceManager{
 			'FROM omcollections c INNER JOIN omcollectionstats s ON c.collid = s.collid '.
 			'LEFT JOIN omcollcatlink ccl ON c.collid = ccl.collid '.
 			'LEFT JOIN omcollcategories cat ON ccl.ccpk = cat.ccpk '.
-			'WHERE s.recordcnt > 0 '.
+			'WHERE s.recordcnt > 0 AND (cat.inclusive IS NULL OR cat.inclusive = 1 OR cat.ccpk = 1) '.
 			'ORDER BY ccl.sortsequence, cat.category, c.sortseq, c.CollectionName ';
 		//echo "<div>SQL: ".$sql."</div>";
 		$result = $this->conn->query($sql);
@@ -648,6 +637,7 @@ class OccurrenceManager{
 	public function outputFullCollArr($occArr){
 		global $DEFAULTCATID;
 		$collCnt = 0;
+		echo '<div style="position:relative">';
 		if(isset($occArr['cat'])){
 			$categoryArr = $occArr['cat'];
 			?>
@@ -786,11 +776,23 @@ class OccurrenceManager{
 				}
 				?>
 			</table>
-			<div style="float:right;margin-top:<?php echo count($collArr)*15; ?>px;">
-				<input type="submit" class="searchcollnextbtn" value="" title="" />
-			</div>
 			<?php
+			if(!isset($occArr['cat'])){
+				?>
+				<div style="float:right;position:absolute;top:<?php echo count($collArr)*5; ?>px;right:0px;">
+					<input type="submit" class="searchcollnextbtn" value="" title="" />
+				</div>
+				<?php
+			}
+			if(count($collArr) > 40){
+				?>
+				<div style="float:right;position:absolute;top:<?php echo count($collArr)*15; ?>px;right:0px;">
+					<input type="submit" class="searchcollnextbtn" value="" title="" />
+				</div>
+				<?php
+			}
 		}
+		echo '</div>';
 		$this->collArrIndex++;
 	}
 
@@ -835,56 +837,38 @@ class OccurrenceManager{
 
 	public function getDatasetSearchStr(){
 		$retStr ="";
-		if(array_key_exists("clid",$this->searchTermsArr)){
-			$retStr = $this->getClidVoucherStr();
+		if(!array_key_exists('db',$this->searchTermsArr) || $this->searchTermsArr['db'] == 'all'){
+			$retStr = "All Collections";
+		}
+		elseif($this->searchTermsArr['db'] == 'allspec'){
+			$retStr = "All Specimen Collections";
+		}
+		elseif($this->searchTermsArr['db'] == 'allobs'){
+			$retStr = "All Observation Projects";
 		}
 		else{
-			if(!array_key_exists('db',$this->searchTermsArr) || $this->searchTermsArr['db'] == 'all'){
-				$retStr = "All Collections";
-			}
-			elseif($this->searchTermsArr['db'] == 'allspec'){
-				$retStr = "All Specimen Collections";
-			}
-			elseif($this->searchTermsArr['db'] == 'allobs'){
-				$retStr = "All Observation Projects";
-			}
-			else{
-				$cArr = explode(';',$this->searchTermsArr['db']);
-				if($cArr[0]){
-					$sql = 'SELECT collid, CONCAT_WS("-",institutioncode,collectioncode) as instcode '.
-						'FROM omcollections WHERE collid IN('.$cArr[0].') ORDER BY institutioncode,collectioncode';
-					$rs = $this->conn->query($sql);
-					while($r = $rs->fetch_object()){
-						$retStr .= '; '.$r->instcode;
-					}
-					$rs->free();
+			$cArr = explode(';',$this->searchTermsArr['db']);
+			if($cArr[0]){
+				$sql = 'SELECT collid, CONCAT_WS("-",institutioncode,collectioncode) as instcode '.
+					'FROM omcollections WHERE collid IN('.$cArr[0].') ORDER BY institutioncode,collectioncode';
+				$rs = $this->conn->query($sql);
+				while($r = $rs->fetch_object()){
+					$retStr .= '; '.$r->instcode;
 				}
-				/*
-				if(isset($cArr[1]) && $cArr[1]){
-					$sql = 'SELECT ccpk, category FROM omcollcategories WHERE ccpk IN('.$cArr[1].') ORDER BY category';
-					$rs = $this->conn->query($sql);
-					while($r = $rs->fetch_object()){
-						$retStr .= '; '.$r->category;
-					}
-					$rs->free();
-				}
-				*/
-				$retStr = substr($retStr,2);
+				$rs->free();
 			}
+			/*
+			if(isset($cArr[1]) && $cArr[1]){
+				$sql = 'SELECT ccpk, category FROM omcollcategories WHERE ccpk IN('.$cArr[1].') ORDER BY category';
+				$rs = $this->conn->query($sql);
+				while($r = $rs->fetch_object()){
+					$retStr .= '; '.$r->category;
+				}
+				$rs->free();
+			}
+			*/
+			$retStr = substr($retStr,2);
 		}
-		return $retStr;
-	}
-
-	private function getClidVoucherStr(){
-		$retStr = 'Various Voucher Projects';
-		/*
-		$sql = "SELECT projectname FROM omsurveys WHERE (surveyid IN(".str_replace(";",",",$this->searchTermsArr["surveyid"]).")) ";
-		$rs = $this->conn->query($sql);
-		while($row = $rs->fetch_object()){
-			$returnStr .= " ;".$row->projectname;
-		}
-		return substr($returnStr,2);
-		*/
 		return $retStr;
 	}
 
@@ -1036,11 +1020,19 @@ class OccurrenceManager{
 			$country = $this->conn->real_escape_string($this->cleanSearchQuotes($_REQUEST["country"]));
 			if($country){
 				$str = str_replace(",",";",$country);
-				if(stripos($str, "USA") !== false && stripos($str, "United States") === false){
-					$str .= ";United States";
-				}
-				elseif(stripos($str, "United States") !== false && stripos($str, "USA") === false){
-					$str .= ";USA";
+				if(stripos($str, "USA") !== false || stripos($str, "United States") !== false || stripos($str, "U.S.A.") !== false || stripos($str, "United States of America") !== false){
+					if(stripos($str, "USA") === false){
+						$str .= ";USA";
+					}
+					if(stripos($str, "United States") === false){
+						$str .= ";United States";
+					}
+					if(stripos($str, "U.S.A.") === false){
+						$str .= ";U.S.A.";
+					}
+					if(stripos($str, "United States of America") === false){
+						$str .= ";United States of America";
+					}
 				}
 				$searchArr[] = "country:".$str;
 				$this->searchTermsArr["country"] = $str;
@@ -1167,21 +1159,13 @@ class OccurrenceManager{
 				$str = str_replace(",",";",$catNum);
 				$searchArr[] = "catnum:".$str;
 				$this->searchTermsArr["catnum"] = $str;
+				if(array_key_exists("includeothercatnum",$_REQUEST)){
+					$searchArr[] = "othercatnum:1";
+					$this->searchTermsArr["othercatnum"] = '1';
+				}
 			}
 			else{
 				unset($this->searchTermsArr["catnum"]);
-			}
-			$searchFieldsActivated = true;
-		}
-		if(array_key_exists("othercatnum",$_REQUEST)){
-			$othercatnum = $this->cleanInStr($_REQUEST["othercatnum"]);
-			if($othercatnum){
-				//$str = str_replace(",",";",$othercatnum);
-				$searchArr[] = "othercatnum:".$othercatnum;
-				$this->searchTermsArr["othercatnum"] = $othercatnum;
-			}
-			else{
-				unset($this->searchTermsArr["othercatnum"]);
 			}
 			$searchFieldsActivated = true;
 		}

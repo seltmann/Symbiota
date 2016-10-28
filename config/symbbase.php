@@ -47,7 +47,7 @@ if((isset($_COOKIE["SymbiotaBase"]) && (!isset($submit) || $submit != "logout"))
 	}
 }
 
-$CSS_VERSION = 'ver=20151213';
+$CSS_VERSION = 'ver=20160528';
 $USER_DISPLAY_NAME = (array_key_exists("dn",$PARAMS_ARR)?$PARAMS_ARR["dn"]:"");
 $USERNAME = (array_key_exists("un",$PARAMS_ARR)?$PARAMS_ARR["un"]:0);
 $SYMB_UID = (array_key_exists("uid",$PARAMS_ARR)?$PARAMS_ARR["uid"]:0);
@@ -144,4 +144,22 @@ else{
 	if(strlen($DEFAULT_LANG) == 2) $LANG_TAG = $DEFAULT_LANG;
 }
 if(!$LANG_TAG || strlen($LANG_TAG) != 2) $LANG_TAG = 'en';
+
+$RIGHTS_TERMS_DEFS = array(
+    'http://creativecommons.org/publicdomain/zero/1.0/' => array(
+        'title' => 'CC0 1.0 (Public-domain)',
+        'url' => 'https://creativecommons.org/publicdomain/zero/1.0/legalcode',
+        'def' => 'Users can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission.'
+    ),
+    'http://creativecommons.org/licenses/by/4.0/' => array(
+        'title' => 'CC BY (Attribution)',
+        'url' => 'http://creativecommons.org/licenses/by/4.0/legalcode',
+        'def' => 'Users can copy, redistribute the material in any medium or format, remix, transform, and build upon the material for any purpose, even commercially.'
+    ),
+    'http://creativecommons.org/licenses/by-nc/4.0/' => array(
+        'title' => 'CC BY-NC (Attribution-Non-Commercial)',
+        'url' => 'http://creativecommons.org/licenses/by-nc/4.0/legalcode',
+        'def' => 'Users can copy, redistribute the material in any medium or format, remix, transform, and build upon the material.'
+    )
+);
 ?>

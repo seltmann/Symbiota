@@ -2,19 +2,19 @@
 // Used by /trunk/collections/specprocessor/standalone_scripts/ImageBatchHandler.php
 // Used by /trunk/collections/specprocessor/imageprocessor.php
 
-if(isset($serverRoot)){
+if(isset($SERVER_ROOT)){
 	//Use Symbiota connection factory
-	if(file_exists($serverRoot.'/config/dbconnection.php')){ 
-		include_once($serverRoot.'/config/dbconnection.php');
+	if(file_exists($SERVER_ROOT.'/config/dbconnection.php')){ 
+		include_once($SERVER_ROOT.'/config/dbconnection.php');
 	}
 	else{
 		include_once('ImageBatchConnectionFactory.php');
 	}
-	if(file_exists($serverRoot.'/classes/OccurrenceUtilities.php')){ 
-		include_once($serverRoot.'/classes/OccurrenceUtilities.php');
+	if(file_exists($SERVER_ROOT.'/classes/OccurrenceMaintenance.php')){ 
+		include_once($SERVER_ROOT.'/classes/OccurrenceMaintenance.php');
 	}
-	if(file_exists($serverRoot.'/classes/UuidFactory.php')){ 
-		include_once($serverRoot.'/classes/UuidFactory.php');
+	if(file_exists($SERVER_ROOT.'/classes/UuidFactory.php')){ 
+		include_once($SERVER_ROOT.'/classes/UuidFactory.php');
 	}
 }
 // Check for the symbiota class files used herein for parsing 
@@ -22,13 +22,13 @@ if(isset($serverRoot)){
 // Fail gracefully if they aren't available.
 // Note also that class_exists() is checked for before
 // invocation of these parsers in processFolder().
-if(isset($serverRoot)){
+if(isset($SERVER_ROOT)){
 	//Files reside within Symbiota file structure
-	if (file_exists($serverRoot.'/classes/SpecProcessorGPI.php')) { 
-		@require_once($serverRoot.'/classes/SpecProcessorGPI.php');
+	if (file_exists($SERVER_ROOT.'/classes/SpecProcessorGPI.php')) { 
+		@require_once($SERVER_ROOT.'/classes/SpecProcessorGPI.php');
 	}
-	if (file_exists($serverRoot.'/classes/SpecProcessorNEVP.php')) {  
-		@require_once($serverRoot.'/classes/SpecProcessorNEVP.php');
+	if (file_exists($SERVER_ROOT.'/classes/SpecProcessorNEVP.php')) {  
+		@require_once($SERVER_ROOT.'/classes/SpecProcessorNEVP.php');
 	}
 }
 else{
@@ -71,6 +71,7 @@ class ImageBatchProcessor {
 	private $lgSourceSuffix = '_lg';
 	private $keepOrig = 0;
 
+	private $skeletalFileProcessing = true;
 	private $createNewRec = true;
 	private $imgExists = 0;			// 0 = skip import, 1 = rename image and save both, 2 = copy over image
 	private $dbMetadata = 1;
@@ -325,9 +326,11 @@ class ImageBatchProcessor {
 									//but for now do nothing
 								}
 								elseif(($fileExt == ".csv" || $fileExt == ".txt" || $fileExt == ".tab" || $fileExt == ".dat")){
-									//Is skeletal file exists. Append data to database records
-									$this->processSkeletalFile($this->sourcePathBase.$pathFrag.$fileName); 
-									if(!in_array($this->activeCollid,$this->collProcessedArr)) $this->collProcessedArr[] = $this->activeCollid;
+									if($this->skeletalFileProcessing){
+										//Is skeletal file exists. Append data to database records
+										$this->processSkeletalFile($this->sourcePathBase.$pathFrag.$fileName); 
+										if(!in_array($this->activeCollid,$this->collProcessedArr)) $this->collProcessedArr[] = $this->activeCollid;
+									}
 								}
 								elseif($fileExt==".xml") {
                                     // The loop through collArr can result in same file being processed more than
@@ -377,12 +380,13 @@ class ImageBatchProcessor {
 			$dom = new DOMDocument();
 			$dom->loadHTMLFile($this->sourcePathBase.$pathFrag);
 			$aNodes= $dom->getElementsByTagName('a');
-			$skipAnchors = array('Name','Last modified','Size','Description');
+			$skipAnchors = array('Name','Last modified','Size','Description','Parent Directory');
 			foreach( $aNodes as $aNode ) {
 				//$fileName = $aNode->getAttribute('href');
 				$fileName = trim($aNode->nodeValue);
 				if(!in_array($fileName,$skipAnchors)){
-					$fileExt = strtolower(substr($fileName,strrpos($fileName,'.')+1));
+					$fileExt = '';
+					if(strrpos($fileName,'.')) $fileExt = strtolower(substr($fileName,strrpos($fileName,'.')+1));
 					if($fileExt){
 						if(!stripos($fileName,$this->tnSourceSuffix.'.jpg') && !stripos($fileName,$this->lgSourceSuffix.'.jpg')){
 							$this->logOrEcho("Processing File (".date('Y-m-d h:i:s A')."): ".$fileName);
@@ -397,9 +401,11 @@ class ImageBatchProcessor {
 								//but for now do nothing
 							}
 							elseif(($fileExt == "csv" || $fileExt == "txt" || $fileExt == "tab" || $fileExt == "dat")){
-								//Is skeletal file. Process and append data to database records
-								$this->processSkeletalFile($this->sourcePathBase.$pathFrag.$fileName); 
-								if(!in_array($this->activeCollid,$this->collProcessedArr)) $this->collProcessedArr[] = $this->activeCollid;
+								if($this->skeletalFileProcessing){
+									//Is skeletal file. Process and append data to database records
+									$this->processSkeletalFile($this->sourcePathBase.$pathFrag.$fileName); 
+									if(!in_array($this->activeCollid,$this->collProcessedArr)) $this->collProcessedArr[] = $this->activeCollid;
+								}
 							}
 							elseif($fileExt=="xml") {
 								$this->processXMLFile($fileName,$pathFrag);
@@ -411,7 +417,7 @@ class ImageBatchProcessor {
 						}
 					}
 					elseif(stripos($fileName,'Parent Dir') === false){
-						echo 'New dir path: '.$this->sourcePathBase.$pathFrag.$fileName.'<br/>';
+						$this->logOrEcho('New dir path: '.$this->sourcePathBase.$pathFrag.$fileName.'<br/>');
 						if(substr($fileName,-1) != '/') $fileName .= '/';
 						$this->processHtml($pathFrag.$fileName);
 					}
@@ -804,7 +810,7 @@ class ImageBatchProcessor {
 			}
 		}
 		else{
-			$this->logOrEcho("File skipped (".$sourcePathFrag.$fileName."), unable to extract specimen identifier");
+			$this->logOrEcho("File skipped (".$sourcePathFrag.$fileName."), unable to extract specimen identifier",1);
 			return false;
 		}
 		//ob_flush();
@@ -894,8 +900,8 @@ class ImageBatchProcessor {
 		$specPk = '';
 		if(isset($this->collArr[$this->activeCollid]['pmterm'])){
 			$pmTerm = $this->collArr[$this->activeCollid]['pmterm'];
-			if(substr($pmTerm,0,1) != '/' || substr($pmTerm,-1) != '/'){
-				$this->logOrEcho("PROCESS ABORTED: Regular Expression term illegal due to missing forward slashes: ".$pmTerm);
+			if(substr($pmTerm,0,1) != '/' || stripos(substr($pmTerm,-3),'/') === false){
+				$this->logOrEcho("PROCESS ABORTED: Regular Expression term illegal due to missing forward slashes delimiting the term: ".$pmTerm);
 				exit;
 			}
 			if(!strpos($pmTerm,'(') || !strpos($pmTerm,')')){
@@ -1009,7 +1015,7 @@ class ImageBatchProcessor {
 			}
 			$rs->free();
 
-			$sql1 = 'INSERT images(occid,url';
+			$sql1 = 'INSERT INTO images(occid,url';
 			$sql2 = 'VALUES ('.$occId.',"'.$webUrl.'"';
 			if($tnUrl){
 				$sql1 .= ',thumbnailurl';
@@ -1019,8 +1025,8 @@ class ImageBatchProcessor {
 				$sql1 .= ',originalurl';
 				$sql2 .= ',"'.$oUrl.'"';
 			}
-			$sql1 .= ',imagetype,owner) ';
-			$sql2 .= ',"specimen","'.$this->collArr[$this->activeCollid]['collname'].'")';
+			$sql1 .= ',imagetype,owner,format) ';
+			$sql2 .= ',"specimen","'.$this->collArr[$this->activeCollid]['collname'].'","image/jpeg")';
 			$sql = $sql1.$sql2;
 			if($sql){
 				if($this->conn->query($sql)){
@@ -1466,20 +1472,20 @@ class ImageBatchProcessor {
 	private function updateCollectionStats(){
 		if($this->dbMetadata){
 		//Do some more cleaning of the data after it haas been indexed in the omoccurrences table
-			$occurUtil = new OccurrenceUtilities();
+			$occurMain = new OccurrenceMaintenance($this->conn);
 	
 			$this->logOrEcho('Cleaning house...');
 			$collString = implode(',',$this->collProcessedArr);
-			if(!$occurUtil->generalOccurrenceCleaning($collString)){
-				$errorArr = $occurUtil->getErrorArr();
+			if(!$occurMain->generalOccurrenceCleaning($collString)){
+				$errorArr = $occurMain->getErrorArr();
 				foreach($errorArr as $errorStr){
 					$this->logOrEcho($errorStr,1);
 				}
 			}
 			
 			$this->logOrEcho('Protecting sensitive species...');
-			if(!$occurUtil->protectRareSpecies()){
-				$errorArr = $occurUtil->getErrorArr();
+			if(!$occurMain->protectRareSpecies()){
+				$errorArr = $occurMain->getErrorArr();
 				foreach($errorArr as $errorStr){
 					$this->logOrEcho($errorStr,1);
 				}
@@ -1487,8 +1493,8 @@ class ImageBatchProcessor {
 			
 			$this->logOrEcho('Updating statistics...');
 			foreach($this->collProcessedArr as $collid){
-				if(!$occurUtil->updateCollectionStats($collid)){
-					$errorArr = $occurUtil->getErrorArr();
+				if(!$occurMain->updateCollectionStats($collid)){
+					$errorArr = $occurMain->getErrorArr();
 					foreach($errorArr as $errorStr){
 						$this->logOrEcho($errorStr,1);
 					}
@@ -1673,6 +1679,14 @@ class ImageBatchProcessor {
 
 	public function getKeepOrig(){
 		return $this->keepOrig;
+	}
+
+	public function setSkeletalFileProcessing($c){
+		$this->skeletalFileProcessing = $c;
+	}
+
+	public function getSkeletalFileProcessing(){
+		return $this->skeletalFileProcessing;
 	}
 	
 	public function setCreateNewRec($c){

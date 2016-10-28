@@ -156,6 +156,15 @@ if($SYMB_UID){
 				<div id="controlpanel" style="clear:both;display:<?php echo ($eMode?'block':'none'); ?>;">
 					<fieldset style="padding:10px;padding-left:25px;">
 						<legend><b>Data Editor Control Panel</b></legend>
+						<fieldset style="float:right;margin:5px" title="Quick Search">
+							<legend><b>Quick Search</b></legend>
+							<b>Catalog Number</b><br/>
+							<form name="quicksearch" action="../editor/occurrenceeditor.php" method="post">
+								<input name="q_catalognumber" type="text" />
+								<input name="collid" type="hidden" value="<?php echo $collid; ?>" />
+								<input name="occindex" type="hidden" value="0" />
+							</form>
+						</fieldset>
 						<ul>
 							<?php
 							if(stripos($collData['colltype'],'observation') !== false){
@@ -199,17 +208,11 @@ if($SYMB_UID){
 									<?php echo $LANG['ADD_BATCH_DETER']; ?>
 								</a>
 							</li>
-							<?php
-							if($collData['colltype'] == 'Preserved Specimens'){
-								?>
-								<li>
-									<a href="../reports/labelmanager.php?collid=<?php echo $collid; ?>">
-										<?php echo $LANG['PRINT_LABELS']; ?>
-									</a>
-								</li>
-								<?php
-							}
-							?>
+							<li>
+								<a href="../reports/labelmanager.php?collid=<?php echo $collid; ?>">
+									<?php echo $LANG['PRINT_LABELS']; ?>
+								</a>
+							</li>
 							<li>
 								<a href="../georef/batchgeoreftool.php?collid=<?php echo $collid; ?>">
 									<?php echo $LANG['BATCH_GEOREF']; ?>
@@ -243,11 +246,6 @@ if($SYMB_UID){
 								<li>
 									<a href="collmetadata.php?collid=<?php echo $collid; ?>" >
 										<?php echo $LANG['EDIT_META']; ?>
-									</a>
-								</li>
-								<li>
-									<a href="collprofiles.php?collid=<?php echo $collid; ?>&action=UpdateStatistics" >
-										<?php echo $LANG['UPDATE_STATS'];?>
 									</a>
 								</li>
 								<li>
@@ -300,11 +298,6 @@ if($SYMB_UID){
 											<?php echo $LANG['REVIEW_SPEC_EDITS']; ?>
 										</a>
 									</li>
-									<li>
-										<a href="../cleaning/occurrencecleaner.php?obsuid=0&collid=<?php echo $collid; ?>">
-	                                        <?php echo $LANG['DATA_CLEANING']; ?>
-										</a>
-									</li>
 									<?php
 								} 
 								?>
@@ -314,8 +307,32 @@ if($SYMB_UID){
 									</a>
 								</li>
 								<li>
+									<?php echo $LANG['MAINTENANCE_TASKS']; ?>
+								</li>
+								<?php 
+								if($collData['colltype'] != 'General Observations'){
+									?>
+									<li style="margin-left:10px;">
+										<a href="../cleaning/occurrencecleaner.php?obsuid=0&collid=<?php echo $collid; ?>">
+	                                        <?php echo $LANG['DATA_CLEANING']; ?>
+										</a>
+									</li>
+									<?php
+								} 
+								?>
+								<li style="margin-left:10px;">
 									<a href="#" onclick="newWindow = window.open('collbackup.php?collid=<?php echo $collid; ?>','bucollid','scrollbars=1,toolbar=1,resizable=1,width=400,height=200,left=20,top=20');">
 										<?php echo $LANG['BACKUP_DATA_FILE']; ?>
+									</a>
+								</li>
+								<li style="margin-left:10px;">
+									<a href="../../imagelib/admin/thumbnailbuilder.php?collid=<?php echo $collid; ?>">
+										<?php echo $LANG['THUMBNAIL_BUILDER']; ?>
+									</a>
+								</li>
+								<li style="margin-left:10px;">
+									<a href="collprofiles.php?collid=<?php echo $collid; ?>&action=UpdateStatistics" >
+										<?php echo $LANG['UPDATE_STATS'];?>
 									</a>
 								</li>
 							</ul>
@@ -437,6 +454,7 @@ if($SYMB_UID){
 							echo "<div>".$addrArr["institutionname"];
 							if($editCode > 1) echo ' <a href="../admin/institutioneditor.php?emode=1&targetcollid='.$collid.'&iid='.$iid.'" title="Edit institution information"><img src="../../images/edit.png" style="width:13px;" /></a>';
 							echo '</div>';
+							if($addrArr["institutionname2"]) echo "<div>".$addrArr["institutionname2"]."</div>";
 							if($addrArr["address1"]) echo "<div>".$addrArr["address1"]."</div>";
 							if($addrArr["address2"]) echo "<div>".$addrArr["address2"]."</div>";
 							if($addrArr["city"]) echo "<div>".$addrArr["city"].", ".$addrArr["stateprovince"]."&nbsp;&nbsp;&nbsp;".$addrArr["postalcode"]."</div>";
