@@ -10,31 +10,32 @@ $(document).ready(function() {
 });
 
 function toggle(target){
-	var spanObjs = document.getElementsByTagName("span");
-	for (i = 0; i < spanObjs.length; i++) {
-		var obj = spanObjs[i];
-		if(obj.getAttribute("class") == target || obj.getAttribute("className") == target){
-			if(obj.style.display=="none"){
-				obj.style.display="inline";
+	var divObjs = document.getElementsByTagName("span");
+  	for (i = 0; i < divObjs.length; i++) {
+  		var divObj = divObjs[i];
+  		if(divObj.getAttribute("class") == target || divObj.getAttribute("className") == target){
+			if(divObj.style.display=="none"){
+				divObj.style.display="";
 			}
-			else {
-				obj.style.display="none";
-			}
+		 	else {
+		 		divObj.style.display="none";
+		 	}
 		}
 	}
+}
 
-	var divObjs = document.getElementsByTagName("div");
-	for (i = 0; i < divObjs.length; i++) {
-		var obj = divObjs[i];
-		if(obj.getAttribute("class") == target || obj.getAttribute("className") == target){
-			if(obj.style.display=="none"){
-				obj.style.display="inline";
-			}
-			else {
-				obj.style.display="none";
-			}
-		}
+function toggleLinks(target){
+	var ele = document.getElementById(target);
+	if(ele){
+		if(ele.style.display=="none"){
+			ele.style.display="";
+  		}
+	 	else {
+	 		ele.style.display="none";
+	 	}
 	}
+	event.preventDefault();
+	$('html,body').animate({scrollTop:$("#"+target).offset().top}, 500);
 }
 
 function toggleMap(mapObj){
