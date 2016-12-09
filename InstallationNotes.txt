@@ -1,0 +1,12 @@
+/var/www/vhosts/Symbiota/content
+/var/www/vhosts/Symbiota/webservices/dwc
+/var/www/vhosts/Symbiota/temp
+/var/www/vhosts/Symbiota/collections/datasets/dwc
+
+/var/www/vhosts/Symbiota/content/specimenImages
+
+
+default php cant be over 2mb
+
+
+header.php has menu for editing on index page
