@@ -39,9 +39,9 @@ header("Content-Type: text/html; charset=".$CHARSET);
 			</div>
 		</div>
 		<div style="padding: 0px 15px;">
-			<h1>Welcome to the University of California, Santa Barbara Natural History Data Portal</h1>
+			<h1>Welcome to the University of California, Santa Barbara Natural History Data Portal </h1>
 			<h2><div style="margin:50px 130px 130px 150px;">
-			The SCC data portal was created to serve as a gateway to distributed data resources within the University of California Santa Barbara and UCSB Natural Reserve System and UCSB Center for Biodiversity and Ecological Restoration. Through a common web interface, we offer tools to locate, access and work with a variety of data. SCC is more than just a web site - it is a suite of data access technologies and a distributed network of collections across UCSB, or that have holdings from UCSB and UCSB NRS locations.
+			The UCSB Natural History Data Portal was created to serve as a gateway to distributed data resources within the University of California Santa Barbara and UCSB Natural Reserve System and UCSB Center for Biodiversity and Ecological Restoration. Through a common web interface, we offer tools to locate, access and work with a variety of data. SCC is more than just a web site - it is a suite of data access technologies and a distributed network of collections across UCSB, or that have holdings from UCSB and UCSB NRS locations.
 			</div><h2>
 		</div>
 	</div>
