@@ -1,17 +1,19 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/CollectionProfileManager.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/OccurrenceCollectionProfile.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 ini_set('max_execution_time', 1200); //1200 seconds = 20 minutes
 
 $catId = array_key_exists("catid",$_REQUEST)?$_REQUEST["catid"]:0;
 if(!$catId && isset($DEFAULTCATID) && $DEFAULTCATID) $catId = $DEFAULTCATID;
 $collId = array_key_exists("collid",$_REQUEST)?$_REQUEST["collid"]:0;
+$cPartentTaxon = array_key_exists("taxon",$_REQUEST)?$_REQUEST["taxon"]:'';
+$cCountry = array_key_exists("country",$_REQUEST)?$_REQUEST["country"]:'';
 $days = array_key_exists("days",$_REQUEST)?$_REQUEST["days"]:365;
 $months = array_key_exists("months",$_REQUEST)?$_REQUEST["months"]:12;
 $action = array_key_exists('submitaction',$_REQUEST)?$_REQUEST['submitaction']:'';
 
-$collManager = new CollectionProfileManager();
+$collManager = new OccurrenceCollectionProfile();
 
 //if($collId) $collManager->setCollectionId($collId);
 $collList = $collManager->getStatCollectionList($catId);
@@ -26,7 +28,7 @@ $results = array();
 $collStr = '';
 if($collId){
 	$collIdArr = explode(",",$collId);
-	if($action == "Run Statistics"){
+	if($action == "Run Statistics" && (!$cPartentTaxon && !$cCountry)){
 		$resultsTemp = $collManager->runStatistics($collId);
 		$results['FamilyCount'] = $resultsTemp['familycnt'];
 		$results['GeneraCount'] = $resultsTemp['genuscnt'];
@@ -38,7 +40,7 @@ if($collId){
 		unset($resultsTemp['speciescnt']);
 		unset($resultsTemp['TotalTaxaCount']);
 		unset($resultsTemp['TotalImageCount']);
-		ksort($resultsTemp);
+		ksort($resultsTemp, SORT_STRING | SORT_FLAG_CASE);
 		$c = 0;
 		foreach($resultsTemp as $k => $collArr){
 			$dynPropTempArr = array();
@@ -124,21 +126,103 @@ if($collId){
 		}
 		$results['SpecimensNullLatitude'] = $results['SpecimenCount'] - $results['GeorefCount'];
 	}
+    elseif($action == "Run Statistics" && ($cPartentTaxon || $cCountry)){
+        $resultsTemp = $collManager->runStatisticsQuery($collId,$cPartentTaxon,$cCountry);
+        $familyArr = $resultsTemp['families'];
+        ksort($familyArr, SORT_STRING | SORT_FLAG_CASE);
+        $countryArr = $resultsTemp['countries'];
+        ksort($countryArr, SORT_STRING | SORT_FLAG_CASE);
+        unset($resultsTemp['families']);
+        unset($resultsTemp['countries']);
+        ksort($resultsTemp, SORT_STRING | SORT_FLAG_CASE);
+        $c = 0;
+        foreach($resultsTemp as $k => $collArr){
+            if($c>0) $collStr .= ", ";
+            $collStr .= $collArr['CollectionName'];
+            if(array_key_exists("SpecimenCount",$results)){
+                $results['SpecimenCount'] = $results['SpecimenCount'] + $collArr['recordcnt'];
+            }
+            else{
+                $results['SpecimenCount'] = $collArr['recordcnt'];
+            }
+
+            if(array_key_exists("GeorefCount",$results)){
+                $results['GeorefCount'] = $results['GeorefCount'] + $collArr['georefcnt'];
+            }
+            else{
+                $results['GeorefCount'] = $collArr['georefcnt'];
+            }
+
+            if(array_key_exists("FamilyCount",$results)){
+                $results['FamilyCount'] = $results['FamilyCount'] + $collArr['familycnt'];
+            }
+            else{
+                $results['FamilyCount'] = $collArr['familycnt'];
+            }
+
+            if(array_key_exists("GeneraCount",$results)){
+                $results['GeneraCount'] = $results['GeneraCount'] + $collArr['genuscnt'];
+            }
+            else{
+                $results['GeneraCount'] = $collArr['genuscnt'];
+            }
+
+            if(array_key_exists("SpeciesCount",$results)){
+                $results['SpeciesCount'] = $results['SpeciesCount'] + $collArr['speciescnt'];
+            }
+            else{
+                $results['SpeciesCount'] = $collArr['speciescnt'];
+            }
+
+            if(array_key_exists("TotalTaxaCount",$results)){
+                $results['TotalTaxaCount'] = $results['TotalTaxaCount'] + $collArr['TotalTaxaCount'];
+            }
+            else{
+                $results['TotalTaxaCount'] = $collArr['TotalTaxaCount'];
+            }
+
+            if(array_key_exists("TotalImageCount",$results)){
+                $results['TotalImageCount'] = $results['TotalImageCount'] + $collArr['OccurrenceImageCount'];
+            }
+            else{
+                $results['TotalImageCount'] = $collArr['OccurrenceImageCount'];
+            }
+
+            if(array_key_exists("SpecimensCountID",$results)){
+                $results['SpecimensCountID'] = $results['SpecimensCountID'] + $collArr['speciesID'];
+            }
+            else{
+                $results['SpecimensCountID'] = $collArr['speciesID'];
+            }
+
+            if(array_key_exists("TypeCount",$results)){
+                $results['TypeCount'] = $results['TypeCount'] + $collArr['types'];
+            }
+            else{
+                $results['TypeCount'] = $collArr['types'];
+            }
+
+            $c++;
+        }
+        $results['SpecimensNullLatitude'] = $results['SpecimenCount'] - $results['GeorefCount'];
+    }
 	if($action == "Update Statistics"){
 		$collManager->batchUpdateStatistics($collId);
 		echo '<script type="text/javascript">window.location="collstats.php?collid='.$collId.'"</script>';
 	}
+    $_SESSION['statsFamilyArr'] = $familyArr;
+    $_SESSION['statsCountryArr'] = $countryArr;
 }
 if($action != "Update Statistics"){
 	?>
 	<html>
 		<head>
 			<meta name="keywords" content="Natural history collections statistics" />
-			<title><?php echo $defaultTitle; ?> Collection Statistics</title>
-			<link rel="stylesheet" href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" />
-			<link rel="stylesheet" href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" />
-			<link href="../../css/jquery-ui.css" type="text/css" rel="Stylesheet" />
-			<script type="text/javascript" src="../../js/jquery.js"></script>
+			<title><?php echo $DEFAULT_TITLE; ?> Collection Statistics</title>
+			<link rel="stylesheet" href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" />
+			<link rel="stylesheet" href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" />
+			<link rel="stylesheet" href="../../css/jquery-ui.css" type="text/css" />
+            <script type="text/javascript" src="../../js/jquery.js"></script>
 			<script type="text/javascript" src="../../js/jquery-ui.js"></script>
 			<script type="text/javascript" src="../../js/symb/collections.index.js"></script>
 			<script type="text/javascript">
@@ -147,6 +231,49 @@ if($action != "Update Statistics"){
 						alert("Your browser cookies are disabled. To be able to login and access your profile, they must be enabled for this domain.");
 					}
 					$("#tabs").tabs({<?php echo ($action == "Run Statistics"?'active: 1':''); ?>});
+
+                    function split( val ) {
+                        return val.split( /,\s*/ );
+                    }
+                    function extractLast( term ) {
+                        return split( term ).pop();
+                    }
+
+                    $( "#taxon" )
+                    // don't navigate away from the field on tab when selecting an item
+                        .bind( "keydown", function( event ) {
+                            if ( event.keyCode === $.ui.keyCode.TAB &&
+                                $( this ).data( "autocomplete" ).menu.active ) {
+                                event.preventDefault();
+                            }
+                        })
+                        .autocomplete({
+                            source: function( request, response ) {
+                                $.getJSON( "rpc/speciessuggest.php", {
+                                    term: extractLast( request.term )
+                                }, response );
+                            },
+                            search: function() {
+                                // custom minLength
+                                var term = extractLast( this.value );
+                                if ( term.length < 4 ) {
+                                    return false;
+                                }
+                            },
+                            focus: function() {
+                                // prevent value inserted on focus
+                                return false;
+                            },
+                            select: function( event, ui ) {
+                                var terms = split( this.value );
+                                // remove the current input
+                                terms.pop();
+                                // add the selected item
+                                terms.push( ui.item.value );
+                                this.value = terms.join( ", " );
+                                return false;
+                            }
+                        },{});
 				});
 
 				function toggleStatsPerColl(){
@@ -231,7 +358,7 @@ if($action != "Update Statistics"){
 		<body>
 			<?php
 			$displayLeftMenu = (isset($collections_misc_collstatsMenu)?$collections_misc_collstatsMenu:false);
-			include($serverRoot.'/header.php');
+			include($SERVER_ROOT.'/header.php');
 			if(isset($collections_misc_collstatsCrumbs)){
 				if($collections_misc_collstatsCrumbs){
 					echo "<div class='navpath'>";
@@ -258,7 +385,7 @@ if($action != "Update Statistics"){
 					<ul>
 						<li><a href="#specobsdiv">Collections</a></li>
 						<?php
-						if($action == "Run Statistics"){
+                        if($action == "Run Statistics"){
 							echo '<li><a href="#statsdiv">Statistics</a></li>';
 						}
 						?>
@@ -269,7 +396,22 @@ if($action != "Update Statistics"){
 						if($specArr || $obsArr){
 							?>
 							<form name="collections" id="collform" action="collstats.php" method="post" onsubmit="return changeCollForm(this);">
-								<div style="margin:0px 0px 10px 20px;">
+                                <?php
+                                if($SYMB_UID && ($IS_ADMIN || array_key_exists("CollAdmin",$USER_RIGHTS))){
+                                    ?>
+                                    <fieldset style="padding:10px;padding-left:25px;">
+                                        <legend><b>Record Criteria</b></legend>
+                                        <div style="margin:10px;float:left;">
+                                            Parent Taxon: <input type="text" id="taxon" size="43" name="taxon" value="<?php echo $cPartentTaxon; ?>" />
+                                        </div>
+                                        <div style="margin:10px;float:left;">
+                                            Country: <input type="text" id="country" size="43" name="country" value="<?php echo $cCountry; ?>" />
+                                        </div>
+                                    </fieldset>
+                                    <?php
+                                }
+                                ?>
+                                <div style="margin:20px 0px 10px 20px;">
 									<input id="dballcb" name="db[]" class="specobs" value='all' type="checkbox" onclick="selectAll(this);" />
 									Select/Deselect all <a href="collprofiles.php">Collections</a>
 								</div>
@@ -312,7 +454,7 @@ if($action != "Update Statistics"){
 													</td>
 													<td style="padding:9px 5px;width:10px;">
 														<a href="#" onclick="toggleCat('<?php echo $idStr; ?>');return false;">
-															<img id="plus-<?php echo $idStr; ?>" src="../../images/plus_sm.png" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'display:none;':($cnt||$collIdArr?'':'display:none;')); ?>" /><img id="minus-<?php echo $idStr; ?>" src="../../images/minus_sm.png" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'':($cnt||$collIdArr?'display:none;':'')); ?>" />
+															<img id="plus-<?php echo $idStr; ?>" src="../../images/plus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'':'display:none;') ?>" /><img id="minus-<?php echo $idStr; ?>" src="../../images/minus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>" />
 														</a>
 													</td>
 													<td style="padding-top:8px;">
@@ -324,8 +466,8 @@ if($action != "Update Statistics"){
 													</td>
 												</tr>
 												<tr>
-													<td colspan="4">
-														<div id="cat-<?php echo $idStr; ?>" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'':($cnt||$collIdArr?'display:none;':'')); ?>margin:10px;padding:10px 20px;border:inset">
+													<td colspan="3">
+														<div id="cat-<?php echo $idStr; ?>" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>margin:10px;padding:10px 20px;border:inset">
 															<table>
 																<?php
 																foreach($catArr as $collid => $collName2){
@@ -453,7 +595,7 @@ if($action != "Update Statistics"){
 													</td>
 													<td style="padding:9px 5px;width:10px;">
 														<a href="#" onclick="toggleCat('<?php echo $idStr; ?>');return false;">
-															<img id="plus-<?php echo $idStr; ?>" src="../../images/plus_sm.png" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'display:none;':($cnt||$collIdArr?'':'display:none;')); ?>" /><img id="minus-<?php echo $idStr; ?>" src="../../images/minus_sm.png" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'':($cnt||$collIdArr?'display:none;':'')); ?>" />
+                                                            <img id="plus-<?php echo $idStr; ?>" src="../../images/plus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'':'display:none;') ?>" /><img id="minus-<?php echo $idStr; ?>" src="../../images/minus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>" />
 														</a>
 													</td>
 													<td style="padding-top:8px;">
@@ -465,8 +607,8 @@ if($action != "Update Statistics"){
 													</td>
 												</tr>
 												<tr>
-													<td colspan="4">
-														<div id="cat-<?php echo $idStr; ?>" style="<?php echo ($collIdArr&&array_intersect($collIdArr,array_keys($catArr))?'':($cnt||$collIdArr?'display:none;':'')); ?>margin:10px;padding:10px 20px;border:inset">
+													<td colspan="3">
+                                                        <div id="cat-<?php echo $idStr; ?>" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>margin:10px;padding:10px 20px;border:inset">
 															<table>
 																<?php
 																foreach($catArr as $collid => $collName2){
@@ -561,16 +703,16 @@ if($action != "Update Statistics"){
 								<input type="hidden" name="collid" id="colltxt" value="" />
 								<input type="hidden" name="days" value="<?php echo $days; ?>" />
 								<input type="hidden" name="months" value="<?php echo $months; ?>" />
-							</form>
-							<?php
-						}
+                            </form>
+                            <?php
+                        }
 						else{
 							echo '<div style="margin-top:10px;"><div style="font-weight:bold;font-size:120%;">There are currently no collections to analyze.</div></div>';
 						}
 						?>
 					</div>
 
-					<?php
+                    <?php
 					if($action == "Run Statistics"){
 						?>
 						<div id="statsdiv">
@@ -637,6 +779,8 @@ if($action != "Update Statistics"){
 												</div>
 												<div style='float:left;margin-left:6px;width:16px;height:16px;padding:2px;' title="Save CSV">
 													<input type="hidden" name="collids" id="collids" value='<?php echo $collId; ?>' />
+                                                    <input type="hidden" name="taxon" value='<?php echo $cPartentTaxon; ?>' />
+                                                    <input type="hidden" name="country" value='<?php echo $cCountry; ?>' />
 													<input type="hidden" name="action" id="action" value='Download Stats per Coll' />
 													<input type="image" name="action" src="../../images/dl.png" onclick="" />
 													<!--input type="submit" name="action" value="Download Stats per Coll" src="../../images/dl.png" / -->
@@ -660,7 +804,6 @@ if($action != "Update Statistics"){
 														<input type="image" name="action" src="../../images/dl.png" onclick="" />
 													</div>
 												</div>
-												<input type="hidden" name="famarrjson" id="famarrjson" value='<?php echo json_encode($familyArr); ?>' />
 											</form>
 											<form name="geostatscsv" id="geostatscsv" action="collstatscsv.php" method="post" onsubmit="">
 												<div style="clear:both;">
@@ -675,30 +818,51 @@ if($action != "Update Statistics"){
 														<input type="image" name="action" src="../../images/dl.png" onclick="" />
 													</div>
 												</div>
-												<input type="hidden" name="geoarrjson" id="geoarrjson" value='<?php echo json_encode($countryArr); ?>' />
 											</form>
+                                            <?php
+                                            if(!$cPartentTaxon && !$cCountry){
+                                                ?>
+                                                <div style="margin-top:25px;">
+                                                    <form name="orderstats" style="margin-bottom:0px"
+                                                          action="collorderstats.php" method="post" target="_blank"
+                                                          onsubmit="">
+                                                        <input type="hidden" name="collid" id="collid"
+                                                               value='<?php echo $collId; ?>'/>
+                                                        <input type="hidden" name="totalcnt" id="totalcnt"
+                                                               value='<?php echo $results['SpecimenCount']; ?>'/>
+                                                        <input type="submit" name="action" value="Load Order Distribution"/>
+                                                    </form>
+                                                </div>
+                                                <?php
+                                            }
+                                            ?>
 										</fieldset>
 										<?php
-										if($SYMB_UID && ($IS_ADMIN || array_key_exists("CollAdmin",$USER_RIGHTS))){
-											?>
-											<div style="">
-												<form name="yearstats" style="margin-bottom:0px" action="collyearstats.php" method="post" target="_blank" onsubmit="">
-													<input type="hidden" name="collid" id="collid" value='<?php echo $collId; ?>' />
-													<input type="hidden" name="days" value="<?php echo $days; ?>" />
-													<input type="hidden" name="months" value="<?php echo $months; ?>" />
-													<input type="submit" name="action" value="Load Stats for Past Year" />
-												</form>
-											</div>
-											<?php
-										}
-										?>
-										<div style="margin-top:10px;">
-											<form name="orderstats" style="margin-bottom:0px" action="collorderstats.php" method="post" target="_blank" onsubmit="">
-												<input type="hidden" name="collid" id="collid" value='<?php echo $collId; ?>' />
-												<input type="hidden" name="totalcnt" id="totalcnt" value='<?php echo $results['SpecimenCount']; ?>' />
-												<input type="submit" name="action" value="Load Order Distribution" />
-											</form>
-										</div>
+										if(!$cPartentTaxon && !$cCountry){
+                                            if ($SYMB_UID && ($IS_ADMIN || array_key_exists("CollAdmin", $USER_RIGHTS))) {
+                                                ?>
+                                                <fieldset id="yearstatsbox" style="width:275px;">
+                                                    <legend><b>Year Stats</b></legend>
+                                                    <form name="yearstats" style="margin-bottom:0px"
+                                                          action="collyearstats.php" method="post" target="_blank"
+                                                          onsubmit="">
+                                                        <input type="hidden" name="collid" id="collid"
+                                                               value='<?php echo $collId; ?>'/>
+                                                        <input type="hidden" name="days" value="<?php echo $days; ?>"/>
+                                                        <input type="hidden" name="months"
+                                                               value="<?php echo $months; ?>"/>
+                                                        <div style="float:left;">
+                                                            Years: <input type="text" id="years" size="5" name="years" value="1" />
+                                                        </div>
+                                                        <div style="margin-left:10px;float:left;">
+                                                            <input type="submit" name="action" value="Load Stats"/>
+                                                        </div>
+                                                    </form>
+                                                </fieldset>
+                                                <?php
+                                            }
+                                        }
+                                        ?>
 									</div>
 									<div style="clear:both;"> </div>
 								</div>
@@ -819,7 +983,7 @@ if($action != "Update Statistics"){
 			</div>
 			<!-- end inner text -->
 			<?php
-				include($serverRoot.'/footer.php');
+				include($SERVER_ROOT.'/footer.php');
 			?>
 		</body>
 	</html>

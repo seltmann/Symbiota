@@ -1,6 +1,6 @@
 <?php
 include_once($serverRoot.'/config/dbconnection.php');
-include_once($serverRoot.'/classes/DwcArchiverOccurrence.php');
+include_once($serverRoot.'/classes/DwcArchiverCore.php');
 
 class OccurrenceDataset {
 
@@ -357,12 +357,12 @@ class OccurrenceDataset {
 				$rareReaderArr = array_unique(array_merge($rareReaderArr,$userRights['RareSppReader']));
 			}
 		}
-		$dwcaHandler = new DwcArchiverOccurrence();
+		$dwcaHandler = new DwcArchiverCore();
 		$dwcaHandler->setCharSetOut($cSet);
 		$dwcaHandler->setSchemaType($schema);
 		$dwcaHandler->setExtended($extended);
 		$dwcaHandler->setDelimiter($format);
-		$dwcaHandler->setVerbose(0);
+		$dwcaHandler->setVerboseMode(0);
 		$dwcaHandler->setRedactLocalities($redactLocalities);
 		if($rareReaderArr) $dwcaHandler->setRareReaderArr($rareReaderArr);
 
@@ -374,9 +374,11 @@ class OccurrenceDataset {
 			//Ouput file is a zip file
 			$includeIdent = (array_key_exists('identifications',$_POST)?1:0);
 			$dwcaHandler->setIncludeDets($includeIdent);
-			$images = (array_key_exists('images',$_POST)?1:0);
-			$dwcaHandler->setIncludeImgs($images);
-			
+			$includeImages = (array_key_exists('images',$_POST)?1:0);
+			$dwcaHandler->setIncludeImgs($includeImages);
+			$includeAttributes = (array_key_exists('attributes',$_POST)?1:0);
+			$dwcaHandler->setIncludeAttributes($includeAttributes);
+				
 			$outputFile = $dwcaHandler->createDwcArchive('webreq');
 			
 		}

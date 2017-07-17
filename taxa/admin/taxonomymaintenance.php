@@ -1,33 +1,33 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($SERVER_ROOT.'/classes/TaxonomyUtilities.php');
+include_once($SERVER_ROOT.'/classes/TaxonomyHarvester.php');
 
 if(!$SYMB_UID) header('Location: ../../profile/index.php?refurl=../taxa/admin/taxonomymaintenance.php?'.$_SERVER['QUERY_STRING']);
 
 $action = array_key_exists("action",$_REQUEST)?$_REQUEST["action"]:"";
 
-$taxonManager = new TaxonomyUtilities();
+$harvesterManager = new TaxonomyHarvester();
  
 $isEditor = false;
-if($isAdmin || array_key_exists("Taxonomy",$userRights)){
+if($IS_ADMIN || array_key_exists("Taxonomy",$USER_RIGHTS)){
 	$isEditor = true;
 }
 
 if($isEditor){
 	if($action == 'buildenumtree'){
-		if($taxonManager->buildHierarchyEnumTree()){
+		if($harvesterManager->buildHierarchyEnumTree()){
 			$statusStr = 'SUCCESS building Taxonomic Index';
 		}
 		else{
-			$statusStr = 'ERROR building Taxonomic Index: '.$taxonManager->getErrorMessage();
+			$statusStr = 'ERROR building Taxonomic Index: '.$harvesterManager->getErrorMessage();
 		}
 	}
 	elseif($action == 'rebuildenumtree'){
-		if($taxonManager->rebuildHierarchyEnumTree()){
+		if($harvesterManager->rebuildHierarchyEnumTree()){
 			$statusStr = 'SUCCESS building Taxonomic Index';
 		}
 		else{
-			$statusStr = 'ERROR building Taxonomic Index: '.$taxonManager->getErrorMessage();
+			$statusStr = 'ERROR building Taxonomic Index: '.$harvesterManager->getErrorMessage();
 		}
 	}
 }
@@ -37,8 +37,8 @@ if($isEditor){
 <head>
 	<title><?php echo $DEFAULT_TITLE." Taxonomy Maintenance "; ?></title>
 	<meta http-equiv="Content-Type" content="text/html; charset=<?php echo $CHARSET; ?>"/>
-	<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-	<link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	<link type="text/css" href="../../css/jquery-ui.css" rel="Stylesheet" />
 	<script type="text/javascript" src="../../js/jquery.js"></script>
 	<script type="text/javascript" src="../../js/jquery-ui.js"></script>
@@ -48,7 +48,7 @@ if($isEditor){
 <body>
 <?php
 $displayLeftMenu = (isset($taxa_admin_taxonomydisplayMenu)?$taxa_admin_taxonomydisplayMenu:"true");
-include($serverRoot.'/header.php');
+include($SERVER_ROOT.'/header.php');
 if(isset($taxa_admin_taxonomydisplayCrumbs)){
 	echo "<div class='navpath'>";
 	echo "<a href='../index.php'>Home</a> &gt; ";
@@ -101,7 +101,7 @@ else{
 		?>
 	</div>
 	<?php 
-	include($serverRoot.'/footer.php');
+	include($SERVER_ROOT.'/footer.php');
 	?>
 </body>
 </html>

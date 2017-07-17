@@ -1,7 +1,7 @@
 <?php
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/SpecProcessorManager.php');
-include_once($SERVER_ROOT.'/classes/ImageBatchProcessor.php');
+include_once($SERVER_ROOT.'/classes/ImageLocalProcessor.php');
 include_once($SERVER_ROOT.'/classes/ImageProcessor.php');
 include_once($SERVER_ROOT.'/classes/SpecProcessorOcr.php');
 
@@ -26,13 +26,26 @@ if($IS_ADMIN || (array_key_exists("CollAdmin",$USER_RIGHTS) && in_array($collid,
 	$isEditor = true;
 }
 
+if($action == 'dlnoimg'){
+	$specManager->downloadReportData($action);
+	exit;
+}
+elseif($action == 'unprocnoimg'){
+	$specManager->downloadReportData($action);
+	exit;
+}
+elseif($action == 'noskel'){
+	$specManager->downloadReportData($action);
+	exit;
+}
+
 $statusStr = "";
 ?>
 <html>
 	<head>
 		<title>Specimen Processor Control Panel</title>
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	</head>
 	<body>
 		<?php
@@ -53,22 +66,28 @@ $statusStr = "";
 				$specManager->setProjVariables($spprid);
 				if($action == 'Process Images'){
 					if($specManager->getProjectType() == 'iplant'){
-						$imageProcessor = new ImageProcessor();
+						$imageProcessor = new ImageProcessor($specManager->getConn());
 						echo '<ul>';
 						$imageProcessor->setLogMode(3);
 						$imageProcessor->setCollid($collid);
 						$imageProcessor->setSpprid($spprid);
-						$runDate = $_POST['startdate'];
-						$imageProcessor->processIPlantImages($specManager->getSpecKeyPattern(), $runDate);
+						$imageProcessor->processIPlantImages($specManager->getSpecKeyPattern(), $_POST);
 						echo '</ul>';
 					}
 					else{
 						echo '<div style="padding:15px;">'."\n";
-						$imageProcessor = new ImageBatchProcessor();
+						$imageProcessor = new ImageLocalProcessor();
 		
-						$imageProcessor->setLogMode(1);
-						$imageProcessor->initProcessor();
-						$imageProcessor->setCollArr(array($collid => array('pmterm' => $specManager->getSpecKeyPattern())));
+						$imageProcessor->setLogMode(3);
+						$logPath = $SERVER_ROOT.(substr($SERVER_ROOT,-1) == '/'?'':'/').'content/logs/imgProccessing';
+						if(!file_exists($logPath)) mkdir($logPath);
+						$imageProcessor->setLogPath($logPath);
+						$logFile = $collid.'_'.$specManager->getInstitutionCode();
+						if($specManager->getCollectionCode()) $logFile .= '-'.$specManager->getCollectionCode();
+						$imageProcessor->initProcessor($logFile);
+						$imageProcessor->setCollArr(array($collid => array('pmterm' => $specManager->getSpecKeyPattern(),'prpatt' => $specManager->getPatternReplace(),'prrepl' => $specManager->getReplaceStr())));
+						$imageProcessor->setMatchCatalogNumber((array_key_exists('matchcatalognumber', $_POST)?1:0));
+						$imageProcessor->setMatchOtherCatalogNumbers((array_key_exists('matchothercatalognumbers', $_POST)?1:0));
 						$imageProcessor->setDbMetadata(1);
 						$imageProcessor->setSourcePathBase($specManager->getSourcePath());
 						$imageProcessor->setTargetPathBase($specManager->getTargetPath());
@@ -96,14 +115,23 @@ $statusStr = "";
 				}
 				elseif($action == 'Process Output File'){
 					//Process iDigBio Image ingestion appliance ouput file 
-					$imageProcessor = new ImageProcessor();
+					$imageProcessor = new ImageProcessor($specManager->getConn());
 					echo '<ul>';
 					$imageProcessor->setLogMode(3);
 					$imageProcessor->setSpprid($spprid);
 					$imageProcessor->setCollid($collid);
-					$imageProcessor->processiDigBioOutput($specManager->getSpecKeyPattern());
+					$imageProcessor->processiDigBioOutput($specManager->getSpecKeyPattern(),$_POST);
 					echo '</ul>';
 					
+				}
+				elseif($action == 'Load Image Data'){
+					//Process csv file with remote image urls
+					$imageProcessor = new ImageProcessor($specManager->getConn());
+					echo '<ul>';
+					$imageProcessor->setLogMode(3);
+					$imageProcessor->setCollid($collid);
+					$imageProcessor->loadFileData($_POST);
+					echo '</ul>';
 				}
 				elseif($action == 'Run Batch OCR'){
 					$ocrManager = new SpecProcessorOcr();
@@ -121,18 +149,6 @@ $statusStr = "";
 					echo '<ul>';
 					$ocrManager->harvestOcrText($_POST);
 					echo '</ul>';
-				}
-				elseif($action == 'dlnoimg'){
-					$specManager->downloadReportData($action);
-					exit;
-				}
-				elseif($action == 'unprocnoimg'){
-					$specManager->downloadReportData($action);
-					exit;
-				}
-				elseif($action == 'noskel'){
-					$specManager->downloadReportData($action);
-					exit;
 				}
 				if($statusStr){ 
 					?>

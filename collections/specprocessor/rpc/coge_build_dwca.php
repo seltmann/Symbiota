@@ -1,6 +1,6 @@
 <?php
 include_once('../../../config/symbini.php');
-include_once($SERVER_ROOT.'/classes/DwcArchiverOccurrence.php');
+include_once($SERVER_ROOT.'/classes/DwcArchiverCore.php');
 header("Cache-Control: no-cache, must-revalidate");
 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); 
 header("Content-Type: text/html; charset=".$charset);
@@ -19,17 +19,18 @@ if($collid && is_numeric($collid)){
 		$customField1 = array_key_exists('cf1',$_POST)?$_POST['cf1']:'';
 		$customField2 = array_key_exists('cf2',$_POST)?$_POST['cf2']:'';
 		
-		$dwcaHandler = new DwcArchiverOccurrence();
+		$dwcaHandler = new DwcArchiverCore();
 	
 		$dwcaHandler->setCollArr($collid);
 		$dwcaHandler->setCharSetOut('UTF-8');
 		$dwcaHandler->setSchemaType('coge');
 		$dwcaHandler->setExtended(false);
 		$dwcaHandler->setDelimiter('csv');
-		$dwcaHandler->setVerbose(0);
+		$dwcaHandler->setVerboseMode(0);
 		$dwcaHandler->setRedactLocalities(0);
 		$dwcaHandler->setIncludeDets(0);
 		$dwcaHandler->setIncludeImgs(0);
+		$dwcaHandler->setIncludeAttributes(0);
 		$dwcaHandler->addCondition('decimallatitude','NULL');
 		$dwcaHandler->addCondition('decimallongitude','NULL');
 		$dwcaHandler->addCondition('catalognumber','NOTNULL');

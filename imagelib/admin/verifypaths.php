@@ -13,8 +13,8 @@ $verifyPathsObj = new VerifyPaths();
 <html>
 <head>
 	<title><?php echo $defaultTitle; ?> Verify Image Paths</title>
-	<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-	<link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 </head>
 <body>
 	<?php
@@ -154,7 +154,7 @@ class VerifyPaths{
 		$maxHeight = 300;
 		if(file_exists($filePath)){
 			if(!file_exists($newThumbnailPath)){
-	        	list($sourceWidth, $sourceHeight, $imageType) = getimagesize($filePath);
+				list($sourceWidth, $sourceHeight, $imageType) = getimagesize(str_replace(' ', '%20', $filePath));
 	        	$newWidth = $idealWidth;
 	        	$newHeight = round($sourceHeight*($idealWidth/$sourceWidth));
 	        	if($newHeight > $maxHeight){

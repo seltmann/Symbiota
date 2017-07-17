@@ -21,33 +21,34 @@ if($qryArr){
 	$qProcessingStatus = (array_key_exists('ps',$qryArr)?$qryArr['ps']:'');
 	$qDateEntered = (array_key_exists('de',$qryArr)?$qryArr['de']:'');
 	$qDateLastModified = (array_key_exists('dm',$qryArr)?$qryArr['dm']:'');
-	$qExsiccatiId = (array_key_exists('exid',$qryArr)?$qryArr['exid']:'');
+	$qExsiccatiId = (array_key_exists('exsid',$qryArr)?$qryArr['exsid']:'');
 	$qImgOnly = (array_key_exists('io',$qryArr)?$qryArr['io']:0);
 	$qWithoutImg = (array_key_exists('woi',$qryArr)?$qryArr['woi']:0);
 	$qCustomField1 = (array_key_exists('cf1',$qryArr)?$qryArr['cf1']:'');
 	$qCustomType1 = (array_key_exists('ct1',$qryArr)?$qryArr['ct1']:'');
-	$qCustomValue1 = (array_key_exists('cv1',$qryArr)?$qryArr['cv1']:'');
+	$qCustomValue1 = (array_key_exists('cv1',$qryArr)?htmlentities($qryArr['cv1']):'');
 	$qCustomField2 = (array_key_exists('cf2',$qryArr)?$qryArr['cf2']:'');
 	$qCustomType2 = (array_key_exists('ct2',$qryArr)?$qryArr['ct2']:'');
-	$qCustomValue2 = (array_key_exists('cv2',$qryArr)?$qryArr['cv2']:'');
+	$qCustomValue2 = (array_key_exists('cv2',$qryArr)?htmlentities($qryArr['cv2']):'');
 	$qCustomField3 = (array_key_exists('cf3',$qryArr)?$qryArr['cf3']:'');
 	$qCustomType3 = (array_key_exists('ct3',$qryArr)?$qryArr['ct3']:'');
-	$qCustomValue3 = (array_key_exists('cv3',$qryArr)?$qryArr['cv3']:'');
-	$qOcrFrag = (array_key_exists('ocr',$qryArr)?$qryArr['ocr']:'');
+	$qCustomValue3 = (array_key_exists('cv3',$qryArr)?htmlentities($qryArr['cv3']):'');
+	$qOcrFrag = (array_key_exists('ocr',$qryArr)?htmlentities($qryArr['ocr']):'');
 	$qOrderBy = (array_key_exists('orderby',$qryArr)?$qryArr['orderby']:'');
 	$qOrderByDir = (array_key_exists('orderbydir',$qryArr)?$qryArr['orderbydir']:'');
 }
+
 //Set processing status  
 $processingStatusArr = array();
 if(isset($PROCESSINGSTATUS) && $PROCESSINGSTATUS){
 	$processingStatusArr = $PROCESSINGSTATUS;
 }
 else{
-	$processingStatusArr = array('unprocessed','unprocessed/NLP','stage 1','stage 2','stage 3','pending review','expert required','reviewed','closed');
+	$processingStatusArr = array('unprocessed','unprocessed/NLP','stage 1','stage 2','stage 3','pending review-nfn','pending review','expert required','reviewed','closed');
 }
 ?>
 <div id="querydiv" style="clear:both;width:790px;display:<?php echo ($displayQuery?'block':'none'); ?>;">
-	<form name="queryform" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="get" onsubmit="return verifyQueryForm(this)">
+	<form name="queryform" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" onsubmit="return verifyQueryForm(this)">
 		<fieldset style="padding:5px;">
 			<legend><b>Record Search Form</b></legend>
 			<?php 
@@ -151,18 +152,26 @@ else{
 						<input name="q_withoutimg" type="checkbox" value="1" <?php echo ($qWithoutImg==1?'checked':''); ?> onchange="this.form.q_imgonly.checked = false;" /> 
 						<b>Without images</b>
 					</span>
-					<?php
-					if($ACTIVATE_EXSICCATI){
-						?>
-						<span style="margin-left:15px" title="Enter Exsiccati ID (ometid)">
-							<b>Exsiccati ID (ometid):</b> 
-							<input type="text" name="q_exsiccatiid" id="q_exsiccatiid" value="<?php echo $qExsiccatiId; ?>" style="width:70px" onchange="" />
-						</span>
-						<?php
-					}
-					?>
 				</div>
 				<?php
+				if($ACTIVATE_EXSICCATI){
+					if($exsList = $occManager->getExsiccatiList()){
+						?>
+						<div style="margin:2px;" title="Enter Exsiccati Title">
+							<b>Exsiccati Title:</b>
+							<select name="q_exsiccatiid" style="width:650px">
+								<option value=""></option> 
+								<option value="">-------------------------</option> 
+								<?php 
+								foreach($exsList as $exsID => $exsTitle){
+									echo '<option value="'.$exsID.'" '.($qExsiccatiId==$exsID?'SELECTED':'').'>'.$exsTitle.'</option>';
+								}
+								?>
+							</select>
+						</div>
+						<?php
+					}
+				}
 			}
 			$advFieldArr = array();
 			if($crowdSourceMode){
@@ -173,7 +182,7 @@ else{
 			else{
 				$advFieldArr = array('associatedCollectors'=>'Associated Collectors','associatedOccurrences'=>'Associated Occurrences',
 					'associatedTaxa'=>'Associated Taxa','attributes'=>'Attributes','scientificNameAuthorship'=>'Author',
-					'basisOfRecord'=>'Basis Of Record','behavior'=>'Behavior','catalogNumber'=>'Catalog Number','recordNumber'=>'Collection Number',
+					'basisOfRecord'=>'Basis Of Record','behavior'=>'Behavior','catalogNumber'=>'Catalog Number','collectionCode'=>'Collection Code (override)','recordNumber'=>'Collection Number',
 					'recordedBy'=>'Collector/Observer','coordinateUncertaintyInMeters'=>'Coordinate Uncertainty (m)','country'=>'Country',
 					'county'=>'County','cultivationStatus'=>'Cultivation Status','dataGeneralizations'=>'Data Generalizations','eventDate'=>'Date',
 					'dateEntered'=>'Date Entered','dateLastModified'=>'Date Last Modified','dbpk'=>'dbpk','decimalLatitude'=>'Decimal Latitude',
@@ -186,14 +195,15 @@ else{
 					'georeferenceVerificationStatus'=>'Georeference Verification Status','georeferencedBy'=>'Georeferenced By','habitat'=>'Habitat',
 					'identificationQualifier'=>'Identification Qualifier','identificationReferences'=>'Identification References',
 					'identificationRemarks'=>'Identification Remarks','identifiedBy'=>'Identified By','individualCount'=>'Individual Count',
-					'informationWithheld'=>'Information Withheld','labelProject'=>'Label Project','lifeStage'=>'Life Stage','locality'=>'Locality',
+					'informationWithheld'=>'Information Withheld','institutionCode'=>'Institution Code (override)','labelProject'=>'Label Project',
+					'lifeStage'=>'Life Stage','locality'=>'Locality',
 					'localitySecurity'=>'Locality Security','localitySecurityReason'=>'Locality Security Reason','locationRemarks'=>'Location Remarks',
-					'username'=>'Modified By','municipality'=>'Municipality','occurrenceRemarks'=>'Notes (Occurrence Remarks)',
+					'username'=>'Modified By','municipality'=>'Municipality','occurrenceRemarks'=>'Notes (Occurrence Remarks)','ocrFragment'=>'OCR Fragment',
 					'otherCatalogNumbers'=>'Other Catalog Numbers','ownerInstitutionCode'=>'Owner Code','preparations'=>'Preparations',
 					'reproductiveCondition'=>'Reproductive Condition','samplingEffort'=>'Sampling Effort','samplingProtocol'=>'Sampling Protocol',
 					'sciname'=>'Scientific Name','sex'=>'Sex','specificEpithet'=>'Specific Epithet','stateProvince'=>'State/Province',
 					'substrate'=>'Substrate','taxonRemarks'=>'Taxon Remarks','typeStatus'=>'Type Status','verbatimCoordinates'=>'Verbatim Coordinates',
-					'verbatimEventDate'=>'Verbatim Date','verbatimDepth'=>'Verbatim Depth','verbatimElevation'=>'Verbatim Elevation','ocrFragment'=>'OCR Fragment');
+					'verbatimEventDate'=>'Verbatim Date','verbatimDepth'=>'Verbatim Depth','verbatimElevation'=>'Verbatim Elevation');
 			}
 			//sort($advFieldArr);
 			?>

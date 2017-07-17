@@ -5,6 +5,13 @@ var abortFormVerification = false;
 
 $(document).ready(function() {
 
+	function split( val ) {
+		return val.split( /,\s*/ );
+	}
+	function extractLast( term ) {
+		return split( term ).pop();
+	}
+
 	if(/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)){
 		var ffversion=new Number(RegExp.$1);
 		if(ffversion < 7 ) alert("You are using an older version of Firefox. For best results, we recommend that you update your browser.");
@@ -93,6 +100,54 @@ $(document).ready(function() {
 		}
 	});
 
+	var cookies = document.cookie
+	if(cookies.indexOf("localauto") > -1){
+		var cookieName = "localauto=";
+		var ca = document.cookie.split(';');
+		for(var i = 0; i <ca.length; i++) {
+			var c = ca[i];
+			while (c.charAt(0)==' ') {
+				c = c.substring(1);
+			}
+			if(c.indexOf(cookieName) == 0) {
+				if(c.substring(cookieName.length) == "1") $( 'input[name=localautodeactivated]' ).prop('checked', true);
+			}
+		}
+	}
+
+	if(localityAutoLookup){
+		$("#fflocality").autocomplete({ 
+			source: function( request, response ) {
+				$.ajax( {
+					url: "rpc/getlocality.php",
+					data: { 
+						recordedby: $( "input[name=recordedby]" ).val(), 
+						eventdate: $( "input[name=eventdate]" ).val(), 
+						locality: request.term 
+					},
+					success: function( data ) {
+						response( data );
+		            }
+				});
+			},
+			minLength: 4,
+			select: function( event, ui ) {
+				var editForm = document.fullform;
+				$.each(ui.item, function(k, v) {
+					if($( "input[name="+k+"]" ).val() == ""){
+						$( "input[name="+k+"]" ).val(v);
+						$( "input[name="+k+"]" ).css("backgroundColor","lightblue");
+						fieldChanged(k);
+					}
+				});
+			}
+		});
+		if($( "input[name=localautodeactivated]" ).is(':checked')){
+			$( "#fflocality" ).autocomplete( "option", "disabled", true );
+			$( "#fflocality" ).attr('autocomplete','on');
+		}
+	}
+
 	//Misc fields with lookups
 	$("#ffcountry").autocomplete({
 		source: function( request, response ) {
@@ -137,6 +192,31 @@ $(document).ready(function() {
 			fieldChanged("municipality");
 		}
 	});
+	
+	$("textarea[name=associatedtaxa]").autocomplete({
+		source: function( request, response ) {
+			$.getJSON( "rpc/getassocspp.php", { term: extractLast( request.term ) }, response );
+		},
+		search: function() {
+			// custom minLength
+			var term = extractLast( this.value );
+			if ( term.length < 4 ) return false;
+		},
+		focus: function() {
+			// prevent value inserted on focus
+			return false;
+		},
+		select: function( event, ui ) {
+			var terms = split( this.value );
+			// remove the current input
+			terms.pop();
+			// add the selected item
+			terms.push( ui.item.value );
+			this.value = terms.join( ", " );
+			return false;
+		}
+	},{autoFocus: true});
+
 
 	$("#catalognumber").keydown(function(evt){
 		var evt  = (evt) ? evt : ((event) ? event : null);
@@ -192,13 +272,15 @@ function verifyFullFormSciName(){
 			$( "#tidinterpreted" ).val(data.tid);
 			$( 'input[name=family]' ).val(data.family);
 			$( 'input[name=scientificnameauthorship]' ).val(data.author);
+			/*
 			if(data.rankid < 220){
 				$( 'select[name=confidenceranking]' ).val(2);
 			}
 			else{
 				$( 'select[name=confidenceranking]' ).val(8);
 			}
-			if(data.status == 1){ 
+			*/
+			if(data.status == 1){
 				$( 'input[name=localitysecurity]' ).prop('checked', true);
 			}
 			else{
@@ -212,7 +294,7 @@ function verifyFullFormSciName(){
 		}
 		else{
 			$( 'select[name=confidenceranking]' ).val(5);
-			alert("WARNING: Taxon not found. It may be misspelled or needs to be added to taxonomic thesaurus. You can continue entering specimen and name will be add to thesaurus later.");
+            alert("WARNING: Taxon not found. It may be misspelled or needs to be added to taxonomic thesaurus by a taxonomic editor.");
 		}
 	});
 }
@@ -231,6 +313,19 @@ function localitySecurityCheck(){
 				$( 'input[name=localitysecurity]' ).prop('checked', true);
 			}
 		});
+	}
+}
+
+function localAutoChanged(cbObj){
+	if(cbObj.checked == true){
+		$( "#fflocality" ).autocomplete( "option", "disabled", true );
+		$( "#fflocality" ).attr('autocomplete','on');
+		document.cookie = "localauto=1";
+	}
+	else{
+		$( "#fflocality" ).autocomplete( "option", "disabled", false );
+		$( "#fflocality" ).attr('autocomplete','off');
+		document.cookie = "localauto=;expires=Thu, 01 Jan 1970 00:00:01 GMT;";
 	}
 }
 
@@ -341,6 +436,22 @@ function parseVerbatimElevation(f){
 			}
 		}
 	}
+}
+
+function minimumDepthInMetersChanged(f){
+	if(!isNumeric(f.minimumdepthinmeters.value)){
+		alert("Depth values must be numeric only");
+		return false;
+	}
+	fieldChanged('minimumdepthinmeters');
+}
+
+function maximumDepthInMetersChanged(f){
+	if(!isNumeric(f.maximumdepthinmeters.value)){
+		alert("Depth values must be numeric only");
+		return false;
+	}
+	fieldChanged('maximumdepthinmeters');
 }
 
 function verbatimCoordinatesChanged(f){
@@ -609,91 +720,6 @@ function verifyDecimalLongitude(f){
 	return true;
 }
 
-function verifyCoordinates(f){
-	//Check to see if coordinates are within country/state/county
-	var lngValue = f.decimallongitude.value;
-	var latValue = f.decimallatitude.value;
-	if(latValue && lngValue){
-		var url = "http://maps.googleapis.com/maps/api/geocode/json?latlng="+latValue+","+lngValue;
-		
-		$.ajax({
-			type: "GET",
-			url: "http://maps.googleapis.com/maps/api/geocode/json",
-			dataType: "json",
-			data: { latlng: latValue+","+lngValue }
-		}).done(function( data ) {
-			if(data){
-				if(data.status != "ZERO_RESULTS"){
-					var result = data.results[0];
-					if(result.address_components){
-						var compArr = result.address_components;
-						var coordCountry = "";
-						var coordState = "";
-						var coordCounty = "";
-						for (var p1 in compArr) {
-							var compObj = compArr[p1];
-							if(compObj.long_name && compObj.types){
-								var longName = compObj.long_name;
-								var types = compObj.types;
-								if(types[0] == "country"){
-									var coordCountry = longName;
-								}
-								else if(types[0] == "administrative_area_level_1"){
-									var coordState = longName;
-								}
-								else if(types[0] == "administrative_area_level_2"){
-									var coordCounty = longName;
-								}
-							}
-						}
-						var coordValid = true;
-						if(f.country.value != ""){
-							//if(f.country.value.toLowerCase().indexOf(coordCountry.toLowerCase()) == -1) coordValid = false;
-						}
-						else if(coordCountry != ""){
-							f.country.value = coordCountry;
-						}
-						if(coordState != ""){
-							if(f.stateprovince.value != ""){
-								if(f.stateprovince.value.toLowerCase().indexOf(coordState.toLowerCase()) == -1) coordValid = false;
-							}
-							else{
-								f.stateprovince.value = coordState;
-							}
-						}
-						if(coordCounty != ""){
-							var coordCountyIn = coordCounty.replace(" County","");
-							coordCountyIn = coordCountyIn.replace(" Parish","");
-							if(f.county.value != ""){
-								var fCounty = f.county.value;
-								if(f.county.value.toLowerCase().indexOf(coordCountyIn.toLowerCase()) == -1){
-									if(f.county.value.toLowerCase() != coordCountyIn.toLowerCase()){
-										coordValid = false;
-									}
-								}
-							}
-							else{
-								f.county.value = coordCountyIn;
-							}
-						}
-						if(!coordValid){
-							var msg = "Are coordinates accurate? They currently map to: "+coordCountry+", "+coordState;
-							if(coordCounty) msg = msg + ", " + coordCounty;
-							msg = msg + ". Click globe symbol to display coordinates in map.";
-							alert(msg);
-						}
-					}
-				}
-				else{
-					if(f.country.value != ""){
-						alert("Unable to identify country! Are coordinates accurate? Click globe symbol to display coordinates in map.");
-					}
-				}
-			}
-		});
-	}
-}
-
 function verifyMinimumElevationInMeters(f){
 	if(!isNumeric(f.minimumelevationinmeters.value)){
 		alert("Elevation values must be numeric only");
@@ -873,6 +899,77 @@ function distributeEventDate(y,m,d){
 	}
 }
 
+function endDateChanged(){
+    var dateStr = document.getElementById("endDate").value;
+    if(dateStr != ""){
+        var dateArr = parseDate(dateStr);
+        if(dateArr['y'] == 0){
+            alert("Unable to interpret Date. Please use the following formats: yyyy-mm-dd, mm/dd/yyyy, or dd mmm yyyy");
+            return false;
+        }
+        else{
+            //Check to see if date is in the future
+            try{
+                var testDate = new Date(dateArr['y'],dateArr['m']-1,dateArr['d']);
+                var today = new Date();
+                if(testDate > today){
+                    alert("Was this plant really collected in the future? The date you entered has not happened yet. Please revise.");
+                    return false;
+                }
+            }
+            catch(e){
+            }
+
+            //Invalid format is month > 12
+            if(dateArr['m'] > 12){
+                alert("Month cannot be greater than 12. Note that the format should be YYYY-MM-DD");
+                return false;
+            }
+
+            //Check to see if day is valid
+            if(dateArr['d'] > 28){
+                if(dateArr['d'] > 31
+                    || (dateArr['d'] == 30 && dateArr['m'] == 2)
+                    || (dateArr['d'] == 31 && (dateArr['m'] == 4 || dateArr['m'] == 6 || dateArr['m'] == 9 || dateArr['m'] == 11))){
+                    alert("The Day (" + dateArr['d'] + ") is invalid for that month");
+                    return false;
+                }
+            }
+
+            //Enter date into date fields
+            var mStr = dateArr['m'];
+            if(mStr.length == 1){
+                mStr = "0" + mStr;
+            }
+            var dStr = dateArr['d'];
+            if(dStr.length == 1){
+                dStr = "0" + dStr;
+            }
+            document.getElementById("endDate").value = dateArr['y'] + "-" + mStr + "-" + dStr;
+            if(dateArr['y'] > 0){
+                var f = document.fullform;
+                f.enddayofyear.value = "";
+                try{
+                    if(dateArr['m'] == 0 || dateArr['d'] == 0){
+                        f.enddayofyear.value = "";
+                    }
+                    else{
+                        eDate = new Date(dateArr['y'],dateArr['m']-1,dateArr['d']);
+                        if(eDate instanceof Date && eDate != "Invalid Date"){
+                            var onejan = new Date(dateArr['y'],0,1);
+                            f.enddayofyear.value = Math.ceil((eDate - onejan) / 86400000) + 1;
+                            fieldChanged("enddayofyear");
+                        }
+                    }
+                }
+                catch(e){
+                }
+			}
+        }
+    }
+    return true;
+}
+
 function verbatimEventDateChanged(vedObj){
 	fieldChanged('verbatimeventdate');
 
@@ -1006,7 +1103,7 @@ function verifyDetSciName(f){
 			f.tidtoadd.value = data.tid;
 		}
 		else{
-			alert("WARNING: Taxon not found. It may be misspelled or needs to be added to taxonomic thesaurus. You can continue entering specimen and name will be add to thesaurus later.");
+            alert("WARNING: Taxon not found. It may be misspelled or needs to be added to taxonomic thesaurus by a taxonomic editor.");
 			f.scientificnameauthorship.value = "";
 			f.family.value = "";
 			f.tidtoadd.value = "";
@@ -1114,14 +1211,29 @@ function openOccurrenceSearch(target) {
 	if (occWindow.opener == null) occWindow.opener = self;
 }
 
-function toggleLocSecReason(f){
-	var lsrObj = document.getElementById("locsecreason");
-	if(f.localitysecurity.checked){
-		lsrObj.style.display = "inline";
+function localitySecurityChanged(f){
+	fieldChanged('localitysecurity');
+	$("#locsecreason").show();
+}
+
+function localitySecurityReasonChanged(){
+	fieldChanged('localitysecurityreason');
+	if($("input[name=localitysecurityreason]").val() == ''){
+		$("input[name=lockLocalitySecurity]").prop('checked', false);
 	}
 	else{
-		lsrObj.style.display = "none";
+		$("input[name=lockLocalitySecurity]").prop('checked', true);
 	}
+}
+
+function securityLockChanged(cb){
+	if(cb.checked == true){
+		if($("input[name=localitysecurityreason]").val() == '') $("input[name=localitysecurityreason]").val("<Security Setting Locked>");
+	}
+	else{
+		$("input[name=localitysecurityreason]").val("")
+	}
+	fieldChanged('localitysecurityreason');
 }
 
 function autoProcessingStatusChanged(selectObj){

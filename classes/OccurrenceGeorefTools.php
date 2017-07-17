@@ -21,8 +21,8 @@ class OccurrenceGeorefTools {
 	public function getLocalityArr(){
 		$retArr = array();
 		if($this->collId){
-			$sql = 'SELECT occid, country, stateprovince, county, municipality, IFNULL(locality,CONCAT_WS(", ",country,stateProvince,county,municipality,verbatimcoordinates)) AS locality, verbatimcoordinates ,decimallatitude, decimallongitude '.
-				'FROM omoccurrences WHERE (collid = '.$this->collId.') ';
+			$sql = 'SELECT occid, country, stateprovince, county, municipality, locality, verbatimcoordinates ,decimallatitude, decimallongitude '.
+				'FROM omoccurrences WHERE (collid = '.$this->collId.') AND (locality IS NOT NULL) AND (locality <> "") ';
 			if(!$this->qryVars || !array_key_exists('qdisplayall',$this->qryVars) || !$this->qryVars['qdisplayall']){
 				$sql .= 'AND (decimalLatitude IS NULL) ';
 			}
@@ -139,17 +139,17 @@ class OccurrenceGeorefTools {
 					$this->addOccurEdits('georeferencedby',$geoRefArr['georeferencedby'],$localStr);
 					$sql = 'UPDATE omoccurrences '.
 						'SET decimallatitude = '.$geoRefArr['decimallatitude'].', decimallongitude = '.$geoRefArr['decimallongitude'].
-						',georeferencedBy = "'.$geoRefArr['georeferencedby'].' ('.date('Y-m-d H:i:s').')'.'"';
+						',georeferencedBy = "'.$geoRefArr['georeferencedby'].' ('.date('Y-m-d H:i:s').')'.'" ';
 					if($geoRefArr['georeferenceverificationstatus']){
-						$sql .= ',georeferenceverificationstatus = "'.$geoRefArr['georeferenceverificationstatus'].'"';
+						$sql .= ',georeferenceverificationstatus = "'.$geoRefArr['georeferenceverificationstatus'].'" ';
 						$this->addOccurEdits('georeferenceverificationstatus',$geoRefArr['georeferenceverificationstatus'],$localStr);
 					}
 					if($geoRefArr['georeferencesources']){
-						$sql .= ',georeferencesources = "'.$geoRefArr['georeferencesources'].'"';
+						$sql .= ',georeferencesources = "'.$geoRefArr['georeferencesources'].'" ';
 						$this->addOccurEdits('georeferencesources',$geoRefArr['georeferencesources'],$localStr);
 					}
 					if($geoRefArr['georeferenceremarks']){
-						$sql .= ',georeferenceremarks = CONCAT_WS("; ",georeferenceremarks,"'.$geoRefArr['georeferenceremarks'].'")';
+						$sql .= ',georeferenceremarks = "'.$geoRefArr['georeferenceremarks'].'" ';
 						$this->addOccurEdits('georeferenceremarks',$geoRefArr['georeferenceremarks'],$localStr);
 					}
 					if($geoRefArr['coordinateuncertaintyinmeters']){
@@ -157,20 +157,24 @@ class OccurrenceGeorefTools {
 						$this->addOccurEdits('coordinateuncertaintyinmeters',$geoRefArr['coordinateuncertaintyinmeters'],$localStr);
 					}
 					if($geoRefArr['footprintwkt']){
-						$sql .= ',footprintwkt = "'.$geoRefArr['footprintwkt'].'"';
+						$sql .= ',footprintwkt = "'.$geoRefArr['footprintwkt'].'" ';
 						$this->addOccurEdits('footprintwkt',$geoRefArr['footprintwkt'],$localStr);
 					}
 					if($geoRefArr['geodeticdatum']){
-						$sql .= ', geodeticdatum = "'.$geoRefArr['geodeticdatum'].'"';
+						$sql .= ', geodeticdatum = "'.$geoRefArr['geodeticdatum'].'" ';
 						$this->addOccurEdits('geodeticdatum',$geoRefArr['geodeticdatum'],$localStr);
 					}
 					if($geoRefArr['maximumelevationinmeters']){
-						$sql .= ',maximumelevationinmeters = IF(minimumelevationinmeters IS NULL,'.$geoRefArr['maximumelevationinmeters'].',maximumelevationinmeters)';
+						$sql .= ',maximumelevationinmeters = IF(minimumelevationinmeters IS NULL,'.$geoRefArr['maximumelevationinmeters'].',maximumelevationinmeters) ';
 						$this->addOccurEdits('maximumelevationinmeters',$geoRefArr['maximumelevationinmeters'],$localStr);
 					}
 					if($geoRefArr['minimumelevationinmeters']){
-						$sql .= ',minimumelevationinmeters = IF(minimumelevationinmeters IS NULL,'.$geoRefArr['minimumelevationinmeters'].',minimumelevationinmeters)';
+						$sql .= ',minimumelevationinmeters = IF(minimumelevationinmeters IS NULL,'.$geoRefArr['minimumelevationinmeters'].',minimumelevationinmeters) ';
 						$this->addOccurEdits('minimumelevationinmeters',$geoRefArr['minimumelevationinmeters'],$localStr);
+					}
+					if($geoRefArr['processingstatus']){
+						$sql .= ',processingstatus = "'.$geoRefArr['processingstatus'].'" ';
+						$this->addOccurEdits('processingstatus',$geoRefArr['processingstatus'],$localStr);
 					}
 					$sql .= ' WHERE (collid = '.$this->collId.') AND (occid IN('.$localStr.'))';
 					//echo $sql; exit;
@@ -222,60 +226,61 @@ class OccurrenceGeorefTools {
 		return $retArr;
 	}
 
-	public function getGeorefClones($locality, $country, $state, $county){
+	public function getGeorefClones($locality, $country, $state, $county, $searchType, $collid){
 		$occArr = array();
-		$sql = 'SELECT count(occid) AS cnt, decimallatitude, decimallongitude, coordinateUncertaintyInMeters, georeferencedby '.
-			'FROM omoccurrences '.
-			'WHERE decimallatitude IS NOT NULL AND decimallongitude IS NOT NULL ';
-		if(strlen($locality) > 95){
-			$locality = substr($locality,0,95);
-			$sql .= 'AND locality LIKE "'.trim($this->cleanInStr($locality), " .").'%" ';
+		$sql = 'SELECT count(o.occid) AS cnt, o.decimallatitude, o.decimallongitude, o.coordinateUncertaintyInMeters, o.georeferencedby, o.locality '.
+			'FROM omoccurrences o ';
+		$sqlWhere = 'WHERE (o.decimallatitude IS NOT NULL) AND (o.decimallongitude IS NOT NULL) ';
+		if($collid){
+			$sqlWhere .= 'AND (o.collid = '.$collid.') ';
+		}
+		if($searchType == 2){
+			//Wildcard search
+			$sqlWhere .= 'AND (o.locality LIKE "%'.$locality.'%") ';
+		}
+		elseif($searchType == 3){
+			//Deep search
+			$sql .= 'INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid ';
+			$localArr = explode(' ', $locality);
+			foreach($localArr as $str){
+				$sqlWhere .= 'AND (MATCH(f.locality) AGAINST("'.$str.'")) ';
+			}
 		}
 		else{
-			$sql .= 'AND locality = "'.trim($this->cleanInStr($locality), " .").'" ';
+			//Exact search
+			$sqlWhere .= 'AND o.locality = "'.trim($this->cleanInStr($locality), " .").'" ';
 		}
 		if($country){
+			$country = $this->cleanInStr($country);
 			$synArr = array('usa','u.s.a', 'united states','united states of america','u.s.');
-			if(in_array($country,$synArr)){
-				$country = implode('","',$synArr);
-			}
-			$sql .= 'AND (country IN("'.$this->cleanInStr($country).'")) ';
+			if(in_array(strtolower($country),$synArr)) $country = implode('","',$synArr);
+			$sqlWhere .= 'AND (o.country IN("'.$country.'")) ';
 		}
 		if($state){
-			$sql .= 'AND (stateprovince = "'.$this->cleanInStr($state).'") ';
+			$sqlWhere .= 'AND (o.stateprovince = "'.$this->cleanInStr($state).'") ';
 		}
 		if($county){
 			$county = str_ireplace(array(' county',' parish'),'',$county);
-			$sql .= 'AND (county LIKE "'.$this->cleanInStr($county).'%") ';
+			$sqlWhere .= 'AND (o.county LIKE "'.$this->cleanInStr($county).'%") ';
 		}
-		$sql .= 'GROUP BY decimallatitude, decimallongitude '.
-			'ORDER BY georeferencedBy DESC, cnt DESC';
+		$sql .= $sqlWhere;
+		$sql .= 'GROUP BY o.decimallatitude, o.decimallongitude LIMIT 25';
 		//echo '<div>'.$sql.'</div>'; exit;
 
 		$rs = $this->conn->query($sql);
 		$cnt = 0;
-		$lat = 0;
-		$lng = 0;
 		while($r = $rs->fetch_object()){
-			if($lat != $r->decimallatitude || $lng != $r->decimallongitude){
-				$lat = $r->decimallatitude;
-				$lng = $r->decimallongitude;
-				$occArr[$cnt]['cnt'] = $r->cnt;
-				$occArr[$cnt]['lat'] = $r->decimallatitude;
-				$occArr[$cnt]['lng'] = $r->decimallongitude;
-				$occArr[$cnt]['err'] = $r->coordinateUncertaintyInMeters;
-				//$occArr[$cnt]['footprint'] = $r->footprintWKT;
-				//$occArr[$cnt]['country'] = $r->country;
-				//$occArr[$cnt]['state'] = $r->stateprovince;
-				//$occArr[$cnt]['county'] = $r->county;
-				$occArr[$cnt]['georefby'] = $r->georeferencedby;
-				$cnt++;
-			}
-			else{
-				$occArr[$cnt]['cnt'] = ($occArr[$cnt]['cnt']+$r->cnt);
-				if($occArr[$cnt]['georefby'] != $r->georeferencedby) $occArr[$cnt]['georefby'] = $occArr[$cnt]['georefby'].', '.$r->georeferencedby;
-			}
-			if($cnt > 15) break;
+			$occArr[$cnt]['cnt'] = $r->cnt;
+			$occArr[$cnt]['lat'] = $r->decimallatitude;
+			$occArr[$cnt]['lng'] = $r->decimallongitude;
+			$occArr[$cnt]['err'] = $r->coordinateUncertaintyInMeters;
+			//$occArr[$cnt]['footprint'] = $r->footprintWKT;
+			//$occArr[$cnt]['country'] = $r->country;
+			//$occArr[$cnt]['state'] = $r->stateprovince;
+			//$occArr[$cnt]['county'] = $r->county;
+			$occArr[$cnt]['georefby'] = $r->georeferencedby;
+			$occArr[$cnt]['locality'] = $r->locality;
+			$cnt++;
 		}
 		$rs->free();
 		return $occArr;

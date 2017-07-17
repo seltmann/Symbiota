@@ -1,4 +1,3 @@
-
 function openAssocSppAid(){
 	var assocWindow = open("assocsppaid.php","assocaid","resizable=0,width=550,height=150,left=20,top=20");
 	if(assocWindow != null){
@@ -11,20 +10,38 @@ function openAssocSppAid(){
 	}
 }
 
+function geoCloneTool(){
+	var f = document.fullform;
+	if(f.locality.value){
+		var url = "../georef/georefclone.php?";
+		url = url + "locality=" + f.locality.value;
+		url = url + "&country=" + f.country.value;
+		url = url + "&state=" + f.stateprovince.value;
+		url = url + "&county=" + f.county.value;
+		url = url + "&collid=" + f.collid.value;
+		cloneWindow=open(url,"geoclonetool","resizable=1,scrollbars=1,toolbar=1,width=1000,height=600,left=20,top=20");
+		if(cloneWindow.opener == null) cloneWindow.opener = self;
+	}
+	else{
+		alert("Locality field must have a value to use this function");
+		return false;
+	} 
+}
+
 function toggleCoordDiv(){
 	coordObj = document.getElementById("coordAidDiv");
 	if(coordObj.style.display == "block"){
 		coordObj.style.display = "none";
 	}
 	else{
-		document.getElementById("locExtraDiv").style.display = "block";
+		document.getElementById("georefExtraDiv").style.display = "block";
 		coordObj.style.display = "block";
 	}
 }
 
 function toggleCsMode(modeId){
 	if(modeId == 1){
-		document.getElementById("editorCssLink").href = "includes/config/occureditorcrowdsource.css";
+		document.getElementById("editorCssLink").href = "includes/config/occureditorcrowdsource.css?ver=170201";
 		document.getElementById("longtagspan").style.display = "block";
 		document.getElementById("shorttagspan").style.display = "none";
 	}
@@ -82,6 +99,9 @@ function geoLocateLocality(){
 	if(!country){
 		alert("Country is blank and it is a required field for GeoLocate");
 	}
+	else if(!locality){
+		alert("Record does not contain any verbatim locality details for GeoLocate");
+	}
 	else{
 		geolocWindow=open("../georef/geolocate.php?country="+country+"&state="+state+"&county="+county+"&locality="+locality,"geoloctool","resizable=1,scrollbars=1,toolbar=1,width=1050,height=700,left=20,top=20");
 		if(geolocWindow.opener == null){
@@ -92,7 +112,7 @@ function geoLocateLocality(){
 }
 
 function geoLocateUpdateCoord(latValue,lngValue,coordErrValue, footprintWKT){
-	document.getElementById("locExtraDiv").style.display = "block";
+	document.getElementById("georefExtraDiv").style.display = "block";
 
 	var f = document.fullform;
 	f.decimallatitude.value = latValue;

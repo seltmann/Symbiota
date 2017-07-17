@@ -1,6 +1,7 @@
 <?php
 include_once($SERVER_ROOT.'/config/dbconnection.php');
 include_once($SERVER_ROOT.'/classes/OccurrenceUtilities.php');
+include_once($SERVER_ROOT.'/classes/ChecklistVoucherAdmin.php');
 
 class OccurrenceManager{
 
@@ -9,33 +10,22 @@ class OccurrenceManager{
 	private $taxaSearchType;
 	protected $searchTermsArr = Array();
 	protected $localSearchArr = Array();
-	protected $useCookies = 1;
 	protected $reset = 0;
 	private $clName;
 	private $collArrIndex = 0;
 	private $occurSearchProjectExists = 0;
 
- 	public function __construct(){
+ 	public function __construct($readVariables = true){
 		$this->conn = MySQLiConnectionFactory::getCon('readonly');
-		$this->useCookies = (array_key_exists("usecookies",$_REQUEST)&&$_REQUEST["usecookies"]=="false"?0:1);
-		if(array_key_exists("reset",$_REQUEST) && $_REQUEST["reset"]){
- 			$this->reset();
- 		}
- 		if($this->useCookies && !$this->reset){
- 			$this->readCollCookies();
- 		}
- 		//Read DB cookies no matter what
-		if(array_key_exists("colldbs",$_COOKIE)){
-			$this->searchTermsArr["db"] = $_COOKIE["colldbs"];
-		}
-		elseif(array_key_exists("collclid",$_COOKIE)){
-			$this->searchTermsArr["clid"] = $_COOKIE["collclid"];
-		}
-		$this->readRequestVariables();
+		if(array_key_exists("reset",$_REQUEST) && $_REQUEST["reset"])  $this->reset();
+		if($readVariables) $this->readRequestVariables();
  	}
 
 	public function __destruct(){
- 		if(!($this->conn === false)) $this->conn->close();
+ 		if(!($this->conn === false)){
+ 			$this->conn->close();
+ 			$this->conn = null;
+ 		}
 	}
 
 	protected function getConnection($conType = "readonly"){
@@ -46,9 +36,6 @@ class OccurrenceManager{
 		global $clientRoot;
 		$domainName = $_SERVER['HTTP_HOST'];
 		if(!$domainName) $domainName = $_SERVER['SERVER_NAME'];
-		setCookie("colltaxa","",time()-3600,($clientRoot?$clientRoot:'/'),$domainName,false,true);
-		setCookie("collsearch","",time()-3600,($clientRoot?$clientRoot:'/'),$domainName,false,true);
-		setCookie("collvars","",time()-3600,($clientRoot?$clientRoot:'/'),$domainName,false,true);
  		$this->reset = 1;
 		if(isset($this->searchTermsArr['db']) || isset($this->searchTermsArr['oic'])){
 			//reset all other search terms except maintain the db terms
@@ -59,35 +46,6 @@ class OccurrenceManager{
 			unset($this->searchTermsArr);
 			if($dbsTemp) $this->searchTermsArr["db"] = $dbsTemp;
 			if($clidTemp) $this->searchTermsArr["clid"] = $clidTemp;
-		}
-	}
-
-	private function readCollCookies(){
-		if($_COOKIE){
-			if(array_key_exists("colltaxa",$_COOKIE)){
-				$collTaxa = $_COOKIE["colltaxa"];
-				$taxaArr = explode("&",$collTaxa);
-				foreach($taxaArr as $value){
-					$this->searchTermsArr[substr($value,0,strpos($value,":"))] = substr($value,strpos($value,":")+1);
-				}
-			}
-			if(array_key_exists("collsearch",$_COOKIE)){
-				$collSearch = $_COOKIE["collsearch"];
-				$searArr = explode("&",$collSearch);
-				foreach($searArr as $value){
-					$this->searchTermsArr[substr($value,0,strpos($value,":"))] = substr($value,strpos($value,":")+1);
-				}
-			}
-			if(array_key_exists("collvars",$_COOKIE)){
-				$collVarStr = $_COOKIE["collvars"];
-				$varsArr = explode("&",$collVarStr);
-				foreach($varsArr as $value){
-					if(strpos($value,"reccnt") === 0){
-						$this->recordCount = substr($value,strpos($value,":")+1);
-					}
-				}
-			}
-			//return $this->searchTermsArr;
 		}
 	}
 
@@ -156,9 +114,9 @@ class OccurrenceManager{
 			foreach($this->taxaArr as $key => $valueArray){
 				if($this->taxaSearchType == 4){
 					//Class, order, or other higher rank
-					$rs1 = $this->conn->query("SELECT tid FROM taxa WHERE (sciname = '".$key."')");
+					$rs1 = $this->conn->query("SELECT ts.tidaccepted FROM taxa AS t LEFT JOIN taxstatus AS ts ON t.TID = ts.tid WHERE (t.sciname = '".$key."')");
 					if($r1 = $rs1->fetch_object()){
-						$sqlWhereTaxa = 'OR (o.tidinterpreted IN(SELECT DISTINCT tid FROM taxaenumtree WHERE taxauthid = 1 AND parenttid IN('.$r1->tid.'))) ';
+						$sqlWhereTaxa = 'OR ((o.sciname = "'.$key.'") OR (o.tidinterpreted IN(SELECT DISTINCT tid FROM taxaenumtree WHERE taxauthid = 1 AND parenttid IN('.$r1->tidaccepted.')))) ';
 					}
 				}
 				else{
@@ -336,17 +294,29 @@ class OccurrenceManager{
 					$collectorArr[] = 'Collector IS NULL';
 				}
 				else{
-					//$tempArr[] = '(o.recordedBy LIKE "%'.trim($value).'%")';
 					$tempInnerArr = array();
 					$collValueArr = explode(" ",trim($collectorArr[0]));
 					foreach($collValueArr as $collV){
-						$tempInnerArr[] = '(MATCH(f.recordedby) AGAINST("'.$collV.'")) ';
+						if(strlen($collV) < 4 || strtolower($collV) == 'best'){
+							//Need to avoid FULLTEXT stopwords interfering with return
+							$tempInnerArr[] = '(o.recordedBy LIKE "%'.$collV.'%")';
+						}
+						else{
+							$tempInnerArr[] = '(MATCH(f.recordedby) AGAINST("'.$collV.'")) ';
+						}
 					}
 					$tempArr[] = implode(' AND ', $tempInnerArr);
 				}
 			}
 			elseif(count($collectorArr) > 1){
-				$tempArr[] = '(MATCH(f.recordedby) AGAINST("'.implode(' ',$collectorArr).'")) ';
+				$collStr = current($collectorArr);
+				if(strlen($collStr) < 4 || strtolower($collStr) == 'best'){
+					//Need to avoid FULLTEXT stopwords interfering with return
+					$tempInnerArr[] = '(o.recordedBy LIKE "%'.$collStr.'%")';
+				}
+				else{
+					$tempArr[] = '(MATCH(f.recordedby) AGAINST("'.$collStr.'")) ';
+				}
 			}
 			$sqlWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
 			$this->localSearchArr[] = implode(', ',$collectorArr);
@@ -458,6 +428,13 @@ class OccurrenceManager{
 				$catWhere .= 'OR (o.catalogNumber IN("'.implode('","',$inFrag).'")) ';
 				if($includeOtherCatNum){
 					$catWhere .= 'OR (o.othercatalognumbers IN("'.implode('","',$inFrag).'")) ';
+					if(strlen($inFrag[0]) == 36){
+						$guidOccid = $this->queryRecordID($inFrag);
+						if($guidOccid){
+							$catWhere .= 'OR (o.occid IN('.implode(',',$guidOccid).')) ';
+							$catWhere .= 'OR (o.occurrenceID IN("'.implode('","',$inFrag).'")) ';
+						}
+					}
 				}
 			}
 			$sqlWhere .= 'AND ('.substr($catWhere,3).') ';
@@ -471,21 +448,20 @@ class OccurrenceManager{
 			$sqlWhere .= "AND (o.occid IN(SELECT occid FROM images)) ";
 			$this->localSearchArr[] = 'has images';
 		}
+        if(array_key_exists("hasgenetic",$this->searchTermsArr)){
+            $sqlWhere .= "AND (o.occid IN(SELECT occid FROM omoccurgenetic)) ";
+            $this->localSearchArr[] = 'has genetic data';
+        }
 		if(array_key_exists("targetclid",$this->searchTermsArr)){
 			$clid = $this->searchTermsArr["targetclid"];
-			$clSql = "";
-			if($clid){
-				$sql = 'SELECT dynamicsql, name FROM fmchecklists WHERE (clid = '.$clid.')';
-				$result = $this->conn->query($sql);
-				if($row = $result->fetch_object()){
-					$clSql = $row->dynamicsql;
-					$this->clName = $row->name;
-				}
-				$result->free();
-				if($clSql){
-					$sqlWhere .= "AND (".$clSql.") ";
-					$this->localSearchArr[] = "SQL: ".$clSql;
-				}
+			if(is_numeric($clid)){
+				$voucherManager = new ChecklistVoucherAdmin($this->conn);
+				$voucherManager->setClid($clid);
+				$voucherManager->setCollectionVariables();
+				$this->clName = $voucherManager->getClName();
+				$sqlWhere .= 'AND ('.$voucherManager->getSqlFrag().') '.
+					'AND (o.occid NOT IN(SELECT occid FROM fmvouchers WHERE clid = '.$clid.')) ';
+				$this->localSearchArr[] = $voucherManager->getQueryVariableStr();
 			}
 		}
 		$retStr = '';
@@ -494,13 +470,26 @@ class OccurrenceManager{
 		}
 		else{
 			//Make the sql valid, but return nothing
-			$retStr = 'WHERE o.collid = -1 ';
+			$retStr = 'WHERE o.occid IS NULL ';
 		}
 		//echo $retStr; exit;
 		return $retStr;
 	}
-
-	private function formatDate($inDate){
+	
+	private function queryRecordID($idArr){
+		$retArr = array();
+		if($idArr){
+			$sql = 'SELECT occid FROM guidoccurrences WHERE guid IN("'.implode('","', $idArr).'")';
+			$rs = $this->conn->query($sql);
+			while($r = $rs->fetch_object()){
+				$retArr[] = $r->occid;
+			}
+			$rs->free();
+		}
+		return $retArr;
+	}
+	
+    protected function formatDate($inDate){
 		$retDate = OccurrenceUtilities::formatDate($inDate);
 		return $retDate;
 	}
@@ -549,30 +538,6 @@ class OccurrenceManager{
 				if($synArr) $this->taxaArr[$key]["synonyms"] = $synArr;
 			}
 		}
-		/*
-		foreach($this->taxaArr as $key => $value){
-			if(array_key_exists("scinames",$value) && !in_array("no records",$value["scinames"])){
-				$this->taxaArr = $value["scinames"];
-				foreach($this->taxaArr as $sciname){
-					$sql = "call ReturnSynonyms('".$sciname."',1)";
-					$result = $this->conn->query($sql);
-					while($row = $result->fetch_object()){
-						$this->taxaArr[$key]["synonyms"][] = $row->sciname;
-					}
-					$result->close();
-				}
-			}
-			else{
-				$sql = "call ReturnSynonyms('".$key."',1)";
-				$result = $this->conn->query($sql);
-				while($row = $result->fetch_object()){
-					$this->taxaArr[$key]["synonyms"][] = $row->sciname;
-				}
-				$result->close();
-				$this->conn->next_result();
-			}
-		}
-		*/
 	}
 
 	public function getFullCollectionList($catId = ''){
@@ -643,15 +608,16 @@ class OccurrenceManager{
 		return $retArr;
 	}
 
-	public function outputFullCollArr($occArr){
-		global $DEFAULTCATID;
-		$collCnt = 0;
+	public function outputFullCollArr($occArr, $targetCatID = 0){
+		global $DEFAULTCATID, $LANG;
+        if(!$targetCatID && $DEFAULTCATID) $targetCatID = $DEFAULTCATID;
+        $collCnt = 0;
 		echo '<div style="position:relative">';
-		if(isset($occArr['cat'])){
+        if(isset($occArr['cat'])){
 			$categoryArr = $occArr['cat'];
 			?>
 			<div style="float:right;margin-top:20px;">
-				<input type="submit" class="searchcollnextbtn" value="" title="" />
+				<input type="submit" class="nextbtn searchcollnextbtn" value="<?php echo isset($LANG['BUTTON_NEXT'])?$LANG['BUTTON_NEXT']:'Next >'; ?>"  />
 			</div>
 			<table style="float:left;width:80%;">
 				<?php
@@ -679,7 +645,7 @@ class OccurrenceManager{
 						</td>
 						<td style="padding:9px 5px;width:10px;">
 							<a href="#" onclick="toggleCat('<?php echo $idStr; ?>');return false;">
-								<img id="plus-<?php echo $idStr; ?>" src="../images/plus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'':'display:none;') ?>" /><img id="minus-<?php echo $idStr; ?>" src="../images/minus_sm.png" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>" />
+								<img id="plus-<?php echo $idStr; ?>" src="../images/plus_sm.png" style="<?php echo ($targetCatID != $catid?'':'display:none;') ?>" /><img id="minus-<?php echo $idStr; ?>" src="../images/minus_sm.png" style="<?php echo ($targetCatID != $catid?'display:none;':'') ?>" />
 							</a>
 						</td>
 						<td style="padding-top:8px;">
@@ -692,7 +658,7 @@ class OccurrenceManager{
 					</tr>
 					<tr>
 						<td colspan="4">
-							<div id="cat-<?php echo $idStr; ?>" style="<?php echo (($DEFAULTCATID && $DEFAULTCATID != $catid)?'display:none;':'') ?>margin:10px;padding:10px 20px;border:inset">
+							<div id="cat-<?php echo $idStr; ?>" style="<?php echo ($targetCatID && $targetCatID != $catid?'display:none;':'') ?>margin:10px;padding:10px 20px;border:inset">
 								<table>
 									<?php
 									foreach($catArr as $collid => $collName2){
@@ -789,14 +755,14 @@ class OccurrenceManager{
 			if(!isset($occArr['cat'])){
 				?>
 				<div style="float:right;position:absolute;top:<?php echo count($collArr)*5; ?>px;right:0px;">
-					<input type="submit" class="searchcollnextbtn" value="" title="" />
+					<input type="submit" class="nextbtn searchcollnextbtn" value="<?php echo isset($LANG['BUTTON_NEXT'])?$LANG['BUTTON_NEXT']:'Next >'; ?>" />
 				</div>
 				<?php
 			}
 			if(count($collArr) > 40){
 				?>
 				<div style="float:right;position:absolute;top:<?php echo count($collArr)*15; ?>px;right:0px;">
-					<input type="submit" class="searchcollnextbtn" value="" title="" />
+					<input type="submit" class="nextbtn searchcollnextbtn" value="<?php echo isset($LANG['BUTTON_NEXT'])?$LANG['BUTTON_NEXT']:'Next >'; ?>" />
 				</div>
 				<?php
 			}
@@ -900,6 +866,21 @@ class OccurrenceManager{
 		return implode("; ", $this->localSearchArr);
 	}
 
+    public function getSearchResultUrl(){
+        $url = '?';
+        $stPieces = Array();
+        foreach($this->searchTermsArr as $i => $v){
+            if($v){
+                $stPieces[] = $i.'='.$v;
+            }
+        }
+        $url .= implode("&",$stPieces);
+        $url = str_replace('&taxontype=','&type=',$url);
+        $url = str_replace('&usethes=','&thes=',$url);
+        $url = str_replace(' ','%20',$url);
+        return $url;
+    }
+
 	public function getTaxonAuthorityList(){
 		$taxonAuthorityList = Array();
 		$sql = "SELECT ta.taxauthid, ta.name FROM taxauthority ta WHERE (ta.isactive <> 0)";
@@ -925,12 +906,10 @@ class OccurrenceManager{
 			else{
 				$clidStr = $this->conn->real_escape_string(implode(',',array_unique($clidIn)));
 			}
-		 	if($this->useCookies) setCookie("collclid",$clidStr,0,($clientRoot?$clientRoot:'/'));
 			$this->searchTermsArr["clid"] = $clidStr;
 			//Since checklist vouchers are being searched, clear colldbs
 			$domainName = $_SERVER['HTTP_HOST'];
 			if(!$domainName) $domainName = $_SERVER['SERVER_NAME'];
-			setCookie("colldbs","",time()-3600,($clientRoot?$clientRoot:'/'),$domainName,false,true);
 		}
 		elseif(array_key_exists("db",$_REQUEST)){
 			//Limit collids and/or catids
@@ -967,15 +946,8 @@ class OccurrenceManager{
 			}
 
 			if($dbStr){
-				if($this->useCookies){ 
-					$domainName = $_SERVER['HTTP_HOST'];
-					if(!$domainName) $domainName = $_SERVER['SERVER_NAME'];
-					setCookie("colldbs",$dbStr,0,($clientRoot?$clientRoot:'/'),$domainName,false,true);
-				}
 				$this->searchTermsArr["db"] = $dbStr;
 			}
-			//Since coll IDs are being searched, clear checklist voucher ids
-			setCookie("collclid","",time()-3600,($clientRoot?$clientRoot:'/'));
 		}
 		if(array_key_exists("taxa",$_REQUEST)){
 			$taxa = $this->conn->real_escape_string($_REQUEST["taxa"]);
@@ -1016,10 +988,8 @@ class OccurrenceManager{
 					$collTaxa .= "&taxontype:".$searchType;
 					$this->searchTermsArr["taxontype"] = $searchType;
 				}
-				if($this->useCookies) setCookie("colltaxa",$collTaxa,0,($clientRoot?$clientRoot:'/'));
 			}
 			else{
-				if($this->useCookies) setCookie("colltaxa","",time()-3600,($clientRoot?$clientRoot:'/'));
 				unset($this->searchTermsArr["taxa"]);
 			}
 		}
@@ -1054,6 +1024,16 @@ class OccurrenceManager{
 		if(array_key_exists("state",$_REQUEST)){
 			$state = $this->conn->real_escape_string($this->cleanSearchQuotes($_REQUEST["state"]));
 			if($state){
+				if(strlen($state) == 2 && (!isset($this->searchTermsArr["country"]) || stripos($this->searchTermsArr["country"],'USA') !== false)){
+					$sql = 'SELECT s.statename, c.countryname '.
+						'FROM lkupstateprovince s INNER JOIN lkupcountry c ON s.countryid = c.countryid '.
+						'WHERE c.countryname IN("USA","United States") AND (s.abbrev = "'.$state.'")';
+					$rs = $this->conn->query($sql);
+					if($r = $rs->fetch_object()){
+						$state = $r->statename;
+					}
+					$rs->free();
+				}
 				$str = str_replace(",",";",$state);
 				$searchArr[] = "state:".$str;
 				$this->searchTermsArr["state"] = $str;
@@ -1200,6 +1180,17 @@ class OccurrenceManager{
 			}
 			$searchFieldsActivated = true;
 		}
+        if(array_key_exists("hasgenetic",$_REQUEST)){
+            $hasgenetic = $_REQUEST["hasgenetic"];
+            if($hasgenetic){
+                $searchArr[] = "hasgenetic:".$hasgenetic;
+                $this->searchTermsArr["hasgenetic"] = true;
+            }
+            else{
+                unset($this->searchTermsArr["hasgenetic"]);
+            }
+            $searchFieldsActivated = true;
+        }
 		if(array_key_exists("targetclid",$_REQUEST) && is_numeric($_REQUEST['targetclid'])){
 			$searchArr[] = "targetclid:".$_REQUEST["targetclid"];
 			$this->searchTermsArr["targetclid"] = $_REQUEST["targetclid"];
@@ -1250,14 +1241,6 @@ class OccurrenceManager{
 				$searchFieldsActivated = true;
 			}
 		}
-		
-		$searchStr = implode("&",$searchArr);
-		if($searchStr){
-			if($this->useCookies) setCookie("collsearch",$searchStr,0,($clientRoot?$clientRoot:'/'));
-		}
-		elseif($searchFieldsActivated){
-			if($this->useCookies) setCookie("collsearch","",time()-3600,($clientRoot?$clientRoot:'/'));
-		}
 	}
 
 	//Misc return functions
@@ -1307,36 +1290,35 @@ class OccurrenceManager{
 			}
 			$rs2->free();
 
-			//Get synonym that are different than target
-			$sql3 = 'SELECT DISTINCT t.tid, t.sciname '.
-				'FROM taxa t INNER JOIN taxstatus ts ON t.tid = ts.tid '.
-				'WHERE (ts.taxauthid = '.$taxAuthId.') AND (ts.tidaccepted IN('.implode('',$accArr).')) ';
-			$rs3 = $this->conn->query($sql3);
-			while($r3 = $rs3->fetch_object()){
-				if(!in_array($r3->tid,$targetTidArr)) $synArr[$r3->tid] = $r3->sciname;
-			}
-			$rs3->free();
+			if($accArr){
+                //Get synonym that are different than target
+                $sql3 = 'SELECT DISTINCT t.tid, t.sciname ' .
+                    'FROM taxa t INNER JOIN taxstatus ts ON t.tid = ts.tid ' .
+                    'WHERE (ts.taxauthid = ' . $taxAuthId . ') AND (ts.tidaccepted IN(' . implode('', $accArr) . ')) ';
+                $rs3 = $this->conn->query($sql3);
+                while ($r3 = $rs3->fetch_object()) {
+                    if (!in_array($r3->tid, $targetTidArr)) $synArr[$r3->tid] = $r3->sciname;
+                }
+                $rs3->free();
 
-			//If rank is 220, get synonyms of accepted children
-			if($rankId == 220){
-				$sql4 = 'SELECT DISTINCT t.tid, t.sciname '.
-					'FROM taxa t INNER JOIN taxstatus ts ON t.tid = ts.tid '.
-					'WHERE (ts.parenttid IN('.implode('',$accArr).')) AND (ts.taxauthid = '.$taxAuthId.') '.
-					'AND (ts.TidAccepted = ts.tid)';
-				$rs4 = $this->conn->query($sql4);
-				while($r4 = $rs4->fetch_object()){
-					$synArr[$r4->tid] = $r4->sciname;
-				}
-				$rs4->free();
-			}
+                //If rank is 220, get synonyms of accepted children
+                if ($rankId == 220) {
+                    $sql4 = 'SELECT DISTINCT t.tid, t.sciname ' .
+                        'FROM taxa t INNER JOIN taxstatus ts ON t.tid = ts.tid ' .
+                        'WHERE (ts.parenttid IN(' . implode('', $accArr) . ')) AND (ts.taxauthid = ' . $taxAuthId . ') ' .
+                        'AND (ts.TidAccepted = ts.tid)';
+                    $rs4 = $this->conn->query($sql4);
+                    while ($r4 = $rs4->fetch_object()) {
+                        $synArr[$r4->tid] = $r4->sciname;
+                    }
+                    $rs4->free();
+                }
+            }
 		}
 		return $synArr;
 	}
 
-	public function getUseCookies(){
-		return $this->useCookies;
-	}
-
+	//Setters and getters
 	public function getClName(){
 		return $this->clName;
 	}
@@ -1344,7 +1326,16 @@ class OccurrenceManager{
 	public function setSearchTermsArr($stArr){
 		if($stArr) $this->searchTermsArr = $stArr;
 	}
+
+	public function getSearchTermsArr(){
+		return $this->searchTermsArr;
+	}
 	
+	public function getTaxaArr(){
+		return $this->taxaArr;
+	}
+
+	//misc functions
 	protected function cleanOutStr($str){
 		$newStr = str_replace('"',"&quot;",$str);
 		$newStr = str_replace("'","&apos;",$newStr);

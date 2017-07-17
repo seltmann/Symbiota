@@ -248,8 +248,16 @@ class OccurrenceDuplicate {
 		$retArr = array();
 		$lastName = $this->parseLastName($collName);
 		if($lastName && $collNum){
-			$sql = 'SELECT o.occid FROM omoccurrences o INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid '.
-				'WHERE (MATCH(f.recordedby) AGAINST("'.$lastName.'")) AND (o.recordnumber = "'.$collNum.'") AND (o.occid != '.$skipOccid.') ';
+			$sql = 'SELECT o.occid FROM omoccurrences o ';
+			if(strlen($lastName) < 4 || strtolower($lastName) == 'best'){
+				//Need to avoid FULLTEXT stopwords interfering with return
+				$sql .= 'WHERE (o.recordedby LIKE "%'.$lastName.'%") ';
+			}
+			else{
+				$sql .= 'INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid '.
+					'WHERE (MATCH(f.recordedby) AGAINST("'.$lastName.'")) ';
+			}
+			$sql .= 'AND (o.recordnumber = "'.$collNum.'") AND (o.occid != '.$skipOccid.') ';
 			//echo $sql;
 			$rs = $this->conn->query($sql);
 			while($r = $rs->fetch_object()){
@@ -295,10 +303,17 @@ class OccurrenceDuplicate {
 		$retArr = array();
 		$lastName = $this->parseLastName($collName);
 		if($lastName){
-			$sql = 'SELECT o.occid '.
-				'FROM omoccurrences o INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid '.
-				'WHERE (o.processingstatus IS NULL OR o.processingstatus != "unprocessed" OR o.locality IS NOT NULL) '.
-				'AND (MATCH(f.recordedby) AGAINST("'.$lastName.'")) AND (o.occid != '.$skipOccid.') ';
+			$sql = 'SELECT o.occid FROM omoccurrences o ';
+			if(strlen($lastName) < 4 || strtolower($lastName) == 'best'){
+				//Need to avoid FULLTEXT stopwords interfering with return
+				$sql .= 'WHERE (o.recordedby LIKE "%'.$lastName.'%") ';
+			}
+			else{
+				$sql .= 'INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid '.
+					'WHERE (MATCH(f.recordedby) AGAINST("'.$lastName.'")) ';
+			}
+			$sql .= 'AND (o.processingstatus IS NULL OR o.processingstatus != "unprocessed" OR o.locality IS NOT NULL) AND (o.occid != '.$skipOccid.') ';
+				
 			$runQry = true;
 			if($collNum){
 				if(is_numeric($collNum)){
@@ -400,19 +415,32 @@ class OccurrenceDuplicate {
 	}
 
 	//Used in dupelist.php popup used in "Linked Resource" tab in occurrence editor
-	public function getDupeList($lastName, $collNum, $collDate, $catNum, $occid, $currentOccid){
+	public function getDupeList($recordedBy, $recordNumber, $eventDate, $catNum, $occid, $currentOccid){
 		$retArr = array();
+		if(!is_numeric($currentOccid)) return $retArr;
+
 		$queryTerms = array();
-		if($lastName) $queryTerms[] = 'recordedby LIKE "%'.$this->cleanInStr($lastName).'%"';
-		if($collNum) $queryTerms[] = 'recordnumber = "'.$this->cleanInStr($collNum).'"';
-		if($collDate) $queryTerms[] = 'eventdate = "'.$this->cleanInStr($collDate).'"';
-		if($catNum) $queryTerms[] = 'catalognumber = "'.$this->cleanInStr($catNum).'"';
-		if(is_numeric($occid)) $queryTerms[] = 'occid = '.$occid;
+		$recordedBy = $this->cleanInStr($recordedBy);
+		if($recordedBy){
+			if(strlen($recordedBy) < 4 || strtolower($recordedBy) == 'best'){
+				//Need to avoid FULLTEXT stopwords interfering with return
+				$queryTerms[] = '(o.recordedby LIKE "%'.$recordedBy.'%")';
+			}
+			else{
+				$queryTerms[] = 'MATCH(f.recordedby) AGAINST("'.$recordedBy.'")';
+			}
+		}
+		//if($recordedBy) $queryTerms[] = 'recordedby LIKE "%'.$this->cleanInStr($recordedBy).'%"';
+		if($recordNumber) $queryTerms[] = 'o.recordnumber = "'.$this->cleanInStr($recordNumber).'"';
+		if($eventDate) $queryTerms[] = 'o.eventdate = "'.$this->cleanInStr($eventDate).'"';
+		if($catNum) $queryTerms[] = 'o.catalognumber = "'.$this->cleanInStr($catNum).'"';
+		if(is_numeric($occid)) $queryTerms[] = 'o.occid = '.$occid;
 		$sql = 'SELECT c.institutioncode, c.collectioncode, c.collectionname, o.occid, o.catalognumber, '.
 			'o.recordedby, o.recordnumber, o.eventdate, o.verbatimeventdate, o.country, o.stateprovince, o.county, o.locality '.
-			'FROM omoccurrences o INNER JOIN omcollections c ON o.collid = c.collid '.
-			'WHERE o.occid != '.$currentOccid;
-		if($queryTerms && is_numeric($currentOccid)){
+			'FROM omoccurrences o INNER JOIN omcollections c ON o.collid = c.collid ';
+		if($recordedBy) $sql .= 'LEFT JOIN omoccurrencesfulltext f ON o.occid = f.occid ';
+		$sql .= 'WHERE o.occid != '.$currentOccid;
+		if($queryTerms){
 			$sql .= ' AND ('.implode(') AND (', $queryTerms).') ';
 			//echo $sql;
 			$rs = $this->conn->query($sql);
@@ -433,6 +461,42 @@ class OccurrenceDuplicate {
 		return $retArr;
 	}
 	
+	//Used in getLocality.php to obtain autocomplete locality data  
+	public function getDupeLocality($recordedBy, $collDate, $localFrag){
+		$retArr = array();
+		if($recordedBy && $collDate && $localFrag){
+			$locArr = Array('associatedcollectors','verbatimeventdate','country','stateprovince','county','municipality','locality',
+				'decimallatitude','decimallongitude','verbatimcoordinates','coordinateuncertaintyinmeters','geodeticdatum','minimumelevationinmeters',
+				'maximumelevationinmeters','verbatimelevation','verbatimcoordinates','georeferencedby','georeferenceprotocol','georeferencesources',
+				'georeferenceverificationstatus','georeferenceremarks','habitat','substrate','associatedtaxa');
+			$collStr = $this->cleanInStr($recordedBy);
+			$sql = 'SELECT DISTINCT o.'.implode(',o.',$locArr).' FROM omoccurrences o ';
+			if(strlen($collStr) < 4 || strtolower($collStr) == 'best'){
+				//Need to avoid FULLTEXT stopwords interfering with return
+				$sql .= 'WHERE (o.recordedby LIKE "%'.$collStr.'%") ';
+			}
+			else{
+				$sql .= 'INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid WHERE (MATCH(f.recordedby) AGAINST("'.$collStr.'")) ';
+			}
+			$sql .= 'AND (o.eventdate = "'.$this->cleanInStr($collDate).'") AND (o.locality LIKE "'.$this->cleanInStr($localFrag).'%") ';
+				
+			//echo $sql;
+			$rs = $this->conn->query($sql);
+			$cnt = 0;
+			while($r = $rs->fetch_assoc()){
+				foreach($locArr as $field){
+					if($r[$field]) $retArr[$cnt][$field] = $r[$field];
+				}
+				$loc = $r['locality'];
+				if($r['decimallatitude']) $loc .= '; '.$r['decimallatitude'].' '.$r['decimallongitude'];
+				$retArr[$cnt]['value'] = $loc;
+				$cnt++;
+			}
+			$rs->free();
+		}
+		return $retArr;
+	}
+
 	//Ranking functions
 	private function addConsensusRecord($occArr){
 		
@@ -475,34 +539,57 @@ class OccurrenceDuplicate {
 	} 
 
 	//Batch functions
-	public function getDuplicateClusterList($collid, $limitToConflicts,$start,$limit){
+	public function getDuplicateClusterList($collid, $dupeDepth, $start, $limit){
 		$retArr = array();
 		if($collid){
 			//Grab clusters
 			$sqlPrefix = 'SELECT DISTINCT d.duplicateid, d.title, d.description, d.notes ';
 			$sqlSuffix = '';
-			if($limitToConflicts){
+			if($dupeDepth == 1){
+				//Any duplicate where the scinames are different (even they are synonyms) 
 				$sqlSuffix = 'FROM omoccurduplicates d INNER JOIN omoccurduplicatelink dl1 ON d.duplicateid = dl1.duplicateid '.
 					'INNER JOIN omoccurrences o ON dl1.occid = o.occid '.
 					'INNER JOIN omoccurduplicatelink dl2 ON d.duplicateid = dl2.duplicateid '.
 					'INNER JOIN omoccurrences o2 ON dl2.occid = o2.occid '.
 					'WHERE o.collid = '.$collid.($this->obsUid?' AND o.observeruid = '.$this->obsUid:'').' AND o.tidinterpreted <> o2.tidinterpreted ';
 			}
+			elseif($dupeDepth == 2){
+				//Any duplicate where the scinames are different and other record has info in dateIdentified field 
+				$sqlSuffix = 'FROM omoccurduplicates d INNER JOIN omoccurduplicatelink dl1 ON d.duplicateid = dl1.duplicateid '.
+					'INNER JOIN omoccurrences o ON dl1.occid = o.occid '.
+					'INNER JOIN omoccurduplicatelink dl2 ON d.duplicateid = dl2.duplicateid '.
+					'INNER JOIN omoccurrences o2 ON dl2.occid = o2.occid '.
+					'WHERE o.collid = '.$collid.($this->obsUid?' AND o.observeruid = '.$this->obsUid:'').' AND o.tidinterpreted <> o2.tidinterpreted '.
+					'AND (o2.dateidentified IS NOT NULL OR o2.identifiedBy IS NOT NULL) ';
+			}
+			elseif($dupeDepth == 3){
+				//Any duplicate where the scinames are different, other record has info in dateIdentified field, and someone entered a record in the determination table 
+				$sqlSuffix = 'FROM omoccurduplicates d INNER JOIN omoccurduplicatelink dl1 ON d.duplicateid = dl1.duplicateid '.
+					'INNER JOIN omoccurrences o ON dl1.occid = o.occid '.
+					'INNER JOIN omoccurduplicatelink dl2 ON d.duplicateid = dl2.duplicateid '.
+					'INNER JOIN omoccurrences o2 ON dl2.occid = o2.occid '.
+					'INNER JOIN omoccurdeterminations i ON o2.occid = i.occid '.
+					'WHERE o.collid = '.$collid.($this->obsUid?' AND o.observeruid = '.$this->obsUid:'').' AND o.tidinterpreted <> o2.tidinterpreted '.
+					'AND (o2.dateidentified IS NOT NULL OR o2.identifiedBy IS NOT NULL) ';
+			}
 			else{
+				//Return all duplicate clusters
 				$sqlSuffix = 'FROM omoccurduplicates d INNER JOIN omoccurduplicatelink dl ON d.duplicateid = dl.duplicateid '.
 					'INNER JOIN omoccurrences o ON dl.occid = o.occid '.
-					'WHERE o.collid = '.$collid.($this->obsUid?' AND o.observeruid = '.$this->obsUid:'').' ';
+					'WHERE o.collid = '.$collid.($this->obsUid?' AND o.observeruid = '.$this->obsUid:'');
 			}
 			//Get total counts
 			$totalCnt = 0;
-			$rsCnt = $this->conn->query('SELECT count(DISTINCT d.duplicateid) as cnt '.$sqlSuffix);
+			$sql = 'SELECT count(DISTINCT d.duplicateid) as cnt '.$sqlSuffix;
+			//echo $sql;
+			$rsCnt = $this->conn->query($sql);
 			if($rCnt = $rsCnt->fetch_object()){
 				$totalCnt = $rCnt->cnt;
 			}
 			$rsCnt->free();
 			
 			$sql = $sqlPrefix.$sqlSuffix.' ORDER BY o.recordedby,o.recordnumber LIMIT '.$start.','.$limit;
-			//echo 'sql: '.$sql;
+			//echo 'sql: '.$sql; exit;
 			$rs = $this->conn->query($sql);
 			while($r = $rs->fetch_object()){
 				$retArr[$r->duplicateid]['title'] = $r->title;
@@ -512,7 +599,7 @@ class OccurrenceDuplicate {
 			$rs->free();
 			if($retArr){
 				//Grab occurrences for each cluster
-				$sql = 'SELECT dl.duplicateid, o.occid, IFNULL(IFNULL(o.occurrenceid,o.catalognumber),othercatalognumbers) AS identifier, '.
+				$sql = 'SELECT dl.duplicateid, o.occid, IFNULL(IFNULL(o.catalognumber,othercatalognumbers),"Undefined Identifier") AS identifier, '.
 					'o.sciname, o.tidinterpreted, o.recordedby, o.recordnumber, CONCAT_WS(":",c.institutioncode ,c.collectioncode) as code, '.
 					'o.identifiedby, o.dateidentified '.
 					'FROM omoccurduplicatelink dl INNER JOIN omoccurrences o ON dl.occid = o.occid '.
@@ -522,7 +609,7 @@ class OccurrenceDuplicate {
 				$rs = $this->conn->query($sql);
 				while($r = $rs->fetch_object()){
 					$idStr = $r->identifier;
-					if(is_numeric($idStr)) $idStr = $r->code.':'.$idStr;
+					if(is_numeric($idStr) || $idStr == 'Undefined Identifier') $idStr = $r->code.':'.$idStr;
 					if(!$idStr) $idStr = $r->code.':'.'undefined';
 					$retArr[$r->duplicateid][$r->occid]['id'] = $idStr;
 					$retArr[$r->duplicateid][$r->occid]['sciname'] = $r->sciname;

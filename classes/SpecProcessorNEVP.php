@@ -56,6 +56,7 @@ if (!$testImg->checkSchema()) {
    echo "[Warning: classes/ImageShared.php does not support the Symbiota schema version.]\n";
    $uptodate = false;
 }
+$testImg->__destruct();
 if (!$uptodate) { 
    echo "[Warning: Ingest of data may fail.  Contact a Symbiota developer.]\n";
 }
@@ -458,18 +459,18 @@ class OCCURRENCE {
                               $iPlantID = $imageresult->resource_uniq;
                               if ($accesspoint->format=="dng") { 
                                  // Original dng file
-                                 $sourceUrl = "http://bisque.iplantcollaborative.org/image_service/image/$iPlantID";
+                                 $sourceUrl = "https://bisque.cyverse.org/image_service/image/$iPlantID";
                                  $sourceID = $iPlantID;
                               } 
                               if ($accesspoint->format=="jpg") { 
                                  // Preconstructed derivative JPG file
-                                 $imgWebUrl = "http://bisque.iplantcollaborative.org/image_service/image/$iPlantID?resize=1250&format=jpeg";
+                                 $imgWebUrl = "https://bisque.cyverse.org/image_service/image/$iPlantID?resize=1250&format=jpeg";
                                  $imgWebID = $iPlantID;
-                                 $imgTnUrl = "http://bisque.iplantcollaborative.org/image_service/image/$iPlantID?thumbnail=225,225";
+                                 $imgTnUrl = "https://bisque.cyverse.org/image_service/image/$iPlantID?thumbnail=225,225";
                                  // Because this is a JPEG, no need to request ?rotate=guess&format=jpeg,quality,100
                                  // and the folks at iPlant are requesting that this request be made without the 
                                  // un-needed transformation parameters.
-                                 $imgLgUrl = "http://bisque.iplantcollaborative.org/image_service/image/$iPlantID";
+                                 $imgLgUrl = "https://bisque.cyverse.org/image_service/image/$iPlantID";
                               } 
                            }
                         } // end if accesspoint has accessURL
@@ -667,15 +668,15 @@ class NEVPProcessor {
               break;
         }  
   
-        if (!in_array($parser,$depth)) { 
-          $depth[$parser] = 0;
+        if (!in_array((int) $parser,$depth)) { 
+          $depth[(int) $parser] = 0;
         }
-        $depth[$parser]++;
+        $depth[(int) $parser]++;
     }
     
     function endElement($parser, $name) {
         global $depth, $currentOcc, $currentId, $currentDate, $result, $currentAnnotator, $currentAnnotation, $currentMedia, $currentAP,$currentSerializer, $currentDocument;
-        $depth[$parser]--;
+        $depth[(int) $parser]--;
         
         switch ($name) { 
            case "DWCFP:OCCURRENCE":

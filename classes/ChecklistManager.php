@@ -1,5 +1,5 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
 
 class ChecklistManager {
 
@@ -147,7 +147,7 @@ class ChecklistManager {
 	public function getTaxaList($pageNumber = 1,$retLimit = 500){
 		if(!$this->clid && !$this->dynClid) return;
 		//Get species list
-		$familyPrev="";$genusPrev="";$speciesPrev="";$taxonPrev="";
+		$speciesPrev="";$taxonPrev="";
 		$tidReturn = Array();
         $genusCntArr = Array();
         $familyCntArr = Array();
@@ -187,17 +187,13 @@ class ChecklistManager {
 					$this->taxaList[$tid]["author"] = $this->cleanOutStr($row->author);
 				}
     		}
-    		//if($family != $familyPrev) $this->familyCount++;
             if(!in_array($family,$familyCntArr)){
                 $familyCntArr[] = $family;
             }
             if(!in_array($taxonTokens[0],$genusCntArr)){
                 $genusCntArr[] = $taxonTokens[0];
             }
-    		//$familyPrev = $family;
-    		//if($taxonTokens[0] != $genusPrev) $this->genusCount++;
 			$this->filterArr[$taxonTokens[0]] = "";
-    		//$genusPrev = $taxonTokens[0];
     		if(count($taxonTokens) > 1 && $taxonTokens[0]." ".$taxonTokens[1] != $speciesPrev){
     			$this->speciesCount++;
     			$speciesPrev = $taxonTokens[0]." ".$taxonTokens[1];
@@ -225,19 +221,19 @@ class ChecklistManager {
 					$clidStr .= ','.implode(',',$this->childClidArr);
 				}
 				$vSql = 'SELECT DISTINCT v.tid, v.occid, c.institutioncode, v.notes, '.
-					'o.recordedby, o.recordnumber, o.eventdate '.
+					'o.catalognumber, o.recordedby, o.recordnumber, o.eventdate '.
 					'FROM fmvouchers v INNER JOIN omoccurrences o ON v.occid = o.occid '.
 					'INNER JOIN omcollections c ON o.collid = c.collid '.
 					'WHERE (v.clid IN ('.$clidStr.')) AND v.tid IN('.implode(',',array_keys($this->taxaList)).')';
 				//echo $vSql; exit;
 		 		$vResult = $this->conn->query($vSql);
 				while ($row = $vResult->fetch_object()){
-					$collector = $row->recordedby;
+					$collector = ($row->recordedby?$row->recordedby:$row->catalognumber);
 					if(strlen($collector) > 25){
 						//Collector string is too big, thus reduce
 						$strPos = strpos($collector,';');
 						if(!$strPos) $strPos = strpos($collector,',');
-						if(!$strPos) $strPos = strpos($collector,' ');
+						if(!$strPos) $strPos = strpos($collector,' ',10);
 						if($strPos) $collector = substr($collector,0,$strPos).'...';
 					}
 					if($row->recordnumber) $collector .= ' '.$row->recordnumber;
@@ -541,10 +537,14 @@ class ChecklistManager {
 	}
 
 	public function echoResearchPoints($target){
-		$sql = "SELECT c.clid, c.name, c.longcentroid, c.latcentroid ".
-				"FROM (fmchecklists c INNER JOIN fmchklstprojlink cpl ON c.CLID = cpl.clid) ".
-				"INNER JOIN fmprojects p ON cpl.pid = p.pid ".
-				"WHERE c.access = 'public' AND c.LongCentroid IS NOT NULL AND p.pid = ".$this->pid;
+		$clCluster = '';
+		if(isset($GLOBALS['USER_RIGHTS']['ClAdmin'])) {
+			$clCluster = $GLOBALS['USER_RIGHTS']['ClAdmin'];
+		}
+		$sql = 'SELECT c.clid, c.name, c.longcentroid, c.latcentroid '.
+			'FROM fmchecklists c INNER JOIN fmchklstprojlink cpl ON c.CLID = cpl.clid '.
+			'INNER JOIN fmprojects p ON cpl.pid = p.pid '.
+			'WHERE (c.access = "public"'.($clCluster?' OR c.clid IN('.implode(',',$clCluster).')':'').') AND (c.LongCentroid IS NOT NULL) AND (p.pid = '.$this->pid.')';
 		$result = $this->conn->query($sql);
 		while($row = $result->fetch_object()){
 			$idStr = $row->clid;
@@ -568,7 +568,6 @@ class ChecklistManager {
 		$result->free();
 	}
 
-	
 	//Setters and getters
     public function setThesFilter($filt){
 		$this->thesFilter = $filt;

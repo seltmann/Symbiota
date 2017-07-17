@@ -1,7 +1,6 @@
 <?php
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/OccurrenceDownload.php');
-include_once($SERVER_ROOT.'/classes/DwcArchiverOccurrence.php');
 header("Content-Type: text/html; charset=".$CHARSET);
 
 $collid = array_key_exists('collid',$_REQUEST)?$_REQUEST['collid']:0;
@@ -47,11 +46,11 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 <html>
 	<head>
 		<title>Occurrence Export Manager</title>
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
-		<script src="../../js/jquery.js" type="text/javascript"></script>
-		<script src="../../js/jquery-ui.js" type="text/javascript"></script>
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
+		<link href="../../js/jquery-ui-1.12.1/jquery-ui.css" type="text/css" rel="Stylesheet" />	
+		<script src="../../js/jquery-3.2.1.min.js" type="text/javascript"></script>
+		<script src="../../js/jquery-ui-1.12.1/jquery-ui.js" type="text/javascript"></script>
 		<script src="../../js/symb/shared.js" type="text/javascript"></script>
 		<script>
 			
@@ -207,7 +206,8 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 										<td>
 											<div style="margin:10px 0px;">
 												<?php 
-												$cSet = strtolower($charset);
+												//$cSet = strtolower($charset);
+												$cSet = 'iso-8859-1';
 												?>
 												<input type="radio" name="cset" value="iso-8859-1" <?php echo ($cSet=='iso-8859-1'?'checked':''); ?> /> ISO-8859-1 (western)<br/>
 												<input type="radio" name="cset" value="utf-8" <?php echo ($cSet=='utf-8'?'checked':''); ?> /> UTF-8 (unicode)
@@ -446,6 +446,48 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 										</div> 
 									</td>
 								</tr>
+								<?php 
+								if($traitArr = $dlManager->getAttributeTraits($collid)){
+									?>
+									<tr>
+										<td valign="top">
+											<div style="margin:10px;">
+												<b>Occurrence Trait<br/>Filter:</b>
+											</div> 
+										</td>
+										<td>
+											<div style="margin:10px;">
+												<select name="traitid[]" multiple>
+													<?php 
+														foreach($traitArr as $traitID => $tArr){
+															echo '<option value="'.$traitID.'">'.$tArr['name'].' [ID:'.$traitID.']</option>';
+														}
+													?>
+												</select> 
+											</div>
+											<div style="margin:10px;">
+												-- OR select a specific Attribute State --
+											</div>
+											<div style="margin:10px;">
+												<select name="stateid[]" multiple>
+													<?php 
+													foreach($traitArr as $traitID => $tArr){
+														$stateArr = $tArr['state'];
+														foreach($stateArr as $stateID => $stateName){
+															echo '<option value="'.$stateID.'">'.$tArr['name'].': '.$stateName.'</option>';
+														}
+													}
+													?>
+												</select>
+											</div>
+											<div style="">
+												* Hold down the control (ctrl) or command button to select multiple options
+											</div>
+										</td>
+									</tr>
+									<?php 
+								}
+								?>
 								<tr>
 									<td valign="top">
 										<div style="margin:10px;">
@@ -486,6 +528,7 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 										<div style="margin:10px 0px;">
 											<input type="checkbox" name="identifications" value="1" onchange="extensionSelected(this)" checked /> include Determination History<br/>
 											<input type="checkbox" name="images" value="1" onchange="extensionSelected(this)" checked /> include Image Records<br/>
+											<input type="checkbox" name="attributes" value="1" onchange="extensionSelected(this)" checked /> include Occurrence Trait Attributes (MeasurementOrFact extension)<br/>
 											*Output must be a compressed archive 
 										</div>
 									</td>
@@ -524,7 +567,8 @@ $advFieldArr = array('family'=>'Family','sciname'=>'Scientific Name','identified
 									<td>
 										<div style="margin:10px 0px;">
 											<?php 
-											$cSet = strtolower($charset);
+											//$cSet = strtolower($charset);
+											$cSet = 'iso-8859-1';
 											?>
 											<input type="radio" name="cset" value="iso-8859-1" <?php echo ($cSet=='iso-8859-1'?'checked':''); ?> /> ISO-8859-1 (western)<br/>
 											<input type="radio" name="cset" value="utf-8" <?php echo ($cSet=='utf-8'?'checked':''); ?> /> UTF-8 (unicode)

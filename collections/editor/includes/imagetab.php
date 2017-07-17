@@ -149,16 +149,18 @@ $specImgArr = $occManager->getImageMap();
 									$tnUrl = $GLOBALS["imageDomain"].$tnUrl;
 								}
 							}
-							//$displayUrl = $imgUrl;
-							//if(strtolower(substr($displayUrl,-4)) != '.jpg' && $tnUrl){
-								//$displayUrl = $tnUrl;
-							//}
-							?>
-							<a href="<?php echo ($origUrl?$origUrl:$imgUrl);?>" target="_blank">
-								<img src="<?php echo $imgUrl;?>" style="width:250px;" title="<?php echo $imgArr["caption"]; ?>" />
-							</a>
-							<?php 
-							echo '<div><a href="'.$imgUrl.'" target="_blank">Open Medium Image</a></div>';
+							
+							if($imgUrl == 'empty' && $origUrl) $imgUrl = $origUrl;
+							if(!$tnUrl && $imgUrl) $tnUrl = $imgUrl;
+							echo '<a href="'.$imgUrl.'" target="_blank">';
+							if(array_key_exists('error', $imgArr)){
+								echo '<div style="font-weight:bold;font-size:140%">'.$imgArr['error'].'</div>';
+							}
+							else{
+								echo '<img src="'.$imgUrl.'" style="width:250px;" title="'.$imgArr["caption"].'" />';
+							}
+							echo '</a>';
+							if($imgUrl != $origUrl) echo '<div><a href="'.$imgUrl.'" target="_blank">Open Medium Image</a></div>';
 							if($origUrl) echo '<div><a href="'.$origUrl.'" target="_blank">Open Large Image</a></div>';
 							?>
 						</td>

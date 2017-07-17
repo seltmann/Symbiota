@@ -7,8 +7,8 @@
 <html>
 	<head>
 		<title><?php echo $defaultTitle; ?> Data Usage Guidelines</title>
-		<link href="../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	</head>
 	<body>
 		<?php
@@ -97,7 +97,7 @@
 				if you are considering making specimens, remember collecting normally requires 
 				permission of the landowner and, in the case of rare and endangered plants, 
 				additional permits may be required. It is best to coordinate such efforts with a 
-				regional institution that manages a publically accessable collection.
+				regional institution that manages a publically accessible collection.
 			</div> 
 		</div>
 		<?php

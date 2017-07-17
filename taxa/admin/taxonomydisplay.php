@@ -1,5 +1,4 @@
 <?php
-//error_reporting(E_ALL);
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/TaxonomyDisplayManager.php');
 header("Content-Type: text/html; charset=".$charset);
@@ -9,27 +8,28 @@ header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 $target = array_key_exists("target",$_REQUEST)?$_REQUEST["target"]:"";
 $displayAuthor = array_key_exists('displayauthor',$_REQUEST)?$_REQUEST['displayauthor']:0;
 $displayFullTree = array_key_exists('displayfulltree',$_REQUEST)?$_REQUEST['displayfulltree']:0;
+$displaySubGenera = array_key_exists('displaysubgenera',$_REQUEST)?$_REQUEST['displaysubgenera']:0;
 $taxAuthId = array_key_exists("taxauthid",$_REQUEST)?$_REQUEST["taxauthid"]:1;
 $statusStr = array_key_exists('statusstr',$_REQUEST)?$_REQUEST['statusstr']:'';
 
 $taxonDisplayObj = new TaxonomyDisplayManager();
 $taxonDisplayObj->setTargetStr($target);
 $taxonDisplayObj->setTaxAuthId($taxAuthId);
+$taxonDisplayObj->setDisplayAuthor($displayAuthor);
+$taxonDisplayObj->setDisplayFullTree($displayFullTree);
+$taxonDisplayObj->setDisplaySubGenera($displaySubGenera);
 
-if($displayAuthor) $taxonDisplayObj->setDisplayAuthor(1);
- 
-$editable = false;
+$isEditor = false;
 if($IS_ADMIN || array_key_exists("Taxonomy",$USER_RIGHTS)){
-	$editable = true;
-}
- 
+	$isEditor = true;
+} 
 ?>
 <html>
 <head>
 	<title><?php echo $DEFAULT_TITLE." Taxonomy Display: ".$taxonDisplayObj->getTargetStr(); ?></title>
 	<meta http-equiv="Content-Type" content="text/html; charset=<?php echo $CHARSET; ?>"/>
-	<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-	<link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	<link type="text/css" href="../../css/jquery-ui.css" rel="Stylesheet" />
 	<script type="text/javascript" src="../../js/jquery.js"></script>
 	<script type="text/javascript" src="../../js/jquery-ui.js"></script>
@@ -43,9 +43,7 @@ if($IS_ADMIN || array_key_exists("Taxonomy",$USER_RIGHTS)){
 			},{ minLength: 3 }
 			);
 
-
 		});
-		
 	</script>
 </head>
 <body>
@@ -71,7 +69,7 @@ else{
 	?>
 	<div class="navpath">
 		<a href="../../index.php">Home</a> &gt;&gt; 
-		<a href="taxaloader.php"><b>Taxonomic Tree Viewer</b></a> 
+		<a href="taxonomydisplay.php"><b>Taxonomic Tree Viewer</b></a> 
 	</div>
 	<?php 
 }
@@ -88,7 +86,7 @@ else{
 			<hr/>
 			<?php 
 		}
-		if($editable){
+		if($isEditor){
 			?>
 			<div style="float:right;" title="Add a New Taxon">
 				<a href="taxonomyloader.php">
@@ -113,22 +111,23 @@ else{
 					<div style="margin:15px 15px 0px 60px;">
 						<input name="displayauthor" type="checkbox" value="1" <?php echo ($displayAuthor?'checked':''); ?> /> Display authors
 					</div>
-					<div style="margin:3px 15px 15px 60px;">
+					<div style="margin:3px 15px 0px 60px;">
 						<input name="displayfulltree" type="checkbox" value="1" <?php echo ($displayFullTree?'checked':''); ?> /> Display full tree below family 
+					</div>
+					<div style="margin:3px 15px 15px 60px;">
+						<input name="displaysubgenera" type="checkbox" value="1" <?php echo ($displaySubGenera?'checked':''); ?> /> Display species with subgenera 
 					</div>
 				</fieldset>
 			</form>
 		</div>
 		<?php 
 		if($target){
-			$taxonDisplayObj->getTaxa($displayFullTree);
+			$taxonDisplayObj->displayTaxonomyHierarchy();
 		}
 		?>
 	</div>
 	<?php 
 	include($SERVER_ROOT.'/footer.php');
 	?>
-
 </body>
 </html>
-

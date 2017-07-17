@@ -427,37 +427,41 @@ class TaxonProfileManager {
  	
 	private function setTaxaImages(){
 		$this->imageArr = array();
-		$tidArr = Array($this->tid);
-		$sql1 = 'SELECT DISTINCT ts.tid '. 
-			'FROM taxstatus ts INNER JOIN taxaenumtree tn ON ts.tid = tn.tid '.
-			'WHERE tn.taxauthid = 1 AND ts.taxauthid = 1 AND ts.tid = ts.tidaccepted '.
-			'AND tn.parenttid = '.$this->tid;
-		$rs1 = $this->con->query($sql1);
-		while($r1 = $rs1->fetch_object()){
-			$tidArr[] = $r1->tid;
+		if($this->tid){
+			$tidArr = Array($this->tid);
+			$sql1 = 'SELECT DISTINCT ts.tid '. 
+				'FROM taxstatus ts INNER JOIN taxaenumtree tn ON ts.tid = tn.tid '.
+				'WHERE tn.taxauthid = 1 AND ts.taxauthid = 1 AND ts.tid = ts.tidaccepted '.
+				'AND tn.parenttid = '.$this->tid;
+			$rs1 = $this->con->query($sql1);
+			while($r1 = $rs1->fetch_object()){
+				$tidArr[] = $r1->tid;
+			}
+			$rs1->free();
+	
+			$tidStr = implode(",",$tidArr);
+			$sql = 'SELECT t.sciname, ti.imgid, ti.url, ti.thumbnailurl, ti.originalurl, ti.caption, ti.occid, '.
+				'IFNULL(ti.photographer,CONCAT_WS(" ",u.firstname,u.lastname)) AS photographer '.
+				'FROM images ti LEFT JOIN users u ON ti.photographeruid = u.uid '.
+				'INNER JOIN taxstatus ts ON ti.tid = ts.tid '.
+				'INNER JOIN taxa t ON ti.tid = t.tid '.
+				'WHERE ts.taxauthid = 1 AND ts.tidaccepted IN ('.$tidStr.') AND ti.SortSequence < 500 AND ti.thumbnailurl IS NOT NULL ';
+			if(!$this->displayLocality) $sql .= 'AND ti.occid IS NULL ';
+			$sql .= 'ORDER BY ti.sortsequence ';
+			//echo $sql;
+			$result = $this->con->query($sql);
+			while($row = $result->fetch_object()){
+				$imgUrl = $row->url;
+				if($imgUrl == 'empty' && $row->originalurl) $imgUrl = $row->originalurl; 
+				$this->imageArr[$row->imgid]["url"] = $imgUrl;
+				$this->imageArr[$row->imgid]["thumbnailurl"] = $row->thumbnailurl;
+				$this->imageArr[$row->imgid]["photographer"] = $row->photographer;
+				$this->imageArr[$row->imgid]["caption"] = $row->caption;
+				$this->imageArr[$row->imgid]["occid"] = $row->occid;
+				$this->imageArr[$row->imgid]["sciname"] = $row->sciname;
+			}
+			$result->free();
 		}
-		$rs1->close();
-
-		$tidStr = implode(",",$tidArr);
-		$sql = 'SELECT t.sciname, ti.imgid, ti.url, ti.thumbnailurl, ti.caption, ti.occid, '.
-			'IFNULL(ti.photographer,CONCAT_WS(" ",u.firstname,u.lastname)) AS photographer '.
-			'FROM (images ti LEFT JOIN users u ON ti.photographeruid = u.uid) '.
-			'INNER JOIN taxstatus ts ON ti.tid = ts.tid '.
-			'INNER JOIN taxa t ON ti.tid = t.tid '.
-			'WHERE (ts.taxauthid = 1 AND ts.tidaccepted IN ('.$tidStr.')) AND ti.SortSequence < 500 ';
-		if(!$this->displayLocality) $sql .= 'AND ti.occid IS NULL ';
-		$sql .= 'ORDER BY ti.sortsequence ';
-		//echo $sql;
-		$result = $this->con->query($sql);
-		while($row = $result->fetch_object()){
-			$this->imageArr[$row->imgid]["url"] = $row->url;
-			$this->imageArr[$row->imgid]["thumbnailurl"] = $row->thumbnailurl;
-			$this->imageArr[$row->imgid]["photographer"] = $row->photographer;
-			$this->imageArr[$row->imgid]["caption"] = $row->caption;
-			$this->imageArr[$row->imgid]["occid"] = $row->occid;
-			$this->imageArr[$row->imgid]["sciname"] = $row->sciname;
-		}
-		$result->close();
  	}
 
 	public function echoImages($start, $length = 0, $useThumbnail = 1){		//length=0 => means show all images
@@ -558,7 +562,7 @@ class TaxonProfileManager {
  		if(!$tidStr){
 			$tidArr = Array($this->tid,$this->submittedTid);
 			if($this->synonyms) $tidArr = array_merge($tidArr,array_keys($this->synonyms));
-			$tidStr = implode(",",$tidArr);
+			$tidStr = trim(implode(",",$tidArr),' ,');
  		}
 		if($tidStr){
 			$sql = 'SELECT tm.url, t.sciname '.
@@ -582,44 +586,32 @@ class TaxonProfileManager {
 		if(!$tidStr){
 			$tidArr = Array($this->tid,$this->submittedTid);
 			if($this->synonyms) $tidArr = array_merge($tidArr,array_keys($this->synonyms));
-			$tidStr = implode(",",$tidArr);
+			$tidStr = trim(implode(",",$tidArr),' ,');
 		}
- 		
- 		$mapArr = Array();
- 		$minLat = 90;
- 		$maxLat = -90;
- 		$minLong = 180;
- 		$maxLong = -180;
- 		$latlonArr = array();
- 		if(isset($GLOBALS['MAPPING_BOUNDARIES'])){
- 			$latlonArr = explode(";",$GLOBALS['MAPPING_BOUNDARIES']);
- 		}
 
- 		$sqlBase = "SELECT t.sciname, gi.DecimalLatitude, gi.DecimalLongitude ".
-			"FROM omoccurgeoindex gi INNER JOIN taxa t ON gi.tid = t.tid ".
-			"WHERE (gi.tid IN ($tidStr)) ";
- 		$sql = $sqlBase;
-		if(count($latlonArr)==4){
-			$sql .= "AND (gi.DecimalLatitude BETWEEN ".$latlonArr[2]." AND ".$latlonArr[0].") ".
-				"AND (gi.DecimalLongitude BETWEEN ".$latlonArr[3]." AND ".$latlonArr[1].") ";
-		}
-		$sql .= "ORDER BY RAND() LIMIT 50";
-		//echo "<div>".$sql."</div>"; exit;
-		$result = $this->con->query($sql);
- 		$sciName = "";
-		while($row = $result->fetch_object()){
-			$sciName = ucfirst(strtolower(trim($row->sciname)));
-			$lat = round($row->DecimalLatitude,2);
-			if($lat < $minLat) $minLat = $lat;
-			if($lat > $maxLat) $maxLat = $lat;
- 			$long = round($row->DecimalLongitude,2);
-			if($long < $minLong) $minLong = $long;
-			if($long > $maxLong) $maxLong = $long;
- 			$mapArr[] = $lat.",".$long;
-		}
-		$result->free();
-		if(!$mapArr && $latlonArr){
-			$result = $this->con->query($sqlBase."LIMIT 50");
+		$mapArr = Array();
+		if($tidStr){
+	 		$minLat = 90;
+	 		$maxLat = -90;
+	 		$minLong = 180;
+	 		$maxLong = -180;
+	 		$latlonArr = array();
+	 		if(isset($GLOBALS['MAPPING_BOUNDARIES'])){
+	 			$latlonArr = explode(";",$GLOBALS['MAPPING_BOUNDARIES']);
+	 		}
+	
+	 		$sqlBase = "SELECT t.sciname, gi.DecimalLatitude, gi.DecimalLongitude ".
+				"FROM omoccurgeoindex gi INNER JOIN taxa t ON gi.tid = t.tid ".
+				"WHERE (gi.tid IN ($tidStr)) ";
+	 		$sql = $sqlBase;
+			if(count($latlonArr)==4){
+				$sql .= "AND (gi.DecimalLatitude BETWEEN ".$latlonArr[2]." AND ".$latlonArr[0].") ".
+					"AND (gi.DecimalLongitude BETWEEN ".$latlonArr[3]." AND ".$latlonArr[1].") ";
+			}
+			$sql .= "ORDER BY RAND() LIMIT 50";
+			//echo "<div>".$sql."</div>"; exit;
+			$result = $this->con->query($sql);
+	 		$sciName = "";
 			while($row = $result->fetch_object()){
 				$sciName = ucfirst(strtolower(trim($row->sciname)));
 				$lat = round($row->DecimalLatitude,2);
@@ -631,15 +623,29 @@ class TaxonProfileManager {
 	 			$mapArr[] = $lat.",".$long;
 			}
 			$result->free();
-		}
-		if(!$mapArr) return 0;
-		$latDist = $maxLat - $minLat;
-		$longDist = $maxLong - $minLong;
-		
-		$googleUrl = 'http://maps.googleapis.com/maps/api/staticmap?size=256x256&maptype=terrain';
-		if(array_key_exists('GOOGLE_MAP_KEY',$GLOBALS) && $GLOBALS['GOOGLE_MAP_KEY']) $googleUrl .= '&key='.$GLOBALS['GOOGLE_MAP_KEY'];
-		if($latDist < 3 || $longDist < 3) {
-			$googleUrl .= "&zoom=6";
+			if(!$mapArr && $latlonArr){
+				$result = $this->con->query($sqlBase."LIMIT 50");
+				while($row = $result->fetch_object()){
+					$sciName = ucfirst(strtolower(trim($row->sciname)));
+					$lat = round($row->DecimalLatitude,2);
+					if($lat < $minLat) $minLat = $lat;
+					if($lat > $maxLat) $maxLat = $lat;
+		 			$long = round($row->DecimalLongitude,2);
+					if($long < $minLong) $minLong = $long;
+					if($long > $maxLong) $maxLong = $long;
+		 			$mapArr[] = $lat.",".$long;
+				}
+				$result->free();
+			}
+			if(!$mapArr) return 0;
+			$latDist = $maxLat - $minLat;
+			$longDist = $maxLong - $minLong;
+			
+			$googleUrl = '//maps.googleapis.com/maps/api/staticmap?size=256x256&maptype=terrain';
+			if(array_key_exists('GOOGLE_MAP_KEY',$GLOBALS) && $GLOBALS['GOOGLE_MAP_KEY']) $googleUrl .= '&key='.$GLOBALS['GOOGLE_MAP_KEY'];
+			if($latDist < 3 || $longDist < 3) {
+				$googleUrl .= "&zoom=6";
+			}
 		}
 		$coordStr = implode("|",$mapArr);
 		if(!$coordStr) return ""; 
@@ -648,35 +654,55 @@ class TaxonProfileManager {
  	}
 
 	public function getDescriptions(){
-		$descriptionsStr = '';
+		$retArr = Array();
 		if($this->tid){
-			$descriptionsStr = "There is no description set for this taxon.";
-			$retArr = Array();
-			$sql = 'SELECT tdb.tdbid, tdb.caption, tdb.source, tdb.sourceurl, '.
+			$rsArr = array();
+			$sql = 'SELECT ts.tid, tdb.tdbid, tdb.caption, tdb.source, tdb.sourceurl, '.
 				'tds.tdsid, tds.heading, tds.statement, tds.displayheader, tdb.language '.
-				'FROM (taxstatus ts INNER JOIN taxadescrblock tdb ON ts.tid = tdb.tid) '.
+				'FROM taxstatus ts INNER JOIN taxadescrblock tdb ON ts.tid = tdb.tid '.
 				'INNER JOIN taxadescrstmts tds ON tdb.tdbid = tds.tdbid '.
 				'WHERE (ts.tidaccepted = '.$this->tid.') AND (ts.taxauthid = 1) '.
 				'ORDER BY tdb.displaylevel,tds.sortsequence';
 			//echo $sql; exit;
-			$result = $this->con->query($sql);
-			while($row = $result->fetch_object()){
-				$indexKey = 0;
-				if(!in_array(strtolower($row->language), $this->langArr)){ 
-					$indexKey = 1;
-				}
-				$tdbId = $row->tdbid;
-				if(!isset($retArr[$indexKey]) || !array_key_exists($tdbId,$retArr[$indexKey])){
-					$retArr[$indexKey][$tdbId]["caption"] = $row->caption;
-					$retArr[$indexKey][$tdbId]["source"] = $row->source;
-					$retArr[$indexKey][$tdbId]["url"] = $row->sourceurl;
-				}
-				$retArr[$indexKey][$tdbId]["desc"][$row->tdsid] = ($row->displayheader && $row->heading?"<b>".$row->heading."</b>: ":"").$row->statement;
+			$rs = $this->con->query($sql);
+			while($r = $rs->fetch_assoc()){
+				$rsArr[] = $r;
 			}
-			$result->free();
+			$rs->free();
+			
+			//Get descriptions associated with accepted name only
+			$usedCaptionArr = array();
+			foreach($rsArr as $n => $rowArr){
+				if($rowArr['tid'] == $this->tid){
+					$retArr = $this->loadDescriptionArr($rowArr, $retArr);
+					$usedCaptionArr[] = $rowArr['caption'];
+				}
+			}
+			//Then add description linked to synonyms ONLY if one doesn't exist with same caption
+			reset($rsArr);
+			foreach($rsArr as $n => $rowArr){
+				if($rowArr['tid'] != $this->tid && !in_array($rowArr['caption'], $usedCaptionArr)){
+					$retArr = $this->loadDescriptionArr($rowArr, $retArr);
+				}
+			}
+				
 			ksort($retArr);
-			return $retArr;
 		}
+		return $retArr;
+	}
+	
+	private function loadDescriptionArr($rowArr,$retArr){
+		$indexKey = 0;
+		if(!in_array(strtolower($rowArr['language']), $this->langArr)){
+			$indexKey = 1;
+		}
+		if(!isset($retArr[$indexKey]) || !array_key_exists($rowArr['tdbid'],$retArr[$indexKey])){
+			$retArr[$indexKey][$rowArr['tdbid']]["caption"] = $rowArr['caption'];
+			$retArr[$indexKey][$rowArr['tdbid']]["source"] = $rowArr['source'];
+			$retArr[$indexKey][$rowArr['tdbid']]["url"] = $rowArr['sourceurl'];
+		}
+		$retArr[$indexKey][$rowArr['tdbid']]["desc"][$rowArr['tdsid']] = ($rowArr['displayheader'] && $rowArr['heading']?"<b>".$rowArr['heading']."</b>: ":"").$rowArr['statement'];
+		return $retArr;
 	}
 
 	public function getFamily(){

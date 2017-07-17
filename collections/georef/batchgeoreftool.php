@@ -1,6 +1,7 @@
 <?php
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/OccurrenceGeorefTools.php');
+include_once($SERVER_ROOT.'/classes/SOLRManager.php');
 
 if(!$SYMB_UID) header('Location: ../profile/index.php?refurl=../collections/georef/batchgeoreftool.php?'.$_SERVER['QUERY_STRING']);
 
@@ -44,12 +45,13 @@ if(!$georeferenceSources) $georeferenceSources = 'georef batch tool '.date('Y-m-
 if(!$georeferenceVerificationStatus) $georeferenceVerificationStatus = 'reviewed - high confidence';
 
 $geoManager = new OccurrenceGeorefTools();
+if($SOLR_MODE) $solrManager = new SOLRManager();
 $geoManager->setCollId($collId);
 
 $editor = false;
-if($isAdmin
-	|| (array_key_exists("CollAdmin",$userRights) && in_array($collId,$userRights["CollAdmin"]))
-	|| (array_key_exists("CollEditor",$userRights) && in_array($collId,$userRights["CollEditor"]))){
+if($IS_ADMIN
+	|| (array_key_exists("CollAdmin",$USER_RIGHTS) && in_array($collId,$USER_RIGHTS["CollAdmin"]))
+	|| (array_key_exists("CollEditor",$USER_RIGHTS) && in_array($collId,$USER_RIGHTS["CollEditor"]))){
  	$editor = true;
 }
 
@@ -67,6 +69,7 @@ if($editor && $submitAction){
 	if($qProcessingStatus) $geoManager->setQueryVariables('qprocessingstatus',$qProcessingStatus);
 	if($submitAction == 'Update Coordinates'){
 		$statusStr = $geoManager->updateCoordinates($_POST);
+        if($SOLR_MODE) $solrManager->updateSOLR();
 	}
 	$localArr = $geoManager->getLocalityArr();
 }
@@ -76,12 +79,12 @@ header("Content-Type: text/html; charset=".$CHARSET);
 <html>
 	<head>
 		<title>Georeferencing Tools</title>
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 		<link type="text/css" href="<?php echo $clientRoot; ?>/css/jquery-ui.css" rel="Stylesheet" />
 		<script type="text/javascript" src="<?php echo $CLIENT_ROOT; ?>/js/jquery.js"></script>
 		<script type="text/javascript" src="<?php echo $CLIENT_ROOT; ?>/js/jquery-ui.js"></script>
-		<script type="text/javascript" src="<?php echo $CLIENT_ROOT; ?>/js/symb/collections.georef.batchgeoreftool.js?ver=141210"></script>
+		<script type="text/javascript" src="<?php echo $CLIENT_ROOT; ?>/js/symb/collections.georef.batchgeoreftool.js?ver=161212"></script>
 	</head>
 	<body>
 		<!-- This is inner text! -->
@@ -343,7 +346,6 @@ header("Content-Type: text/html; charset=".$CHARSET);
 										</td>
 										<td colspan="2" style="vertical-align:middle">
 											<input id="coordinateuncertaintyinmeters" name="coordinateuncertaintyinmeters" type="text" value="" style="width:50px;" onchange="verifyCoordUncertainty(this)" />
-											meters
 										</td>
 										<td colspan="2" style="vertical-align:middle">
 											<span style="margin-left:20px;font-weight:bold;">Datum:</span>
@@ -428,7 +430,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 										</td>
 									</tr>
 									<tr>
-										<td colspan="6">
+										<td colspan="3">
 											<input name="submitaction" type="submit" value="Update Coordinates" />
 											<span id="workingspan" style="display:none;">
 												<img src="../../images/workingcircle.gif" />
@@ -444,14 +446,33 @@ header("Content-Type: text/html; charset=".$CHARSET);
 											<input name="qdisplayall" type="hidden" value="<?php echo $qDisplayAll; ?>" />
 											<input name="collid" type="hidden" value="<?php echo $collId; ?>" />
 										</td>
-										<td align="right">
-											<div style="margin:10px;">
-												Georeferenced by:
-												<input name="georeferencedby" type="text" value="<?php echo $paramsArr['un']; ?>" readonly />
-											</div>
+										<td colspan="4">
+											<b>Processing status: </b>
+											<select name="processingstatus">
+												<option value="">Leave as is</option>
+												<option value="unprocessed">Unprocessed</option>
+												<option value="unprocessed/NLP">unprocessed/NLP</option>
+												<option value="stage 1">Stage 1</option>
+												<option value="stage 2">Stage 2</option>
+												<option value="stage 3">Stage 3</option>
+												<option value="pending review-nfn">Pending Review-NfN</option>
+												<option value="pending review">Pending Review</option>
+												<option value="expert required">Expert Required</option>
+												<option value="reviewed">Reviewed</option>
+												<option value="closed">Closed</option>
+											</select>
+											<span style="margin-left:20px;font-size:80%">
+												Georefer by:
+												<input name="georeferencedby" type="text" value="<?php echo $paramsArr['un']; ?>" style="width:75px" readonly />
+											</span>
 										</td>
 									</tr>
 								</table>
+								<div style="margin-top:15px">Note: Existing data within following georeference fields will be replaced with incoming data. 
+								However, elevation data will only be added when the target fields are null. 
+								No incoming data will replace existing elevational data. 
+								Georeference fields that will be replaced: decimalLatitude, decimalLongitude, coordinateUncertaintyInMeters, geodeticdatum, 
+								footprintwkt, georeferencedby, georeferenceRemarks, georeferenceSources, georeferenceVerificationStatus </div>
 							</div>
 						</form>
 					</div>

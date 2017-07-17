@@ -1,6 +1,6 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/DwcArchiverOccurrence.php');
+include_once($SERVER_ROOT.'/classes/DwcArchiverCore.php');
 
 $action = array_key_exists("action",$_REQUEST)?$_REQUEST["action"]:'';
 $collid = array_key_exists("collid",$_REQUEST)?$_REQUEST["collid"]:0;
@@ -8,11 +8,12 @@ $cond = array_key_exists("cond",$_REQUEST)?$_REQUEST["cond"]:'';
 $collType = array_key_exists("colltype",$_REQUEST)?$_REQUEST["colltype"]:'specimens';
 $includeDets = array_key_exists("dets",$_REQUEST)?$_REQUEST["dets"]:1;
 $includeImgs = array_key_exists("imgs",$_REQUEST)?$_REQUEST["imgs"]:1;
+$includeAttributes = array_key_exists("attr",$_REQUEST)?$_REQUEST["attr"]:1;
 
 if($collid){
-	$dwcaHandler = new DwcArchiverOccurrence();
+	$dwcaHandler = new DwcArchiverCore();
 	
-	$dwcaHandler->setVerbose(0);
+	$dwcaHandler->setVerboseMode(0);
 	$dwcaHandler->setCollArr($collid,$collType);
 	if($cond){
 		//String of cond-key/value pairs (e.g. country:USA,United States;stateprovince:Arizona,New Mexico;county-start:Pima,Eddy
@@ -43,6 +44,7 @@ if($collid){
 	}
 	$dwcaHandler->setIncludeDets($includeDets);
 	$dwcaHandler->setIncludeImgs($includeImgs);
+	$dwcaHandler->setIncludeAttributes($includeAttributes);
 
 	$archiveFile = $dwcaHandler->createDwcArchive('webreq');
 	if($archiveFile){
@@ -77,6 +79,6 @@ else{
 	header('Expires: 0');
 	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
 	header('Pragma: public');
-	echo 'Error: collectoin identifier is not defined';
+	echo 'Error: collection identifier is not defined';
 }
 ?>

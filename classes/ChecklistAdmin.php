@@ -1,5 +1,6 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
+include_once('ProfileManager.php');
 
 class ChecklistAdmin {
 
@@ -48,7 +49,59 @@ class ChecklistAdmin {
 		}
 		return $retArr;
 	}
+
+	public function createChecklist($postArr){
+		$sqlInsert = "";
+		$sqlValues = "";
+		$defaultViewArr = Array();
+		$defaultViewArr["ddetails"] = array_key_exists("ddetails",$postArr)?1:0;
+		$defaultViewArr["dcommon"] = array_key_exists("dcommon",$postArr)?1:0;
+		$defaultViewArr["dimages"] = array_key_exists("dimages",$postArr)?1:0;
+		$defaultViewArr["dvouchers"] = array_key_exists("dvouchers",$postArr)?1:0;
+		$defaultViewArr["dauthors"] = array_key_exists("dauthors",$postArr)?1:0;
+		$defaultViewArr["dalpha"] = array_key_exists("dalpha",$postArr)?1:0;
+		$defaultViewArr["activatekey"] = array_key_exists("activatekey",$postArr)?1:0;
+		if($defaultViewArr) $postArr["defaultsettings"] = json_encode($defaultViewArr);
+		
+		$fieldArr = array('name'=>'s','authors'=>'s','type'=>'s','locality'=>'s','publication'=>'s','abstract'=>'s','notes'=>'s','latcentroid'=>'n',
+				'longcentroid'=>'n','pointradiusmeters'=>'n','footprintWKT'=>'s','parentclid'=>'n','access'=>'s','uid'=>'n','defaultsettings'=>'s');
+		
+		foreach($fieldArr as $fieldName => $fieldType){
+			$sqlInsert .= ','.$fieldName;
+			$v = $this->cleanInStr($postArr[$fieldName]);
+			if($fieldName != 'abstract') $v = strip_tags($v, '<i><u><b><a>');
+			if($v){
+				if($fieldType == 's'){
+					$sqlValues .= ',"'.$v.'"';
+				}
+				else{
+					if(is_numeric($v)){
+						$sqlValues .= ','.$v;
+					}
+					else{
+						$sqlValues .= ',NULL';
+					}
+				}
+			}
+			else{
+				$sqlValues .= ',NULL';
+			}
+		}
+		$sql = "INSERT INTO fmchecklists (".substr($sqlInsert,1).") VALUES (".substr($sqlValues,1).")";
 	
+		$newClId = 0;
+		if($this->conn->query($sql)){
+			$newClId = $this->conn->insert_id;
+			//Set permissions to allow creater to be an editor
+			$this->conn->query('INSERT INTO userroles (uid, role, tablename, tablepk) VALUES('.$GLOBALS["SYMB_UID"].',"ClAdmin","fmchecklists",'.$newClId.') ');
+			//$this->conn->query("INSERT INTO userpermissions (uid, pname) VALUES(".$GLOBALS["symbUid"].",'ClAdmin-".$newClId."') ");
+			$newPManager = new ProfileManager();
+			$newPManager->setUserName($GLOBALS['USERNAME']);
+			$newPManager->authenticate();
+		}
+		return $newClId;
+	}
+
 	public function editMetaData($postArr){
 		$statusStr = '';
 		$setSql = "";
@@ -60,7 +113,7 @@ class ChecklistAdmin {
 		$defaultViewArr["dauthors"] = array_key_exists("dauthors",$postArr)?1:0;
 		$defaultViewArr["dalpha"] = array_key_exists("dalpha",$postArr)?1:0;
 		$defaultViewArr["activatekey"] = array_key_exists("activatekey",$postArr)?1:0;
-		$postArr["defaultsettings"] = json_encode($defaultViewArr);
+		if($defaultViewArr) $postArr["defaultsettings"] = json_encode($defaultViewArr);
 		
 		$fieldArr = array('name'=>'s','authors'=>'s','type'=>'s','locality'=>'s','publication'=>'s','abstract'=>'s','notes'=>'s','latcentroid'=>'n',
 			'longcentroid'=>'n','pointradiusmeters'=>'n','footprintWKT'=>'s','parentclid'=>'n','access'=>'s','defaultsettings'=>'s');
@@ -92,7 +145,7 @@ class ChecklistAdmin {
 						'INNER JOIN taxstatus ts2 ON ts1.tidaccepted = ts2.tidaccepted '.
 						'INNER JOIN fmchklsttaxalink cl ON ts2.tid = cl.tid '.
 						'SET o.localitysecurity = 1 '.
-						'WHERE (cl.clid = '.$this->clid.') AND (o.stateprovince = "'.$postArr['locality'].'") '.
+						'WHERE (cl.clid = '.$this->clid.') AND (o.stateprovince = "'.$postArr['locality'].'") AND (o.localitySecurityReason IS NULL) '.
 						'AND (o.localitysecurity IS NULL OR o.localitysecurity = 0) AND (ts1.taxauthid = 1) AND (ts2.taxauthid = 1) ';
 					if(!$this->conn->query($sql)){
 						$statusStr = 'Error updating rare state species: '.$this->conn->error;
@@ -107,7 +160,6 @@ class ChecklistAdmin {
 	}
 
 	public function deleteChecklist($delClid){
-		global $symbUid;
 		$statusStr = true;
 		$sql1 = 'SELECT uid FROM userroles '.
 			'WHERE (role = "ClAdmin") AND (tablename = "fmchecklists") AND (tablepk = "'.$delClid.'") AND uid <> '.$GLOBALS['SYMB_UID'];
@@ -255,8 +307,8 @@ class ChecklistAdmin {
 					$sqlRare = 'UPDATE omoccurrences o INNER JOIN taxstatus ts1 ON o.tidinterpreted = ts1.tid '.
 						'INNER JOIN taxstatus ts2 ON ts1.tidaccepted = ts2.tidaccepted '.
 						'SET o.localitysecurity = 1 '.
-						'WHERE (o.localitysecurity IS NULL OR o.localitysecurity = 0) AND (ts1.taxauthid = 1) AND (ts2.taxauthid = 1) '.
-						'AND (o.stateprovince = "'.$state.'") AND (ts2.tid = '.$dataArr['tid'].')';
+						'WHERE (o.localitysecurity IS NULL OR o.localitysecurity = 0) AND (o.localitySecurityReason IS NULL) '.
+						'AND (ts1.taxauthid = 1) AND (ts2.taxauthid = 1) AND (o.stateprovince = "'.$state.'") AND (ts2.tid = '.$dataArr['tid'].')';
 					//echo $sqlRare; exit;
 					$this->conn->query($sqlRare);
 				}
@@ -294,9 +346,10 @@ class ChecklistAdmin {
 	//Editor management
 	public function getEditors(){
 		$editorArr = array();
-		$sql = 'SELECT u.uid, CONCAT_WS(", ",u.lastname,u.firstname) as uname '.
+		$sql = 'SELECT u.uid, CONCAT(CONCAT_WS(", ",u.lastname,u.firstname)," (",l.username,")") as uname '.
 			'FROM userroles ur INNER JOIN users u ON ur.uid = u.uid '.
-			'WHERE (ur.role = "ClAdmin") AND (tablename = "fmchecklists") AND (tablepk = '.$this->clid.') '.
+			'INNER JOIN userlogin l ON u.uid = l.uid '.
+			'WHERE (ur.role = "ClAdmin") AND (ur.tablename = "fmchecklists") AND (ur.tablepk = '.$this->clid.') '.
 			'ORDER BY u.lastname,u.firstname';
 		if($rs = $this->conn->query($sql)){
 			while($r = $rs->fetch_object()){
@@ -306,21 +359,6 @@ class ChecklistAdmin {
 			}
 			$rs->free();
 		}
-		
-		//Remove once userroles table is full integrated
-		/* 
-		$sql = 'SELECT u.uid, CONCAT_WS(", ",u.lastname,u.firstname) as uname '.
-			'FROM userpermissions up INNER JOIN users u ON up.uid = u.uid '.
-			'WHERE up.pname = "ClAdmin-'.$this->clid.'" ORDER BY u.lastname,u.firstname';
-		if($rs = $this->conn->query($sql)){
-			while($r = $rs->fetch_object()){
-				$uName = $r->uname;
-				if(strlen($uName) > 60) $uName = substr($uName,0,60);
-				$editorArr[$r->uid] = $r->uname;
-			}
-			$rs->free();
-		}
-		*/
 		return $editorArr;
 	}
 
@@ -332,13 +370,6 @@ class ChecklistAdmin {
 			if(!$this->conn->query($sql)){
 				$statusStr = 'ERROR: unable to add editor; SQL: '.$this->conn->error;
 			}
-			/*
-			$sql = 'INSERT INTO userpermissions(uid,pname) '.
-				'VALUES('.$u.',"ClAdmin-'.$this->clid.'")';
-			if(!$this->conn->query($sql)){
-				$statusStr = 'ERROR: unable to add editor; SQL: '.$this->conn->error;
-			}
-			*/
 		}
 		return $statusStr;
 	}
@@ -350,13 +381,6 @@ class ChecklistAdmin {
 		if(!$this->conn->query($sql)){
 			$statusStr = 'ERROR: unable to remove editor; SQL: '.$this->conn->error;
 		}
-		/*
-		$sql = 'DELETE FROM userpermissions '.
-			'WHERE uid = '.$u.' AND pname = "ClAdmin-'.$this->clid.'"';
-		if(!$this->conn->query($sql)){
-			$statusStr = 'ERROR: unable to remove editor; SQL: '.$this->conn->error;
-		}
-		*/
 		return $statusStr;
 	}
 
@@ -370,7 +394,25 @@ class ChecklistAdmin {
 	public function getClName(){
 		return $this->clName;
 	}
-	
+
+	public function getReferenceChecklists(){
+		$retArr = array();
+		$sql = 'SELECT clid, name FROM fmchecklists WHERE access = "public" ';
+		$clArr = array();
+		if(isset($GLOBALS['USER_RIGHTS']['ClAdmin'])){
+			$clidStr = implode(',',$GLOBALS['USER_RIGHTS']['ClAdmin']);
+			if($clidStr) $sql .= 'OR clid IN('.$clidStr.') ';
+		}
+		$sql .= 'ORDER BY name';
+		//echo $sql;
+		$rs = $this->conn->query($sql);
+		while($row = $rs->fetch_object()){
+			$retArr[$row->clid] = $row->name;
+		}
+		$rs->close();
+		return $retArr;
+	}
+
 	//Get list data
 	public function getPoints($tid){
 		$retArr = array();
@@ -404,8 +446,8 @@ class ChecklistAdmin {
 	
 	public function getUserList(){
 		$returnArr = Array();
-		$sql = 'SELECT u.uid, CONCAT_WS(", ",u.lastname,u.firstname) AS uname '.
-			'FROM users u '.
+		$sql = 'SELECT u.uid, CONCAT(CONCAT_WS(", ",u.lastname,u.firstname)," (",l.username,")") AS uname '. 
+			'FROM users u INNER JOIN userlogin l ON u.uid = l.uid '.
 			'ORDER BY u.lastname,u.firstname';
 		//echo $sql;
 		$rs = $this->conn->query($sql);
@@ -463,6 +505,49 @@ class ChecklistAdmin {
 			}
 		}
 		return $retArr;
+	}
+
+	public function getManagementLists($uid){
+		$returnArr = Array();
+		if(is_numeric($uid)){
+			//Get project and checklist IDs from userpermissions
+			$clStr = '';
+			$projStr = '';
+			$sql = 'SELECT role,tablepk FROM userroles '.
+				'WHERE (uid = '.$uid.') AND (role = "ClAdmin" OR role = "ProjAdmin") ';
+			//$sql = 'SELECT pname FROM userpermissions '.
+			//	'WHERE (uid = '.$uid.') AND (pname LIKE "ClAdmin-%" OR pname LIKE "ProjAdmin-%") ';
+			$rs = $this->conn->query($sql);
+			while($r = $rs->fetch_object()){
+				if($r->role == 'ClAdmin') $clStr .= ','.$r->tablepk;
+				if($r->role == 'ProjAdmin') $projStr .= ','.$r->tablepk;
+			}
+			$rs->free();
+			if($clStr){
+				//Get checklists
+				$sql = 'SELECT clid, name FROM fmchecklists '.
+						'WHERE (clid IN('.substr($clStr,1).')) '.
+						'ORDER BY name';
+				$rs = $this->conn->query($sql);
+				while($row = $rs->fetch_object()){
+					$returnArr['cl'][$row->clid] = $row->name;
+				}
+				$rs->free();
+			}
+			if($projStr){
+				//Get projects
+				$sql = 'SELECT pid, projname '.
+						'FROM fmprojects '.
+						'WHERE (pid IN('.substr($projStr,1).')) '.
+						'ORDER BY projname';
+				$rs = $this->conn->query($sql);
+				while($row = $rs->fetch_object()){
+					$returnArr['proj'][$row->pid] = $row->projname;
+				}
+				$rs->free();
+			}
+		}
+		return $returnArr;
 	}
 
 	private function cleanOutStr($str){

@@ -28,23 +28,25 @@ function submitQueryTable(f){
 }
 
 function setOrderBy(formObject){
+	/*
 	if(formObject.value != ""){
 		var inputName = formObject.name;
 		inputName.substring(2)
 		if(formObject.form.orderby.value == "") formObject.form.orderby.value = inputName.substring(2);
 	}
+	*/
 }
 
 function detectBatchUpdateField(){
 	var fieldSelected = document.getElementById('bufieldname').value;
 	if(fieldSelected == "processingstatus"){
-		var buNewValue = '';
-		buNewValue += '<select name="bunewvalue">';
+		var buNewValue = '<select name="bunewvalue">';
 		buNewValue += '<option value="unprocessed">Unprocessed</option>';
 		buNewValue += '<option value="unprocessed/nlp">Unprocessed/NLP</option>';
 		buNewValue += '<option value="stage 1">Stage 1</option>';
 		buNewValue += '<option value="stage 2">Stage 2</option>';
 		buNewValue += '<option value="stage 3">Stage 3</option>';
+		buNewValue += '<option value="pending review-nfn">Pending Review-NfN</option>';
 		buNewValue += '<option value="pending review">Pending Review</option>';
 		buNewValue += '<option value="expert required">Expert Required</option>';
 		buNewValue += '<option value="reviewed">Reviewed</option>';
@@ -52,10 +54,8 @@ function detectBatchUpdateField(){
 		buNewValue += '</select>';
 		document.getElementById("bunewvaluediv").innerHTML = buNewValue;
 	}
-	else{
-		var buNewValue = '';
-		buNewValue += '<input name="bunewvalue" type="text" value="" />';
-		document.getElementById("bunewvaluediv").innerHTML = buNewValue;
+	else if(!$("input[name='bunewvalue']").val()){
+		document.getElementById("bunewvaluediv").innerHTML = '<input name="bunewvalue" type="text" value="" />';
 	}
 }
 

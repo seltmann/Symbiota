@@ -1,22 +1,17 @@
 <?php
 include_once('../config/symbini.php');
-include_once($serverRoot.'/classes/InventoryProjectManager.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/InventoryProjectManager.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 
 $pid = $_REQUEST["pid"]; 
 
 $projManager = new InventoryProjectManager();
 $projManager->setPid($pid);
 
-$isEditable = 0;
-if($isAdmin || (array_key_exists("ProjAdmin",$userRights) && in_array($pid,$userRights["ProjAdmin"]))){
-	$isEditable = 1;
-}
-
 ?>
 <div id="managertab">
 	<div style="font-weight:bold;margin:10px 0px">Inventory Project Managers</div>
-	<ul style="margin:10px">
+	<ul style="margin:30px 10px">
 	<?php 
 	$managerArr = $projManager->getManagers();
 	if($managerArr){
@@ -31,7 +26,7 @@ if($isAdmin || (array_key_exists("ProjAdmin",$userRights) && in_array($pid,$user
 	}
 	?>
 	</ul>
-	<fieldset style="margin-top:40px;padding:20px;">
+	<fieldset  class="form-color">
 		<legend><b>Add a New Manager</b></legend>
 		<form name='manageraddform' action='index.php' method='post' onsubmit="return validateManagerAddForm(this)">
 			<select name="uid" style="width:450px;">

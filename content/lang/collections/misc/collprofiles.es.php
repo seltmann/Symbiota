@@ -1,7 +1,7 @@
 <?php
 /*
 ------------------
-Language: Español (Spanish)
+Language: EspaÃ±ol (Spanish)
 ------------------
 */
 
@@ -25,8 +25,12 @@ $LANG['VIEW_COMMENTS'] = 'Ver Comentarios Publicados';
 $LANG['EDIT_META'] = 'Editar metadatos e Informaci&oacute;n de Contacto';
 $LANG['MANAGE_PERMISSIONS'] = 'Administrar Permisos';
 $LANG['IMPORT_SPECIMEN'] = 'Importar/Actualizar Registros de Espec&iacute;menes';
-$LANG['QUICK_FILE'] = 'Carga R&aacute;pida de Archivos';
-$LANG['SKELETAL_FILE_UPLOAD'] = 'Carga Archivo Estructural';
+$LANG['TEXT_FILE_IMPORT'] = 'Carga R&aacute;pida de Archivos';
+$LANG['SKELETAL_FILE_IMPORT'] = 'Carga Archivo Estructural';
+$LANG['DWCA_IMPORT'] = 'DwC-Archive Importaci&oacute;n';
+$LANG['IPT_IMPORT'] = 'IPT Importaci&oacute;n';
+$LANG['NFN_IMPORT'] = 'Notes from Nature Importaci&oacute;n';
+$LANG['IMPORT_PROFILES'] = 'Perfiles de Importaci&oacute;n Guardados';
 $LANG['PROCESSING_TOOLBOX'] = 'Caja de Herramientas de Procesamiento';
 $LANG['DARWIN_CORE_PUB'] = 'Publicaci&oacute;n de Archivo Darwin Core';
 $LANG['REVIEW_SPEC_EDITS'] = 'Revisar/Verificar Ediciones de Ocurrencias';
@@ -56,9 +60,7 @@ $LANG['SHOW_GEOG_DIST'] = 'Mostrar Distribuci&oacute;n Geogr&aacute;fica';
 $LANG['HIDE_GEOG_DIST'] = 'Ocultar Distribuci&oacute;n Geogr&aacute;fica';
 $LANG['GEO_DIST'] = 'Distribuci&oacute;n Geogr&aacute;fica';
 $LANG['CLICK_ON_SPEC_REC'] = 'Haga clic en los recuentos de registros de espec&iacute;menes dentro de los par&eacute;ntesis para mostrar los registros para ese t&eacute;rmino';
-$LANG['CLICKING_NAME_DISPLAY'] = '*Al hacer clic en el nombre en la lista mostrar&aacute; distribuciones dentro';
 $LANG['FAMILY_DIST'] = 'Distribuci&oacute;n de la Familia';
 $LANG['CLICK_ON_SPEC_FAM'] = 'Haga clic en los recuentos de registros de espec&iacute;menes dentro de los par&eacute;ntesis para mostrar los registros para esa familia';
 $LANG['GEOG_DIST_COUNTRIES'] = 'Distribuci&oacute;n Geogr&aacute;fica - Pa&iacute;ses';
-$LANG['CLICK_ON_SPEC_COUNTRY'] = 'Haga clic en los recuentos de registros de espec&iacute;menes dentro de los par&eacute;ntesis para mostrar los registros para ese pa&iacute;s';
 ?>

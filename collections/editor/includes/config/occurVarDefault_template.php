@@ -6,7 +6,7 @@
 //$JSARR = array('example1.js','example2.js'); 
 
 //Enter one to many custom java script files 
-//$PROCESSINGSTATUS = array('unprocessed','Unprocessed/NLP','Stage 1','Stage 2','Stage 3','Pending Duplicate','Pending Review','Expert Required','Reviewed','Closed');
+//$PROCESSINGSTATUS = array('unprocessed','Unprocessed/NLP','Stage 1','Stage 2','Stage 3','Pending Duplicate','Pending Review-NfN','Pending Review','Expert Required','Reviewed','Closed');
 
 //Uncomment to turns catalogNumber duplicate search check on/off (on by default)
 //define('CATNUMDUPECHECK',false); 
@@ -16,6 +16,10 @@
 
 //Uncomment to turn duplicate specimen search function on/off (on by default)
 //define('DUPESEARCH',false);
+
+//Uncomment to turn locality event auto-lookup (locality field autocomplete) function on/off (on by default)
+//0 = off, permanently deactivated, 1 = activated by default (Default), 2 = deactivated by default
+//define('LOCALITYAUTOLOOKUP',1);
 
 //$ACTIVATEASSOCTAXAAID = false;
 
@@ -29,10 +33,12 @@
 //define('VERBATIMEVENTDATELABEL','');
 //define('YYYYMMDDLABEL','');
 //define('DAYOFYEARLABEL','');
+//define('ENDDATELABEL','');
 //define('SCINAMELABEL','');
 //define('SCIENTIFICNAMEAUTHORSHIPLABEL','');
-//define('FAMILYLABEL','');
+//define('IDCONFIDENCELABEL','');
 //define('IDENTIFICATIONQUALIFIERLABEL','');
+//define('FAMILYLABEL','');
 //define('IDENTIFIEDBYLABEL','');
 //define('DATEIDENTIFIEDLABEL','');
 //define('IDENTIFICATIONREFERENCELABEL','');
@@ -45,12 +51,15 @@
 //define('LOCALITYLABEL','');
 //define('LOCALITYSECURITYLABEL','');
 //define('LOCALITYSECURITYREASONLABEL','');
+//define('LOCATIONREMARKSLABEL','');
 //define('DECIMALLATITUDELABEL','');
 //define('DECIMALLONGITUDELABEL','');
 //define('GEODETICDATIMLABEL','');
 //define('COORDINATEUNCERTAINITYINMETERSLABEL','');
 //define('ELEVATIONINMETERSLABEL','');
 //define('VERBATIMELEVATION','');
+//define('DEPTHINMETERSLABEL','');
+//define('VERBATIMDEPTH','');
 //define('FOOTPRINTWKTLABEL','');
 //define('VERBATIMCOORDINATESLABEL','');
 //define('GEOREFERENCEBYLABEL','');
@@ -76,11 +85,12 @@
 //define('DISPOSITIONLABEL','');
 //define('OCCURRENCEIDLABEL','');
 //define('FIELDNUMBERLABEL','');
-//define('OWNERSHIPCODELABEL','');
+//define('OWNERINSTITUTIONCODELABEL','');
 //define('BASISOFRECORDLABEL','');
 //define('LANGUAGELABEL','');
 //define('LABELPROJECTLABEL','');
 //define('DUPLICATEQUALITYCOUNTLABEL','');
 //define('PROCESSINGSTATUSLABEL','');
+//define('DATAGENERALIZATIONSLABEL','');
 
 ?>

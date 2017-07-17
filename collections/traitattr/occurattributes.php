@@ -53,7 +53,7 @@ if($isEditor){
 	if($submitForm == 'Save and Next'){
 		$attrManager->setTargetOccid($_POST['targetoccid']);
 		if(!$attrManager->saveAttributes($_POST,$_POST['notes'],$SYMB_UID)){
-			$statusStr = $attrManager->getErrorStr();
+			$statusStr = $attrManager->getErrorMessage();
 		}
 	}
 	elseif($submitForm == 'Set Status and Save'){
@@ -86,8 +86,8 @@ if($traitID){
 <html>
 	<head>
 		<title>Occurrence Attribute batch Editor</title>
-		<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-		<link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+		<link href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 		<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
 		<script src="../../js/jquery.js" type="text/javascript"></script>
 		<script src="../../js/jquery-ui.js" type="text/javascript"></script>
@@ -272,7 +272,7 @@ if($traitID){
 		<?php
 		if($collid){
 			?>
-			<div style="position:absolute;top:0px;right:0px;width:290px;">
+			<div style="float:right;width:290px;">
 				<?php
 				$attrNameArr = $attrManager->getTraitNames();
 				if($mode == 1){ 
@@ -406,6 +406,26 @@ if($traitID){
 								$attrManager->echoFormTraits($traitID);
 								?>
 							</div>
+							<div style="margin-left:5;">
+								Status: 
+								<select name="setstatus">
+									<?php
+									if($mode == 2){
+										?>
+										<option value="0">Not reviewed</option>
+										<option value="5">Expert Needed</option>
+										<option value="10" selected>Reviewed</option>
+										<?php
+									}
+									else{
+										?>
+										<option value="0">---------------</option>
+										<option value="5">Expert Needed</option>
+										<?php
+									} 
+									?>
+								</select>
+							</div>
 							<div style="margin:20px">
 								<input name="taxonfilter" type="hidden" value="<?php echo $taxonFilter; ?>" />
 								<input name="tidfilter" type="hidden" value="<?php echo $tidFilter; ?>" />
@@ -419,26 +439,13 @@ if($traitID){
 								<input name="reviewuid" type="hidden" value="<?php echo $reviewUid; ?>" /> 
 								<input name="reviewdate" type="hidden" value="<?php echo $reviewDate; ?>" /> 
 								<input name="reviewstatus" type="hidden" value="<?php echo $reviewStatus; ?>" /> 
-								<?php
+								<?php 
 								if($mode == 2){
-									?>
-									<div style="margin-bottom:5px;">
-										<select name="setstatus">
-											<option value="0">Not reviewed</option>
-											<option value="5">Expert Needed</option>
-											<option value="10" selected>Reviewed</option>
-										</select>
-									</div>
-									<div>
-										<input name="submitform" type="submit" value="Set Status and Save" />
-									</div>
-									<?php
+									echo '<input name="submitform" type="submit" value="Set Status and Save" />';
 								}
 								else{
-									?>
-									<input name="submitform" type="submit" value="Save and Next" disabled />
-									<?php
-								} 
+									echo '<input name="submitform" type="submit" value="Save and Next" disabled />';
+								}
 								?>
 							</div>
 						</form>
@@ -476,7 +483,10 @@ if($traitID){
 					<?php
 				}
 				else{
-					echo '<div style="margin:50px;color:red;font-weight:bold;font-size:150%">No images available matching taxon search criteria</div>';
+					if($submitForm)
+						echo '<div style="margin:50px;color:red;font-weight:bold;font-size:140%">No images available matching taxon search criteria</div>';
+					else 
+						echo '<div style="margin:50px;font-weight:bold;font-size:140%">Select a trait and submit filter in the form to the right to display images that have not yet been scored</div>';
 				}
 				?>
 			</div>

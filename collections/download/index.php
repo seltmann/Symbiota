@@ -11,8 +11,8 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 <head>
 	<title>Collections Search Download</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=<?php echo $CHARSET; ?>"/>
-	<link href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-	<link href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	<link href="../../css/jquery-ui.css" type="text/css" rel="stylesheet" />
 	<script src="../../js/jquery.js" type="text/javascript"></script>
 	<script src="../../js/jquery-ui.js" type="text/javascript"></script>
@@ -21,10 +21,10 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 			var crumbs = document.getElementsByClassName('navpath')[0].getElementsByTagName('a');
 			for(var i = 0; i < crumbs.length; i++){
 				if (crumbs[i].getAttribute("href") == "../list.php"){
-					crumbs[i].setAttribute('href','../list.php?usecookies=false&starr=<?php echo $stArrSearchJson; ?>&jsoncollstarr=<?php echo $stArrCollJson; ?>');
+					crumbs[i].setAttribute('href','../list.php?starr=<?php echo $stArrSearchJson; ?>&jsoncollstarr=<?php echo $stArrCollJson; ?>');
 				}
 				if (crumbs[i].getAttribute("href") == "../harvestparams.php"){
-					crumbs[i].setAttribute('href','../harvestparams.php?usecookies=false&starr=<?php echo $stArrSearchJson; ?>&jsoncollstarr=<?php echo $stArrCollJson; ?>');
+					crumbs[i].setAttribute('href','../harvestparams.php?starr=<?php echo $stArrSearchJson; ?>&jsoncollstarr=<?php echo $stArrCollJson; ?>');
 				}
 			}
 		});
@@ -85,7 +85,7 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 			<a href="../../index.php">Home</a> &gt; 
 			<a href="../index.php">Collections</a> &gt; 
 			<a href="../harvestparams.php">Search Criteria</a> &gt; 
-			<a href="../list.php">Occurrence Listing</a> &gt; 
+			<a href="../list.php">Specimen Records</a> &gt;
 			<b>Specimen Download</b>
 		</div>
 		<?php 
@@ -164,6 +164,7 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 									<div style="margin:10px 0px;">
 										<input type="checkbox" name="identifications" value="1" onchange="extensionSelected(this)" checked /> include Determination History<br/>
 										<input type="checkbox" name="images" value="1" onchange="extensionSelected(this)" checked /> include Image Records<br/>
+										<!--  <input type="checkbox" name="attributes" value="1" onchange="extensionSelected(this)" checked /> include Occurrence Trait Attributes (MeasurementOrFact extension)<br/>  -->
 										*Output must be a compressed archive 
 									</div>
 								</td>
@@ -193,7 +194,8 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 							<td>
 								<div style="margin:10px 0px;">
 									<?php 
-									$cSet = strtolower($charset);
+									//$cSet = strtolower($CHARSET);
+									$cSet = 'iso-8859-1';
 									?>
 									<input type="radio" name="cset" value="iso-8859-1" <?php echo ($cSet=='iso-8859-1'?'checked':''); ?> /> ISO-8859-1 (western)<br/>
 									<input type="radio" name="cset" value="utf-8" <?php echo ($cSet=='utf-8'?'checked':''); ?> /> UTF-8 (unicode)
@@ -224,7 +226,7 @@ $stArrSearchJson = array_key_exists("starr",$_REQUEST)?$_REQUEST["starr"]:'';
 									}
 									?>
 									<input name="publicsearch" type="hidden" value="1" />
-									<input name="taxonfilter" type="hidden" value="<?php echo $taxonFilterCode; ?>" />
+									<input name="taxonFilterCode" type="hidden" value="<?php echo $taxonFilterCode; ?>" />
 									<input name="jsoncollstarr" type="hidden" value='<?php echo $stArrCollJson; ?>' />
 									<input name="starr" type="hidden" value='<?php echo $stArrSearchJson; ?>' />
 									<input type="submit" name="submitaction" value="Download Data" <?php echo (!$stArrCollJson && !$stArrSearchJson?'disabled ':''); ?>/>

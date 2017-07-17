@@ -1,17 +1,22 @@
 <?php
-include_once($serverRoot.'/config/dbconnection.php');
-include_once($serverRoot.'/classes/Manager.php');
-include_once($serverRoot.'/classes/OccurrenceEditorManager.php');
-include_once($serverRoot.'/classes/AgentManager.php');
-include_once($serverRoot.'/classes/TaxonomyUtilities.php');
+include_once($SERVER_ROOT.'/config/dbconnection.php');
+include_once($SERVER_ROOT.'/classes/Manager.php');
+include_once($SERVER_ROOT.'/classes/OccurrenceEditorManager.php');
+include_once($SERVER_ROOT.'/classes/AgentManager.php');
+include_once($SERVER_ROOT.'/classes/TaxonomyHarvester.php');
 
 class OccurrenceCleaner extends Manager{
 
 	private $collid;
 	private $obsUid;
+	private $featureCount = 0;
+	private $googleApi;
 
 	public function __construct(){
 		parent::__construct(null,'write');
+		$urlPrefix = 'http://';
+		if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $urlPrefix = "https://";
+		$this->googleApi = $urlPrefix.'maps.googleapis.com/maps/api/geocode/json?sensor=false';
 	}
 
 	public function __destruct(){
@@ -46,18 +51,18 @@ class OccurrenceCleaner extends Manager{
 			'LIMIT '.$startIndex.','.$limit;
 		if($rs = $this->conn->query($sql)){
 			//Check name through taxonomic resources
-			$taxUtil = new  TaxonomyUtilities();
-			$taxUtil->setVerboseMode(2);
+			$taxonHarvester = new  TaxonomyHarvester();
+			$taxonHarvester->setVerboseMode(2);
 			$this->setVerboseMode(2);
 			$nameCnt = 0;
 			while($r = $rs->fetch_object()){
 				$this->logOrEcho('Resolving '.$r->sciname.($r->family?' ('.$r->family.')':'').'...');
-				$newTid = $taxUtil->addSciname($r->sciname, $r->family);
+				$newTid = $taxonHarvester->addSciname($r->sciname, $r->family);
 				if(!$newTid){
 					//Check for near match using SoundEx
 					$this->logOrEcho('Checking close matches in thesaurus...',1);
-					$closeArr = $taxUtil->getSoundexMatch($r->sciname);
-					if(!$closeArr) $closeArr = $taxUtil->getCloseMatchEpithet($r->sciname);
+					$closeArr = $taxonHarvester->getSoundexMatch($r->sciname);
+					if(!$closeArr) $closeArr = $taxonHarvester->getCloseMatchEpithet($r->sciname);
 					if($closeArr){
 						$cnt = 0;
 						foreach($closeArr as $tid => $sciname){
@@ -115,6 +120,16 @@ class OccurrenceCleaner extends Manager{
 			}
 		}
 		return $status;
+	}
+
+	public function hasDuplicateClusters(){
+		$retStatus = false;
+		$sql = 'SELECT o.occid '.
+			'FROM omoccurrences o INNER JOIN omoccurduplicatelink d ON o.occid = d.occid ';
+		$rs = $this->conn->query($sql);
+		if($rs->num_rows) $retStatus = true;
+		$rs->free();
+		return $retStatus;
 	}
 
 	//Search and resolve duplicate specimen records 
@@ -335,34 +350,86 @@ class OccurrenceCleaner extends Manager{
 	//Geographic functions
 	public function countryCleanFirstStep(){
 		//Country cleaning
-		$sqlTrim = 'UPDATE omoccurrences SET country = trim(country) WHERE ((country LIKE " %") OR (country LIKE "% ")) AND collid = '.$this->collid;
-		$this->conn->query($sqlTrim);
-		
-		$sqlEmpty = 'UPDATE omoccurrences SET country = NULL WHERE (country = "")';
-		$this->conn->query($sqlEmpty);
-		echo '<div style="margin-left:15px;">Countries cleaned!</div>';
+		echo '<div style="margin-left:15px;">Preparing countries index...</div>';
 		flush();
 		ob_flush();
+		$occArr = array();
+		$sql = 'SELECT occid FROM omoccurrences WHERE ((country LIKE " %") OR (country LIKE "% ")) AND collid = '.$this->collid;
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$occArr[] = $r->occid;
+		}
+		$rs->free();
+		if($occArr){
+			$sqlTrim = 'UPDATE omoccurrences SET country = trim(country) WHERE (occid IN('.implode(',',$occArr).'))';
+			$this->conn->query($sqlTrim);
+		}
+
+		$sqlEmpty = 'UPDATE omoccurrences SET country = NULL WHERE (country = "")';
+		$this->conn->query($sqlEmpty);
 		
 		//State cleaning
-		$sqlTrim = 'UPDATE omoccurrences SET stateprovince = trim(stateprovince) WHERE ((stateprovince LIKE " %") OR (stateprovince LIKE "% ")) AND collid = '.$this->collid;
-		$this->conn->query($sqlTrim);
+		echo '<div style="margin-left:15px;">Preparing state index...</div>';
+		flush();
+		ob_flush();
+		unset($occArr);
+		$occArr = array();
+		$sql = 'SELECT occid FROM omoccurrences WHERE ((stateprovince LIKE " %") OR (stateprovince LIKE "% ")) AND collid = '.$this->collid;
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$occArr[] = $r->occid;
+		}
+		$rs->free();
+		if($occArr){
+			$sqlTrim = 'UPDATE omoccurrences SET stateprovince = trim(stateprovince) WHERE (occid IN('.implode(',',$occArr).'))';
+			$this->conn->query($sqlTrim);
+		}
 		
 		$sqlEmpty = 'UPDATE omoccurrences SET stateprovince = NULL WHERE (stateprovince = "")';
 		$this->conn->query($sqlEmpty);
-		echo '<div style="margin-left:15px;">States cleaned!</div>';
-		flush();
-		ob_flush();
 		
 		//County cleaning
-		$sqlTrim = 'UPDATE omoccurrences SET county = trim(county) WHERE ((county LIKE " %") OR (county LIKE "% ")) AND collid = '.$this->collid;
-		$this->conn->query($sqlTrim);
+		echo '<div style="margin-left:15px;">Preparing county index...</div>';
+		flush();
+		ob_flush();
+		unset($occArr);
+		$occArr = array();
+		$sql = 'SELECT occid FROM omoccurrences WHERE ((county LIKE " %") OR (county LIKE "% ")) AND collid = '.$this->collid;
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$occArr[] = $r->occid;
+		}
+		$rs->free();
+		if($occArr){
+			$sqlTrim = 'UPDATE omoccurrences SET county = trim(county) WHERE (occid IN('.implode(',',$occArr).'))';
+			$this->conn->query($sqlTrim);
+		}
 		
 		$sqlEmpty = 'UPDATE omoccurrences SET county = NULL WHERE (county = "")';
 		$this->conn->query($sqlEmpty);
-		echo '<div style="margin-left:15px;">Counties cleaned!</div>';
+
+		//Municipality cleaning
+		/*
+		echo '<div style="margin-left:15px;">Preparing municipality index...</div>';
 		flush();
 		ob_flush();
+		unset($occArr);
+		$occArr = array();
+		$sql = 'SELECT occid FROM omoccurrences WHERE ((municipality LIKE " %") OR (municipality LIKE "% ")) AND collid = '.$this->collid;
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$occArr[] = $r->occid;
+		}
+		$rs->free();
+		if($occArr){
+			$sqlTrim = 'UPDATE omoccurrences SET municipality = trim(municipality) WHERE (occid IN('.implode(',',$occArr).'))';
+			echo $sqlTrim.'<br/>';
+			$this->conn->query($sqlTrim);
+		}
+		
+		$sqlEmpty = 'UPDATE omoccurrences SET municipality = NULL WHERE (municipality = "")';
+		$this->conn->query($sqlEmpty);
+		*/
 	}		
 
 	//Bad countries
@@ -390,6 +457,7 @@ class OccurrenceCleaner extends Manager{
 			$retArr[$r->country] = $r->cnt;
 		}
 		$rs->free();
+		$this->featureCount = count($retArr);
 		ksort($retArr);
 		return $retArr;
 	}
@@ -397,7 +465,7 @@ class OccurrenceCleaner extends Manager{
 	public function getGoodCountryArr($includeStates = false){
 		$retArr = array();
 		if($includeStates){
-			$sql = 'SELECT c.countryname, s.statename FROM lkupcountry c INNER JOIN lkupstateprovince s ON c.countryid = s.countryid ';
+			$sql = 'SELECT c.countryname, s.statename FROM lkupcountry c LEFT JOIN lkupstateprovince s ON c.countryid = s.countryid ';
 			$rs = $this->conn->query($sql); 
 			while($r = $rs->fetch_object()){
 				$retArr[$r->countryname][] = $r->statename;
@@ -413,6 +481,7 @@ class OccurrenceCleaner extends Manager{
 			}
 			$rs->free();
 			sort($retArr);
+			$retArr[] = 'unknown';
 		}
 		return $retArr;
 	}
@@ -438,48 +507,18 @@ class OccurrenceCleaner extends Manager{
 			'GROUP BY stateprovince';
 		$rs = $this->conn->query($sql); 
 		while($r = $rs->fetch_object()){
-			$retArr[$r->stateprovince] = $r->cnt;
+			$retArr[ucwords(strtolower($r->stateprovince))] = $r->cnt;
 		}
 		$rs->free();
+		$this->featureCount = count($retArr);
 		ksort($retArr);
 		return $retArr;
-	}
-
-	public function updateCountry($oldValue, $newValue, $conditionArr = null){
-		if(is_numeric($this->collid) && $oldValue && $newValue){
-			$sql = 'UPDATE omoccurrences SET country = "'.$this->cleanInStr($newValue).'" '.
-				'WHERE (collid = '.$this->collid.') ';
-			if($oldValue == '--ISNULL--'){
-				$sql .= 'AND (country IS NULL) ';
-			}
-			else{
-				$sql .= 'AND (country = "'.$this->cleanInStr($oldValue).'") ';
-			}
-			if($conditionArr){
-				foreach($conditionArr as $k => $v){
-					if($v == '--ISNULL--'){
-						$sql .= ' AND ('.$this->cleanInStr($k).' IS NULL) ';
-					}
-					else{
-						$sql .= ' AND ('.$this->cleanInStr($k).' = "'.$this->cleanInStr($v).'") ';
-					}
-				}
-			}
-			//echo $sql; exit;
-			if(!$this->conn->query($sql)){
-				$this->errorStr = 'ERROR updating country with new value: '.$this->conn->error;
-				return false;
-			}
-		}
-		return true;
 	}
 
 	//States cleaning functions
 	public function getBadStateCount($country = ''){
 		$retCnt = array();
-		$sql = 'SELECT COUNT(DISTINCT o.stateprovince) as cnt '.
-			'FROM omoccurrences o LEFT JOIN lkupstateprovince l ON o.stateprovince = l.statename '.
-			'WHERE (o.country IS NOT NULL) AND (o.stateprovince IS NOT NULL) AND (o.collid = '.$this->collid.') AND (l.stateid IS NULL) ';
+		$sql = 'SELECT COUNT(DISTINCT o.stateprovince) as cnt '.$this->getBadStateSqlBase();
 		if($country) $sql .= 'AND o.country = "'.$this->cleanInStr($country).'" ';
 		$rs = $this->conn->query($sql); 
 		while($r = $rs->fetch_object()){
@@ -491,51 +530,43 @@ class OccurrenceCleaner extends Manager{
 
 	public function getBadStateArr(){
 		$retArr = array();
-		$sql = 'SELECT o.country, o.stateprovince, count(DISTINCT o.occid) as cnt '.
-			'FROM omoccurrences o LEFT JOIN lkupstateprovince l ON o.stateprovince = l.statename '.
-			'WHERE (o.country IS NOT NULL) AND (o.stateprovince IS NOT NULL) AND (o.collid = '.$this->collid.') AND (l.stateid IS NULL) '.
-			'GROUP BY o.stateprovince ';
-		$rs = $this->conn->query($sql); 
-		while($r = $rs->fetch_object()){
-			$retArr[$r->country][$r->stateprovince] = $r->cnt;
+		$sqlFrag = $this->getBadStateSqlBase();
+		if($sqlFrag){
+			$sql = 'SELECT o.country, o.stateprovince, count(DISTINCT o.occid) as cnt '.
+				$this->getBadStateSqlBase().
+				'GROUP BY o.stateprovince ';
+			$rs = $this->conn->query($sql); 
+			$cnt = 0;
+			while($r = $rs->fetch_object()){
+				$retArr[$r->country][ucwords(strtolower($r->stateprovince))] = $r->cnt;
+				$cnt++;
+			}
+			$rs->free();
+			$this->featureCount = $cnt;
+			ksort($retArr);
 		}
-		$rs->free();
-		ksort($retArr);
+		else{
+			$this->errorMessage = '';
+		}
 		return $retArr;
 	}
-
-	public function getBadCountryState(){
-		$retArr = array();
-		/*
-		$sql = 'SELECT DISTINCT o.stateprovince, o.country, o2.country, c.countryname '.
-			'FROM omoccurrences o INNER JOIN lkupstateprovince s ON o.stateprovince = s.statename '.
-			'INNER JOIN lkupcountry c ON s.countryid = c.countryid '. 
-			'LEFT JOIN omoccurrences o2 ON c.countryname = o2.country AND o2.occid = o.occid '.
-			'WHERE o.collid = '.$this->collid.' AND o.country IS NOT NULL AND o2.occid IS NULL';
-		*/
-		$stateArr1 = array();
-		$sql = 'SELECT DISTINCT o.stateprovince, o.country '.
-			'FROM omoccurrences o '.
-			'WHERE (o.collid = '.$this->collid.') AND (o.country IS NOT NULL) AND (o.stateprovince IS NOT NULL) ';
-		$rs = $this->conn->query($sql); 
+	
+	private function getBadStateSqlBase(){
+		$retStr = '';
+		$countryArr = array();
+		$sql = 'SELECT DISTINCT c.countryname FROM lkupcountry c INNER JOIN lkupstateprovince s ON c.countryid = s.countryid ';
+		$rs = $this->conn->query($sql);
 		while($r = $rs->fetch_object()){
-			$stateArr1[$r->country][] = $r->stateprovince;
+			$countryArr[] = $r->countryname;
 		}
 		$rs->free();
-		$stateArr2 = array();
-		$sql2 = 'SELECT DISTINCT countryname, statename '.
-			'FROM lkupcountry c INNER JOIN lkupstateprovince s ON c.countryid = s.countryid ';
-		$rs2 = $this->conn->query($sql2); 
-		while($r2 = $rs2->fetch_object()){
-			$stateArr2[$r2->countryname][] = $r2->statename;
-		}
-		$rs2->free();
 		
-		$retArr = array_diff_assoc($stateArr1,$stateArr2);
-		print_r($retArr);
+		if($countryArr){
+			$retStr = 'FROM omoccurrences o LEFT JOIN lkupstateprovince l ON o.stateprovince = l.statename '.
+				'WHERE (o.country IN("'.implode('","', $countryArr).'")) AND (o.stateprovince IS NOT NULL) AND (o.collid = '.$this->collid.') AND (l.stateid IS NULL) ';
+		}
 
-		ksort($retArr);
-		return $retArr;
+		return $retStr;
 	}
 
 	public function getGoodStateArr($includeCounties = false){
@@ -546,7 +577,7 @@ class OccurrenceCleaner extends Manager{
 				'LEFT JOIN lkupcounty co ON s.stateid = co.stateid ';
 			$rs = $this->conn->query($sql); 
 			while($r = $rs->fetch_object()){
-				$retArr[$r->countryname][$r->statename][] = str_replace(array(' County',' Co.',' Co'),'',$r->countyname);
+				$retArr[strtoupper($r->countryname)][ucwords(strtolower($r->statename))][] = str_replace(array(' county',' co.',' co'),'',strtolower($r->countyname));
 			}
 			$rs->free();
 		}
@@ -560,14 +591,13 @@ class OccurrenceCleaner extends Manager{
 			$rs->free();
 		}
 		ksort($retArr);
+		$retArr[] = 'unknown';
 		return $retArr;
 	}
 
 	public function getNullStateNotCountyCount(){
 		$retCnt = 0;
-		$sql = 'SELECT COUNT(DISTINCT county) AS cnt '.
-			'FROM omoccurrences '.
-			'WHERE (collid = '.$this->collid.') AND (stateprovince IS NULL) AND (county IS NOT NULL) AND (country IS NOT NULL) ';
+		$sql = 'SELECT COUNT(DISTINCT county) AS cnt '.$this->getNullStateNotCountySqlFrag();
 		$rs = $this->conn->query($sql); 
 		if($r = $rs->fetch_object()){
 			$retCnt = $r->cnt;
@@ -578,55 +608,29 @@ class OccurrenceCleaner extends Manager{
 
 	public function getNullStateNotCountyArr(){
 		$retArr = array();
-		$sql = 'SELECT country, county, COUNT(occid) AS cnt '.
-			'FROM omoccurrences '.
-			'WHERE (collid = '.$this->collid.') AND (stateprovince IS NULL) AND (county IS NOT NULL) AND (country IS NOT NULL) '.
-			'GROUP BY county';
-		$rs = $this->conn->query($sql); 
+		$sql = 'SELECT country, county, COUNT(occid) AS cnt '.$this->getNullStateNotCountySqlFrag().'GROUP BY county';
+		$rs = $this->conn->query($sql);
+		$cnt = 0;
 		while($r = $rs->fetch_object()){
-			$retArr[$r->country][$r->county] = $r->cnt;
+			$retArr[strtoupper($r->country)][$r->county] = $r->cnt;
+			$cnt++;
 		}
 		$rs->free();
+		$this->featureCount = $cnt;
 		ksort($retArr);
 		return $retArr;
 	}
-
-	public function updateState($oldValue, $newValue, $conditionArr = null){
-		if(is_numeric($this->collid) && $oldValue && $newValue){
-			$sql = 'UPDATE omoccurrences SET stateprovince = "'.$this->cleanInStr($newValue).'" '.
-				'WHERE (collid = '.$this->collid.') ';
-			if($oldValue == '--ISNULL--'){
-				$sql .= 'AND (stateprovince IS NULL) ';
-			}
-			else{
-				$sql .= ' AND (stateprovince = "'.$this->cleanInStr($oldValue).'") ';
-			}
-			if($conditionArr){
-				foreach($conditionArr as $k => $v){
-					if($v == '--ISNULL--'){
-						$sql .= ' AND ('.$this->cleanInStr($k).' IS NULL) ';
-					}
-					else{
-						$sql .= ' AND ('.$this->cleanInStr($k).' = "'.$this->cleanInStr($v).'") ';
-					}
-				}
-			}
-			//echo $sql; exit;
-			if(!$this->conn->query($sql)){
-				$this->errorStr = 'ERROR updating stateProvince with new value: '.$this->conn->error;
-				return false;
-			}
-		}
-		return true;
+	
+	private function getNullStateNotCountySqlFrag(){
+		$retStr = 'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (stateprovince IS NULL) AND (county IS NOT NULL) AND (country IS NOT NULL) ';
+		return $retStr;
 	}
 
 	//Bad Counties
 	public function getBadCountyCount($state = ''){
 		$retCnt = array();
-		$sql = 'SELECT COUNT(DISTINCT o.county) as cnt '.
-			'FROM omoccurrences o LEFT JOIN lkupcounty l ON o.county = l.countyname '.
-			'WHERE (o.county IS NOT NULL) AND (o.country IS NOT NULL) AND (o.stateprovince IS NOT NULL) '.
-			'AND o.collid = '.$this->collid.' AND (l.countyid IS NULL) ';
+		$sql = 'SELECT COUNT(DISTINCT o.county) as cnt '.$this->getBadCountySqlFrag();
 		if($state) $sql .= 'AND o.stateprovince = "'.$this->cleanInStr($state).'" ';
 		$rs = $this->conn->query($sql); 
 		if($r = $rs->fetch_object()){
@@ -638,39 +642,55 @@ class OccurrenceCleaner extends Manager{
 
 	public function getBadCountyArr(){
 		$retArr = array();
-		$sql = 'SELECT o.country, o.stateprovince, o.county, count(o.occid) as cnt '.
-			'FROM omoccurrences o LEFT JOIN lkupcounty l ON o.county = l.countyname '.
-			'WHERE (o.county IS NOT NULL) AND (o.country IS NOT NULL) AND (o.stateprovince IS NOT NULL) '.
-			'AND (o.collid = '.$this->collid.') AND (l.countyid IS NULL) '.
-			'GROUP BY o.country, o.stateprovince, o.county ';
-		//echo $sql;
-		$rs = $this->conn->query($sql); 
+		$sql = 'SELECT o.country, o.stateprovince, o.county, count(o.occid) as cnt '.$this->getBadCountySqlFrag().'GROUP BY o.country, o.stateprovince, o.county ';
+		//echo $sql; exit;
+		$rs = $this->conn->query($sql);
+		$cnt = 0;
 		while($r = $rs->fetch_object()){
-			$retArr[$r->country][$r->stateprovince][$r->county] = $r->cnt;
+			$retArr[strtoupper($r->country)][ucwords(strtolower($r->stateprovince))][$r->county] = $r->cnt;
+			$cnt++;
 		}
 		$rs->free();
-		ksort($retArr);
+		$this->featureCount = $cnt;
+		//ksort($retArr);
 		return $retArr;
+	}
+
+	private function getBadCountySqlFrag(){
+		$retStr = '';
+		$stateyArr = array();
+		$sql = 'SELECT DISTINCT s.statename '.
+			'FROM lkupstateprovince s INNER JOIN lkupcounty co ON s.stateid = co.stateid ';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$stateyArr[] = $r->statename;
+		}
+		$rs->free();
+		if($stateyArr){
+			$retStr = 'FROM omoccurrences o LEFT JOIN lkupcounty l ON o.county = l.countyname '.
+			'WHERE (o.county IS NOT NULL) AND (o.country = "USA") AND (o.stateprovince IN("'.implode('","', $stateyArr).'")) '.
+			'AND (o.collid = '.$this->collid.') AND (l.countyid IS NULL) ';
+		}
+		return $retStr;
 	}
 
 	public function getGoodCountyArr(){
 		$retArr = array();
 		$sql = 'SELECT DISTINCT statename, REPLACE(countyname," County","") AS countyname '.
-			'FROM lkupcounty c INNER JOIN lkupstateprovince s ON c.stateid = s.stateid ';
+			'FROM lkupcounty c INNER JOIN lkupstateprovince s ON c.stateid = s.stateid '.
+			'ORDER BY c.countyname';
 		$rs = $this->conn->query($sql); 
 		while($r = $rs->fetch_object()){
-			$retArr[$r->statename][] = $r->countyname;
+			$retArr[strtolower($r->statename)][] = $r->countyname;
 		}
 		$rs->free();
-		ksort($retArr);
+		$retArr[] = 'unknown';
 		return $retArr;
 	}
 
 	public function getNullCountyNotLocalityCount(){
 		$retCnt = 0;
-		$sql = 'SELECT COUNT(DISTINCT locality) AS cnt '.
-			'FROM omoccurrences '.
-			'WHERE (collid = '.$this->collid.') AND (county IS NULL) AND (locality IS NOT NULL) AND country IN("USA","United States") AND (stateprovince IS NOT NULL) ';
+		$sql = 'SELECT COUNT(DISTINCT locality) AS cnt '.$this->getNullCountyNotLocalitySqlFrag();
 		$rs = $this->conn->query($sql); 
 		if($r = $rs->fetch_object()){
 			$retCnt = $r->cnt;
@@ -682,46 +702,323 @@ class OccurrenceCleaner extends Manager{
 	public function getNullCountyNotLocalityArr(){
 		$retArr = array();
 		$sql = 'SELECT country, stateprovince, locality, COUNT(occid) AS cnt '.
-			'FROM omoccurrences '.
-			'WHERE (collid = '.$this->collid.') AND (county IS NULL) AND (locality IS NOT NULL) '.
-			'AND country IN("USA","United States") AND (stateprovince IS NOT NULL) '.
+			$this->getNullCountyNotLocalitySqlFrag().
 			'GROUP BY country, stateprovince, locality';
-		$rs = $this->conn->query($sql); 
+		$rs = $this->conn->query($sql);
+		$cnt = 0;
 		while($r = $rs->fetch_object()){
 			$locStr = $r->locality;
-			if(strlen($locStr) > 40) $locStr = substr($locStr,0,40).'...';
-			$retArr[$r->country][$r->stateprovince][$locStr] = $r->cnt;
+			//if(strlen($locStr) > 40) $locStr = substr($locStr,0,40).'...';
+			$retArr[$r->country][ucwords(strtolower($r->stateprovince))][$locStr] = $r->cnt;
+			$cnt++;
 		}
 		$rs->free();
+		$this->featureCount = $cnt;
 		ksort($retArr);
 		return $retArr;
 	}
 
-	public function updateCounty($oldValue, $newValue, $conditionArr = null){
-		if(is_numeric($this->collid) && $oldValue && $newValue){
-			$sql = 'UPDATE omoccurrences SET county = "'.$this->cleanInStr($newValue).'" '.
-				'WHERE (collid = '.$this->collid.') ';
-			if($oldValue == '--ISNULL--'){
-				$sql .= 'AND (county IS NULL) ';
-			}
-			else{
-				$sql .= ' AND (county = "'.$this->cleanInStr($oldValue).'") ';
-			}
-			if($conditionArr){
-				foreach($conditionArr as $k => $v){
-					if($v == '--ISNULL--'){
-						$sql .= ' AND ('.$this->cleanInStr($k).' IS NULL) ';
+	private function getNullCountyNotLocalitySqlFrag(){
+		$retStr = 'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (county IS NULL) AND (locality IS NOT NULL) '.
+			'AND country IN("USA","United States") AND (stateprovince IS NOT NULL) ';
+		return $retStr;
+	}
+
+	//Coordinate field verifier
+	public function getCoordStats(){
+		$retArr = array();
+		//Get count georeferenced
+		$sql = 'SELECT count(*) AS cnt '.
+			'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NOT NULL) AND (decimallongitude IS NOT NULL)';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr['coord'] = $r->cnt;
+		}
+		$rs->free();
+
+		//Get count not georeferenced
+		$sql = 'SELECT count(*) AS cnt '.
+			'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NULL) AND (decimallongitude IS NULL)';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr['noCoord'] = $r->cnt;
+		}
+		$rs->free();
+
+		//Count not georeferenced with verbatimCoordinates info
+		$sql = 'SELECT count(*) AS cnt '.
+			'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NULL) AND (decimallongitude IS NULL) AND (verbatimcoordinates IS NOT NULL)';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr['noCoord_verbatim'] = $r->cnt;
+		}
+		$rs->free();
+
+		//Count not georeferenced without verbatimCoordinates info
+		$sql = 'SELECT count(*) AS cnt '.
+				'FROM omoccurrences '.
+				'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NULL) AND (decimallongitude IS NULL) AND (verbatimcoordinates IS NULL)';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr['noCoord_noVerbatim'] = $r->cnt;
+		}
+		$rs->free();
+		return $retArr;
+	}
+
+	public function getUnverifiedByCountry(){
+		$retArr = array();
+		$sql = 'SELECT country, count(occid) AS cnt '.
+			'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NOT NULL) AND (decimallongitude IS NOT NULL) AND country IS NOT NULL '.
+			'AND (occid NOT IN(SELECT occid FROM omoccurverification WHERE category = "coordinate")) '.
+			'GROUP BY country';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr[$r->country] = $r->cnt;
+		}
+		$rs->free();
+		return $retArr;
+	}
+
+	public function verifyCoordAgainstPolitical($queryCountry){
+		echo '<ul>';
+		echo '<li>Starting coordinate crawl...</li>';
+		$sql = 'SELECT occid, country, stateprovince, county, decimallatitude, decimallongitude '.
+			'FROM omoccurrences '.
+			'WHERE (collid = '.$this->collid.') AND (decimallatitude IS NOT NULL) AND (decimallongitude IS NOT NULL) AND (country = "'.$queryCountry.'") '.
+			'AND (occid NOT IN(SELECT occid FROM omoccurverification WHERE category = "coordinate")) '.
+			'LIMIT 500';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			echo '<li>Checking occurrence <a href="../editor/occurrenceeditor.php?occid='.$r->occid.'" target="_blank">'.$r->occid.'</a>...</li>';
+			$googleUnits = $this->callGoogleApi($r->decimallatitude, $r->decimallongitude);
+			$ranking = 0;
+			$protocolStr = '';
+			if(isset($googleUnits['country'])){
+				if($this->countryUnitsEqual($googleUnits['country'],$r->country)){
+					$ranking = 2;
+					$protocolStr = 'GoogleApiMatch:countryEqual';
+					if(isset($googleUnits['state'])){
+						if($this->unitsEqual($googleUnits['state'], $r->stateprovince)){
+							$ranking = 5;
+							$protocolStr = 'GoogleApiMatch:stateEqual';
+							if(isset($googleUnits['county'])){
+								if($this->countyUnitsEqual($googleUnits['county'], $r->county)){
+									$ranking = 7;
+									$protocolStr = 'GoogleApiMatch:countyEqual';
+								}
+								else{
+									echo '<li style="margin-left:15px;">County not equal (source: '.$r->county.'; Google value: '.$googleUnits['county'].')</li>';
+								}
+							}
+							else{
+								echo '<li style="margin-left:15px;">County not provided by Google</li>';
+							}
+						}
+						else{
+							echo '<li style="margin-left:15px;">State/Province not equal (source: '.$r->stateprovince.'; Google value: '.$googleUnits['state'].')</li>';
+						}
 					}
 					else{
-						$sql .= ' AND ('.$this->cleanInStr($k).' = "'.$this->cleanInStr($v).'") ';
+						echo '<li style="margin-left:15px;">State/Province not provided by Google</li>';
+					}
+				}
+				else{
+					echo '<li style="margin-left:15px;">Country not equal (source: '.$r->country.'; Google value: '.$googleUnits['country'].')</li>';
+				}
+			}
+			else{
+				echo '<li style="margin-left:15px;">Country not provided by Google</li>';
+			}
+			if($ranking){
+				$this->setVerification($r->occid, 'coordinate', $ranking, $protocolStr);
+				echo '<li style="margin-left:15px;">Verification status set (rank: '.$ranking.', '.$protocolStr.')</li>';
+			}
+			else{
+				echo '<li style="margin-left:15px;">Unable to set verification status</li>';
+			}
+			flush();
+			ob_flush();
+		}
+		$rs->free();
+	}
+	
+	private function callGoogleApi($lat, $lng){
+		$retArr = array();
+		$apiUrl = $this->googleApi.'&latlng='.$lat.','.$lng;
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		//curl_setopt($curl, CURLOPT_HEADER, 0);
+		curl_setopt($curl, CURLOPT_URL, $apiUrl);
+		
+		$data = curl_exec($curl);
+		curl_close($curl);
+	
+		//Extract country, state, and county from results
+		$dataObj = json_decode($data);
+		$retArr['status'] = $dataObj->status;
+		if($dataObj->status == "OK"){
+			$rs = $dataObj->results[0];
+			if($rs->address_components){
+				$compArr = $rs->address_components;
+				foreach($compArr as $compObj){
+					if($compObj->long_name && $compObj->types){
+						$longName = $compObj->long_name;
+						$types = $compObj->types;
+						if($types[0] == "country"){
+							$retArr['country'] = $longName;
+						}
+						elseif($types[0] == "administrative_area_level_1"){
+							$retArr['state'] = $longName;
+						}
+						elseif($types[0] == "administrative_area_level_2"){
+							$retArr['county'] = $longName;
+						}
 					}
 				}
 			}
-			//echo $sql; exit;
-			if(!$this->conn->query($sql)){
-				$this->errorStr = 'ERROR updating county with new value: '.$this->conn->error;
-				return false;
+		}
+		else{
+			echo '<li style="margin-left:15px;">Unable to get return from Google API (status: '.$dataObj->status.')</li>';
+		}
+		return $retArr;
+	}
+
+	private function unitsEqual($googleTerm, $dbTerm){
+		$googleTerm = strtolower(trim($googleTerm));
+		$dbTerm = strtolower(trim($dbTerm));
+		
+		if($googleTerm == $dbTerm) return true;
+		return false;
+	}
+
+	private function countryUnitsEqual($countryGoogle,$countryDb){
+
+		if($this->unitsEqual($countryGoogle,$countryDb)) return true;
+
+		$countryGoogle = strtolower(trim($countryGoogle));
+		$countryDb = strtolower(trim($countryDb));
+		
+		$synonymArr = array();
+		$synonymArr[] = array('united states','usa','united states of america','u.s.a.');
+		
+		foreach($synonymArr as $synArr){
+			if(in_array($countryGoogle, $synArr)){
+				if(in_array($countryDb, $synArr)) return true;
 			}
+		}
+		return false;
+	}
+
+	private function countyUnitsEqual($countyGoogle,$countyDb){
+		$countyGoogle = strtolower(trim($countyGoogle));
+		$countyDb = strtolower(trim($countyDb));
+
+		$countyGoogle = trim(str_replace(array('county','parish'), '', $countyGoogle));
+		if(strpos($countyDb,$countyGoogle) !== false) return true; 
+
+		return false;
+	}
+
+	private function setVerification($occid, $category, $ranking, $protocol = '', $source = '', $notes = ''){
+		$sql = 'INSERT INTO omoccurverification(occid, category, ranking, protocol, source, notes, uid) '.
+			'VALUES('.$occid.',"'.$category.'",'.$ranking.','.
+			($protocol?'"'.$protocol.'"':'NULL').','.
+			($source?'"'.$source.'"':'NULL').','.
+			($notes?'"'.$notes.'"':'NULL').','.
+			$GLOBALS['SYMB_UID'].')';
+		if(!$this->conn->query($sql)){
+			$this->errorMessage = 'ERROR thrown setting occurrence verification: '.$this->conn->error;
+			echo '<li style="margin-left:15px;">'.$this->errorMessage.'</li>';
+		}
+	}
+
+	//General ranking functions
+	public function getCategoryList(){
+		$retArr = array();
+		$sql = 'SELECT DISTINCT category '.
+			'FROM omoccurverification '.
+			'WHERE (collid = '.$this->collid.')';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr[] = $r->category;
+		}
+		$rs->free();
+		sort($retArr);
+		return $retArr;
+	}
+
+	public function getRankingStats($category){
+		$retArr = array();
+		$category = $this->cleanInStr($category);
+		$sql = 'SELECT category, ranking, protocol, count(*) as cnt '.
+			'FROM omoccurverification '.
+			'WHERE category = "'.$category.'" '.
+			'GROUP BY category, ranking,protocol';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_object()){
+			$retArr[$r->category][$r->ranking][$r->protocol] = $r->cnt;
+		}
+		$rs->free();
+		if($category){
+			//Get unranked count
+			$sql = 'SELECT count(occid) AS cnt '.
+				'FROM omoccurrences '.
+				'WHERE (collid = '.$this->collid.') AND (occid NOT IN(SELECT occid FROM omoccurverification WHERE category = "'.$category.'"))';
+			$rs = $this->conn->query($sql);
+			if($r = $rs->fetch_object()){
+				$retArr[$category]['unranked'][''] = $r->cnt;
+			}
+			$rs->free();
+		}
+		return $retArr;
+	}
+
+	public function getOccurList($category, $ceilingRank, $floorRank = 0){
+		$retArr = array();
+		if(is_numeric($ceilingRank) && is_numeric($floorRank)){
+			$sql = 'SELECT ovsid, occid, category, ranking, protocol, source, uid, notes, initialtimestamp '.
+				'FROM omoccurverification '.
+				'WHERE (collid = '.$this->collid.') AND (category = "'.$this->cleanInStr($category).'") '.
+				'AND (ranking BETWEEN '.$floorRank.' AND '.$ceilingRank.')';
+			$rs = $this->conn->query($sql);
+			while($r = $rs->fetch_object()){
+	
+			}
+			$rs->free();
+		}
+		return $retArr;
+	}
+	
+	//General field updater
+	public function updateField($fieldName, $oldValue, $newValue, $conditionArr = null){
+		if(is_numeric($this->collid) && $fieldName && $newValue){
+			$editorManager = new OccurrenceEditorManager($this->conn);
+			$qryArr = array('cf1'=>'collid','ct1'=>'EQUALS','cv1'=>$this->collid);
+			if($conditionArr){
+				$cnt = 2;
+				foreach($conditionArr as $k => $v){
+					$qryArr['cf'.$cnt] = $k;
+					if($v == '--ISNULL--'){
+						$qryArr['ct'.$cnt] = 'NULL';
+						$qryArr['cv'.$cnt] = '';
+					}
+					else{
+						$qryArr['ct'.$cnt] = 'EQUALS';
+						$qryArr['cv'.$cnt] = $v;
+					}
+					$cnt++;
+					if($cnt > 4) break;
+				}
+			}
+			$editorManager->setQueryVariables($qryArr);
+			$editorManager->setSqlWhere();
+			$editorManager->batchUpdateField($fieldName,$oldValue,$newValue,false);
 		}
 		return true;
 	}
@@ -738,7 +1035,11 @@ class OccurrenceCleaner extends Manager{
 			$this->obsUid = $obsUid;
 		}
 	}
-	
+
+	public function getFeatureCount(){
+		return $this->featureCount;
+	}
+
 	//Misc fucntions
 	public function getCollMap(){
 		$retArr = Array();

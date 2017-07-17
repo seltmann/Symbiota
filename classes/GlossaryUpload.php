@@ -184,7 +184,7 @@ class GlossaryUpload{
 		$this->outputMsg('Linking terms already in database... ');
 		$sql = 'UPDATE uploadglossary AS ug LEFT JOIN glossary AS g ON ug.term = g.term AND ug.`language` = g.`language` '.
 			'LEFT JOIN glossarytermlink AS gt ON g.glossid = gt.glossid '.
-			'LEFT JOIN glossarytaxalink AS gx ON gt.glossgrpid = gx.glossgrpid '.
+			'LEFT JOIN glossarytaxalink AS gx ON gt.glossgrpid = gx.glossid '.
 			'SET ug.currentGroupId = gt.glossgrpid, ug.term = NULL '.
 			'WHERE gx.tid IN('.$tidStr.') ';
 		if(!$this->conn->query($sql)){
@@ -261,7 +261,7 @@ class GlossaryUpload{
 			$sql = 'INSERT INTO glossarytermlink(glossgrpid,glossid) '.
 				'SELECT DISTINCT ug.currentGroupId, g.glossid '.
 				'FROM glossary AS g LEFT JOIN uploadglossary AS ug ON g.term = ug.term AND g.`language` = ug.`language` '.
-				'LEFT JOIN glossarytaxalink AS gx ON ug.currentGroupId = gx.glossgrpid '.
+				'LEFT JOIN glossarytaxalink AS gx ON ug.currentGroupId = gx.glossid '.
 				'WHERE ug.term IS NOT NULL AND ug.currentGroupId IS NOT NULL AND gx.tid IN('.$tidStr.') ';
 			if(!$this->conn->query($sql)){
 				$this->outputMsg('ERROR: '.$this->conn->error,1);
@@ -326,12 +326,12 @@ class GlossaryUpload{
 		
 		$this->outputMsg('Linking taxa to new '.$primaryLanguage.' terms... ');
 		foreach($tidArr as $tId){
-			$sql = 'INSERT INTO glossarytaxalink(glossgrpid,tid) '.
+			$sql = 'INSERT INTO glossarytaxalink(glossid,tid) '.
 				'SELECT DISTINCT gt.glossgrpid, '.$tId.' '.
 				'FROM glossary AS g LEFT JOIN uploadglossary AS ug ON g.term = ug.term AND g.`language` = ug.`language` '.
 				'LEFT JOIN glossarytermlink AS gt ON g.glossid = gt.glossid '.
 				'WHERE ug.term IS NOT NULL AND ISNULL(ug.currentGroupId) AND ug.`language` = "'.$primaryLanguage.'" '.
-				'AND gt.glossgrpid NOT IN(SELECT glossgrpid FROM glossarytaxalink WHERE tid = '.$tId.') ';
+				'AND gt.glossgrpid NOT IN(SELECT glossid FROM glossarytaxalink WHERE tid = '.$tId.') ';
 			if(!$this->conn->query($sql)){
 				$this->outputMsg('ERROR: '.$this->conn->error,1);
 			}
@@ -355,7 +355,7 @@ class GlossaryUpload{
 					'LEFT JOIN uploadglossary AS ug2 ON ug1.newGroupId = ug2.newGroupId '.
 					'LEFT JOIN glossary AS g2 ON ug2.term = g2.term AND ug2.`language` = g2.`language` '.
 					'LEFT JOIN glossarytermlink AS gt ON g2.glossid = gt.glossid '.
-					'LEFT JOIN glossarytaxalink AS gx ON gt.glossgrpid = gx.glossgrpid '.
+					'LEFT JOIN glossarytaxalink AS gx ON gt.glossgrpid = gx.glossid '.
 					'WHERE ug1.term IS NOT NULL AND ISNULL(ug1.currentGroupId) AND ug1.`language` = "'.$lang.'" '.
 					'AND ug2.`language` = "'.$primaryLanguage.'" AND gx.tid IN('.$tidStr.') '.
 					'AND g1.glossid NOT IN(SELECT glossid FROM glossarytermlink) AND ISNULL(ug2.synonym) ';
@@ -527,9 +527,9 @@ class GlossaryUpload{
 	private function encodeString($inStr){
 		global $charset;
 		$retStr = $inStr;
-		//Get rid of curly (smart) quotes
-		$search = array("’", "‘", "`", "”", "“"); 
-		$replace = array("'", "'", "'", '"', '"'); 
+		//Get rid of Windows curly (smart) quotes
+		$search = array(chr(145),chr(146),chr(147),chr(148),chr(149),chr(150),chr(151));
+		$replace = array("'","'",'"','"','*','-','-');
 		$inStr= str_replace($search, $replace, $inStr);
 		//Get rid of UTF-8 curly smart quotes and dashes 
 		$badwordchars=array("\xe2\x80\x98", // left single quote

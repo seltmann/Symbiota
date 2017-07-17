@@ -3,7 +3,7 @@ include_once('../../config/symbini.php');
 include_once($serverRoot.'/classes/OccurrenceDownload.php');
 include_once($serverRoot.'/classes/OccurrenceManager.php');
 include_once($serverRoot.'/classes/MapInterfaceManager.php');
-include_once($serverRoot.'/classes/DwcArchiverOccurrence.php');
+include_once($serverRoot.'/classes/DwcArchiverCore.php');
 header("Cache-Control: no-cache, must-revalidate");
 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); 
 
@@ -39,12 +39,12 @@ else{
 }
 	
 //Is an occurrence download 
-$dwcaHandler = new DwcArchiverOccurrence();
+$dwcaHandler = new DwcArchiverCore();
 $dwcaHandler->setCharSetOut($cSet);
 $dwcaHandler->setSchemaType($schema);
 $dwcaHandler->setExtended($extended);
 $dwcaHandler->setDelimiter($format);
-$dwcaHandler->setVerbose(0);
+$dwcaHandler->setVerboseMode(0);
 $dwcaHandler->setRedactLocalities($redactLocalities);
 if($rareReaderArr) $dwcaHandler->setRareReaderArr($rareReaderArr);
 
@@ -64,8 +64,10 @@ if($zip){
 	//Ouput file is a zip file
 	$includeIdent = (array_key_exists('identifications',$_POST)?1:0);
 	$dwcaHandler->setIncludeDets($includeIdent);
-	$images = (array_key_exists('images',$_POST)?1:0);
-	$dwcaHandler->setIncludeImgs($images);
+	$includeImages = (array_key_exists('images',$_POST)?1:0);
+	$dwcaHandler->setIncludeImgs($includeImages);
+	$includeAttributes = (array_key_exists('attr',$_POST)?1:0);
+	$dwcaHandler->setIncludeAttributes($includeAttributes);
 	
 	$outputFile = $dwcaHandler->createDwcArchive('webreq');
 	

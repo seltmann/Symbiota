@@ -1,7 +1,7 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/ImageLibraryManager.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/ImageLibraryManager.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 
 $taxon = array_key_exists("taxon",$_REQUEST)?trim($_REQUEST["taxon"]):"";
 $cntPerPage = array_key_exists("cntperpage",$_REQUEST)?$_REQUEST["cntperpage"]:100;
@@ -17,16 +17,13 @@ if($stArrJson){
 
 $imgLibManager = new ImageLibraryManager();
 $imgLibManager->setSearchTermsArr($stArr);
-$sqlWhere = $imgLibManager->getSqlWhere();
 
 $recordListHtml = '';
 if($view == 'thumb'){
-	if($taxon){
-		$topOnChange = '"'.$taxon.'","splist",starr,1';
-		$recordListHtml .= "<div style='margin-left:20px;margin-bottom:10px;font-weight:bold;'><a href='#' onclick='changeImagePage(".$topOnChange."); return false;'>Return to species list</a></div>";
-	}
 	
-	$imageArr = $imgLibManager->getImageArr($taxon,$pageNumber,$cntPerPage,$sqlWhere);
+	$imgLibManager->setTaxon($taxon);
+	$imgLibManager->setSqlWhere();
+	$imageArr = $imgLibManager->getImageArr($pageNumber,$cntPerPage);
 	$recordCnt = $imgLibManager->getRecordCnt();
 	
 	$lastPage = (int) ($recordCnt / $cntPerPage) + 1;
@@ -99,15 +96,17 @@ if($view == 'thumb'){
 				if($imgArr['tid']) $recordListHtml .= '</a>';
 				$recordListHtml .= '<br />';
 			}
-			if($imgArr['stateprovince']) $recordListHtml .= $imgArr['stateprovince'] . "<br />";
 			if($imgArr['catalognumber']){
 				$recordListHtml .= '<a href="#" onclick="openIndPU('.$imgArr['occid'].');return false;">';
 				$recordListHtml .= $imgArr['instcode'] . ": " . $imgArr['catalognumber'];
 				$recordListHtml .= '</a>';
 			}
-			elseif($imgArr['photographer']){
-				$recordListHtml .= $imgArr['photographer'].'<br />';
+			elseif($imgArr['lastname']){
+				$pName = $imgArr['firstname'].' '.$imgArr['lastname'];
+				if(strlen($pName) < 20) $recordListHtml .= $pName.'<br />';
+				else $recordListHtml .= $imgArr['lastname'].'<br />';
 			}
+			//if($imgArr['stateprovince']) $recordListHtml .= $imgArr['stateprovince'] . "<br />";
 			$recordListHtml .= '</div>';
 			$recordListHtml .= '</div>';
 		}
@@ -124,8 +123,9 @@ if($view == 'thumb'){
 		$recordListHtml .= '</div>';
 	}
 }
-if($view == 'famlist'){
-	$taxaList = $imgLibManager->getFamilyList($sqlWhere);
+elseif($view == 'famlist'){
+	$imgLibManager->setSqlWhere();
+	$taxaList = $imgLibManager->getFamilyList();
 	
 	$recordListHtml .= "<div style='margin-left:20px;margin-bottom:20px;font-weight:bold;'>Select a family to see genera list.</div>";
 	foreach($taxaList as $value){
@@ -134,8 +134,9 @@ if($view == 'famlist'){
 		$recordListHtml .= "<div style='margin-left:30px;'><a href='#' onclick='changeFamily(".$famChange.");changeImagePage(".$onChange."); return false;'>".strtoupper($value)."</a></div>";
 	}
 }
-if($view == 'genlist'){
-	$taxaList = $imgLibManager->getGenusList($taxon,$sqlWhere);
+elseif($view == 'genlist'){
+	$imgLibManager->setSqlWhere();
+	$taxaList = $imgLibManager->getGenusList($taxon);
 	
 	$topOnChange = '"","famlist",starr,1';
 	$recordListHtml .= "<div style='margin-left:20px;margin-bottom:10px;font-weight:bold;'><a href='#' onclick='changeImagePage(".$topOnChange."); return false;'>Return to family list</a></div>";
@@ -145,8 +146,9 @@ if($view == 'genlist'){
 		$recordListHtml .= "<div style='margin-left:30px;'><a href='#' onclick='changeImagePage(".$onChange."); return false;'>".$value."</a></div>";
 	}
 }
-if($view == 'splist'){
-	$taxaList = $imgLibManager->getSpeciesList($taxon,$sqlWhere);
+elseif($view == 'splist'){
+	$imgLibManager->setSqlWhere();
+	$taxaList = $imgLibManager->getSpeciesList($taxon);
 	
 	$topOnChange = 'selectedFamily,"genlist",starr,1';
 	$recordListHtml .= "<div style='margin-left:20px;margin-bottom:10px;font-weight:bold;'><a href='#' onclick='changeImagePage(".$topOnChange."); return false;'>Return to genera list</a></div>";
@@ -156,7 +158,6 @@ if($view == 'splist'){
 		$recordListHtml .= "<div style='margin-left:30px;'><a href='#' onclick='changeImagePage(".$onChange."); return false;'>".$value."</a></div>";
 	}
 }
-$recordListHtml = utf8_encode($recordListHtml);
 
 //output the response
 echo json_encode($recordListHtml);

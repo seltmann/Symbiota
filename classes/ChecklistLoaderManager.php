@@ -41,12 +41,10 @@ class ChecklistLoaderManager {
 		else{
 			$headerArr["sciname"] = 0;
 		}
-		
 		if(array_key_exists("sciname",$headerArr)){
 			$cnt = 0;
 			ob_flush();
 			flush();
-			$taxUtil = new TaxonomyUtilities();
 			while($valueArr = fgetcsv($fh)){
 				$tid = 0;
 				$rankId = 0;
@@ -54,7 +52,7 @@ class ChecklistLoaderManager {
 				$sciNameStr = $this->cleanInStr($valueArr[$headerArr["sciname"]]);
 				$noteStr = '';
 				if($sciNameStr){
-					$sciNameArr = $taxUtil->parseSciName($sciNameStr);
+					$sciNameArr = TaxonomyUtilities::parseScientificName($sciNameStr,$this->conn);
 					//Check name is in taxa table and grab tid if it is
 					$sql = "";
 					if($thesId && is_numeric($thesId)){
@@ -146,7 +144,7 @@ class ChecklistLoaderManager {
 	
 	public function resolveProblemTaxa(){
 		if($this->problemTaxa){
-			$taxUtil = new TaxonomyUtilities();
+			//$taxHarvester = new TaxonomyHarvester();
 			echo '<table class="styledtable" style="font-family:Arial;font-size:12px;">';
 			echo '<tr><th>Cnt</th><th>Name</th><th>Actions</th></tr>';
 			$cnt = 1;
@@ -157,8 +155,8 @@ class ChecklistLoaderManager {
 				echo '<td>';
 				//Check taxonomic thesaurus to see if it should be added to thesaurus
 				/*
-				if($taxaArr = $taxUtil->getEolTaxonArr($nameStr)){
-					if($tid = $taxUtil->loadNewTaxon($taxaArr)){
+				if($taxaArr = $taxHarvester->getEolTaxonArr($nameStr)){
+					if($tid = $taxHarvester->loadNewTaxon($taxaArr)){
 						$this->addTaxonToChecklist($tid);
 						
 						echo '<div>';
@@ -260,8 +258,9 @@ class ChecklistLoaderManager {
 		global $charset;
 		$retStr = $inStr;
 		//Get rid of curly quotes
-		$search = array("’", "‘", "`", "”", "“"); 
-		$replace = array("'", "'", "'", '"', '"'); 
+		//Get rid of Windows curly (smart) quotes
+		$search = array(chr(145),chr(146),chr(147),chr(148),chr(149),chr(150),chr(151));
+		$replace = array("'","'",'"','"','*','-','-');
 		$inStr= str_replace($search, $replace, $inStr);
 		
 		if($inStr){

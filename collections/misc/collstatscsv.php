@@ -1,19 +1,25 @@
 <?php
-//error_reporting(E_ALL);
 ini_set('max_execution_time', 1200); //1200 seconds = 20 minutes
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/CollectionProfileManager.php');
-include_once($serverRoot.'/classes/OccurrenceManager.php');
+include_once($SERVER_ROOT.'/classes/OccurrenceCollectionProfile.php');
+include_once($SERVER_ROOT.'/classes/OccurrenceManager.php');
 
 $action = array_key_exists("action",$_REQUEST)?$_REQUEST["action"]:'';
-$famArrJson = array_key_exists("famarrjson",$_REQUEST)?$_REQUEST["famarrjson"]:'';
-$orderArrJson = array_key_exists("orderarrjson",$_REQUEST)?$_REQUEST["orderarrjson"]:'';
-$geoArrJson = array_key_exists("geoarrjson",$_REQUEST)?$_REQUEST["geoarrjson"]:'';
 $collId = array_key_exists("collids",$_REQUEST)?$_REQUEST["collids"]:'';
-$days = array_key_exists("days",$_REQUEST)?$_REQUEST["days"]:365;
-$months = array_key_exists("months",$_REQUEST)?$_REQUEST["months"]:12;
+$cPartentTaxon = array_key_exists("taxon",$_REQUEST)?$_REQUEST["taxon"]:'';
+$cCountry = array_key_exists("country",$_REQUEST)?$_REQUEST["country"]:'';
+//$days = array_key_exists("days",$_REQUEST)?$_REQUEST["days"]:365;
+//$months = array_key_exists("months",$_REQUEST)?$_REQUEST["months"]:12;
+$years = array_key_exists("years",$_REQUEST)?$_REQUEST["years"]:1;
 
-$collManager = new CollectionProfileManager();
+$famArr = isset($_SESSION['statsFamilyArr'])?$_SESSION['statsFamilyArr']:Array();
+$geoArr = isset($_SESSION['statsCountryArr'])?$_SESSION['statsCountryArr']:Array();
+$ordArr = isset($_SESSION['statsOrderArr'])?$_SESSION['statsOrderArr']:Array();
+
+$days = 365 * $years;
+$months = 12 * $years;
+
+$collManager = new OccurrenceCollectionProfile();
 
 $fileName = '';
 $outputArr = array();
@@ -21,8 +27,7 @@ if($action == 'Download Family Dist' || $action == 'Download Geo Dist' || $actio
 	$header = array('Names','SpecimenCount','GeorefCount','IDCount','IDGeorefCount','GeorefPercent','IDPercent','IDGeorefPercent');
 	if($action == 'Download Family Dist'){
 		$fileName = 'stats_family.csv';
-		$famArr = json_decode($famArrJson,true);
-		if(is_array($famArr)){
+		if($famArr){
 			foreach($famArr as $name => $data){
 				$specCnt = $data['SpecimensPerFamily'];
 				$geoRefCnt = $data['GeorefSpecimensPerFamily'];
@@ -37,8 +42,7 @@ if($action == 'Download Family Dist' || $action == 'Download Geo Dist' || $actio
 	}
     if($action == 'Download Order Dist'){
         $fileName = 'stats_order.csv';
-        $ordArr = json_decode($orderArrJson,true);
-        if(is_array($ordArr)){
+        if($ordArr){
             foreach($ordArr as $name => $data){
                 $specCnt = $data['SpecimensPerOrder'];
                 $geoRefCnt = $data['GeorefSpecimensPerOrder'];
@@ -53,8 +57,7 @@ if($action == 'Download Family Dist' || $action == 'Download Geo Dist' || $actio
     }
 	if($action == 'Download Geo Dist'){
 		$fileName = 'stats_country.csv';
-		$geoArr = json_decode($geoArrJson,true);
-		if(is_array($geoArr)){
+		if($geoArr){
 			foreach($geoArr as $name => $data){
 				$specCnt = $data['CountryCount'];
 				$geoRefCnt = $data['GeorefSpecimensPerCountry'];
@@ -73,7 +76,7 @@ if($action == 'Download CSV'){
 	$headerArr = $collManager->getYearStatsHeaderArr($months);
 	$dataArr = $collManager->getYearStatsDataArr($collId,$days);
 }
-if($action == 'Download Stats per Coll'){
+if($action == 'Download Stats per Coll' && (!$cPartentTaxon && !$cCountry)){
 	$header = array('Collection','Specimens','Georeferenced','Imaged','Species ID','Families','Genera','Species','Total Taxa','Types');
 	$fileName = 'stats_per_coll.csv';
 	$resultsTemp = $collManager->runStatistics($collId);
@@ -109,6 +112,31 @@ if($action == 'Download Stats per Coll'){
 			$i++;
 		}
 	}
+}
+if($action == 'Download Stats per Coll' && ($cPartentTaxon || $cCountry)){
+    $header = array('Collection','Specimens','Georeferenced','Imaged','Species ID','Families','Genera','Species','Total Taxa','Types');
+    $fileName = 'stats_per_coll.csv';
+    $resultsTemp = $collManager->runStatisticsQuery($collId,$cPartentTaxon,$cCountry);
+    if($resultsTemp){
+        unset($resultsTemp['families']);
+        unset($resultsTemp['countries']);
+        ksort($resultsTemp);
+        $i = 0;
+        foreach($resultsTemp as $k => $collArr){
+            $dynPropTempArr = array();
+            $outputArr[$i]['CollectionName'] = $collArr['CollectionName'];
+            $outputArr[$i]['recordcnt'] = $collArr['recordcnt'];
+            $outputArr[$i]['georefcnt'] = $collArr['georefcnt'];
+            $outputArr[$i]['OccurrenceImageCount'] = $collArr['OccurrenceImageCount'];
+            $outputArr[$i]['SpecimensCountID'] = $collArr['speciesID'];
+            $outputArr[$i]['familycnt'] = $collArr['familycnt'];
+            $outputArr[$i]['genuscnt'] = $collArr['genuscnt'];
+            $outputArr[$i]['speciescnt'] = $collArr['speciescnt'];
+            $outputArr[$i]['TotalTaxaCount'] = $collArr['TotalTaxaCount'];
+            $outputArr[$i]['TypeCount'] = $collArr['TypeCount'];
+            $i++;
+        }
+    }
 }
 
 header ('Content-Type: text/csv');

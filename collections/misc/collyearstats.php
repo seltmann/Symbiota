@@ -1,16 +1,20 @@
 <?php
 include_once('../../config/symbini.php');
-include_once($serverRoot.'/classes/CollectionProfileManager.php');
-header("Content-Type: text/html; charset=".$charset);
+include_once($SERVER_ROOT.'/classes/OccurrenceCollectionProfile.php');
+header("Content-Type: text/html; charset=".$CHARSET);
 ini_set('max_execution_time', 1200); //1200 seconds = 20 minutes
 
 $catId = array_key_exists("catid",$_REQUEST)?$_REQUEST["catid"]:0;
 if(!$catId && isset($DEFAULTCATID) && $DEFAULTCATID) $catId = $DEFAULTCATID;
 $collId = array_key_exists("collid",$_REQUEST)?$_REQUEST["collid"]:0;
-$days = array_key_exists("days",$_REQUEST)?$_REQUEST["days"]:365;
-$months = array_key_exists("months",$_REQUEST)?$_REQUEST["months"]:12;
+//$days = array_key_exists("days",$_REQUEST)?$_REQUEST["days"]:365;
+//$months = array_key_exists("months",$_REQUEST)?$_REQUEST["months"]:12;
+$years = array_key_exists("years",$_REQUEST)?$_REQUEST["years"]:1;
 
-$collManager = new CollectionProfileManager();
+$days = 365 * $years;
+$months = 12 * $years;
+
+$collManager = new OccurrenceCollectionProfile();
 
 if($collId){
 	$dateArr = $collManager->getYearStatsHeaderArr($months);
@@ -20,9 +24,9 @@ if($collId){
 <html>
 	<head>
 		<meta name="keywords" content="Natural history collections yearly statistics" />
-		<title><?php echo $defaultTitle; ?> Year Statistics</title>
-		<link rel="stylesheet" href="../../css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" />
-		<link rel="stylesheet" href="../../css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" />
+		<title><?php echo $DEFAULT_TITLE; ?> Year Statistics</title>
+		<link rel="stylesheet" href="../../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" />
+		<link rel="stylesheet" href="../../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" />
 		<link href="../../css/jquery-ui.css" type="text/css" rel="Stylesheet" />
 		<script type="text/javascript" src="../../js/jquery.js"></script>
 		<script type="text/javascript" src="../../js/jquery-ui.js"></script>
@@ -31,11 +35,11 @@ if($collId){
 	<body>
 		<?php
 		$displayLeftMenu = (isset($collections_misc_collstatsMenu)?$collections_misc_collstatsMenu:false);
-		include($serverRoot.'/header.php');
+		include($SERVER_ROOT.'/header.php');
 		?>
 		<div id="innertext">
 			<fieldset id="yearstatsbox" style="clear:both;margin-top:15px;width:97%;">
-				<legend><b>Past Year Totals</b></legend>
+				<legend><b>Month Totals</b></legend>
 				<table class="styledtable" style="font-family:Arial;font-size:12px;width:98%;">
 					<tr>
 						<th style="text-align:center;">Institution</th>
@@ -199,6 +203,7 @@ if($collId){
 						<input type="hidden" name="collids" id="collids" value='<?php echo $collId; ?>' />
 						<input type="hidden" name="days" value="<?php echo $days; ?>" />
 						<input type="hidden" name="months" value="<?php echo $months; ?>" />
+                        <input type="hidden" name="years" value="<?php echo $years; ?>" />
 						<input type="submit" name="action" value="Download CSV" />
 					</form>
 				</div>
@@ -206,7 +211,7 @@ if($collId){
 		</div>
 		<!-- end inner text -->
 		<?php
-			include($serverRoot.'/footer.php');		
+			include($SERVER_ROOT.'/footer.php');		
 		?>
 	</body>
 </html>
