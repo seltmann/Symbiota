@@ -74,7 +74,7 @@ if (top.frames.length!=0)
 							</li>
 						</ul>
 					</li>
-					<li>
+					<!--<li>
 						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Inventories</a>
 						<ul>
 							<li>
@@ -87,7 +87,7 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/projects/index.php?pid=3" >Project 3</a>
 							</li>
 						</ul>
-					</li>
+					</li>-->
 					<li>
 						<a href="#" >Interactive Tools</a>
 						<ul>
