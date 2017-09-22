@@ -94,9 +94,9 @@ if (top.frames.length!=0)
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=checklist" >Dynamic Checklist</a>
 							</li>
-							<li>
+							<!--<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=key" >Dynamic Key</a>
-							</li>
+							</li>-->
 						</ul> 
 					</li>
 				</ul>
