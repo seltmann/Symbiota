@@ -288,7 +288,7 @@ class DwcArchiverCore extends Manager{
 				//Search criteria came from map search page
 				$sql .= 'LEFT JOIN omoccurpoints p ON o.occid = p.occid ';
 			}
-			if(stripos($this->conditionSql,'MATCH(f.recordedby)')){
+			if(strpos($this->conditionSql,'MATCH(f.recordedby)') || strpos($this->conditionSql,'MATCH(f.locality)')){
 				$sql .= 'INNER JOIN omoccurrencesfulltext f ON o.occid = f.occid ';
 			}
 			if(stripos($this->conditionSql,'a.stateid')){
@@ -1065,7 +1065,7 @@ class DwcArchiverCore extends Manager{
 		
 		if(!$emlArr) $emlArr = $this->getEmlArr();
 		foreach($RIGHTS_TERMS_DEFS as $k => $v){
-			if($k == $emlArr['intellectualRights']){
+			if($k == $emlArr['collMetadata'][1]['intellectualRights']){
 				$usageTermArr = $v;
 			}
 		}
@@ -1303,6 +1303,117 @@ class DwcArchiverCore extends Manager{
 		$rootElem->appendChild($addMetaElem);
 
 		return $newDoc;
+	}
+
+	public function getFullRss(){
+		//Create new document and write out to target
+		$newDoc = new DOMDocument('1.0',$this->charSetOut);
+		
+		//Add root element
+		$rootElem = $newDoc->createElement('rss');
+		$rootAttr = $newDoc->createAttribute('version');
+		$rootAttr->value = '2.0';
+		$rootElem->appendChild($rootAttr);
+		$newDoc->appendChild($rootElem);
+		
+		//Add Channel
+		$channelElem = $newDoc->createElement('channel');
+		$rootElem->appendChild($channelElem);
+		
+		//Add title, link, description, language
+		$titleElem = $newDoc->createElement('title');
+		$titleElem->appendChild($newDoc->createTextNode($GLOBALS['DEFAULT_TITLE'].' Biological Occurrences RSS feed'));
+		$channelElem->appendChild($titleElem);
+		
+		$this->setServerDomain();
+		$urlPathPrefix = $this->serverDomain.$GLOBALS['CLIENT_ROOT'].(substr($GLOBALS['CLIENT_ROOT'],-1)=='/'?'':'/');
+		
+		$localDomain = $this->serverDomain;
+		
+		$linkElem = $newDoc->createElement('link');
+		$linkElem->appendChild($newDoc->createTextNode($urlPathPrefix));
+		$channelElem->appendChild($linkElem);
+		$descriptionElem = $newDoc->createElement('description');
+		$descriptionElem->appendChild($newDoc->createTextNode($GLOBALS['DEFAULT_TITLE'].' Natural History Collections and Observation Project feed'));
+		$channelElem->appendChild($descriptionElem);
+		$languageElem = $newDoc->createElement('language','en-us');
+		$channelElem->appendChild($languageElem);
+		
+		//Create new item for target archives and load into array
+		$sql = 'SELECT c.collid, c.institutioncode, c.collectioncode, c.collectionname, c.icon, c.collectionguid, c.dwcaurl, c.managementtype, s.uploaddate '.
+			'FROM omcollections c INNER JOIN omcollectionstats s ON c.collid = s.collid '.
+			'WHERE s.recordcnt > 0 '.
+			'ORDER BY c.SortSeq, c.CollectionName';
+		$rs = $this->conn->query($sql);
+		while($r = $rs->fetch_assoc()){
+			$cArr = $this->utf8EncodeArr($r);
+			$itemElem = $newDoc->createElement('item');
+			$itemAttr = $newDoc->createAttribute('collid');
+			$itemAttr->value = $cArr['collid'];
+			$itemElem->appendChild($itemAttr);
+			//Add title
+			$instCode = $cArr['institutioncode'];
+			if($cArr['collectioncode']) $instCode .= '-'.$cArr['collectioncode'];
+			$title = $instCode;
+			$itemTitleElem = $newDoc->createElement('title');
+			$itemTitleElem->appendChild($newDoc->createTextNode($title));
+			$itemElem->appendChild($itemTitleElem);
+			//Icon
+			$imgLink = '';
+			if(substr($cArr['icon'],0,17) == 'images/collicons/'){
+				//Link is a
+				$imgLink = $urlPathPrefix.$cArr['icon'];
+			}
+			elseif(substr($cArr['icon'],0,1) == '/'){
+				$imgLink = $localDomain.$cArr['icon'];
+			}
+			else{
+				$imgLink = $cArr['icon'];
+			}
+			$iconElem = $newDoc->createElement('image');
+			$iconElem->appendChild($newDoc->createTextNode($imgLink));
+			$itemElem->appendChild($iconElem);
+			
+			//description
+			$descTitleElem = $newDoc->createElement('description');
+			$descTitleElem->appendChild($newDoc->createTextNode($cArr['collectionname']));
+			$itemElem->appendChild($descTitleElem);
+			//GUIDs
+			$guidElem = $newDoc->createElement('guid');
+			$guidElem->appendChild($newDoc->createTextNode($cArr['collectionguid']));
+			$itemElem->appendChild($guidElem);
+			
+			$emlElem = $newDoc->createElement('emllink');
+			$emlElem->appendChild($newDoc->createTextNode($urlPathPrefix.'collections/datasets/emlhandler.php?collid='.$cArr['collid']));
+			$itemElem->appendChild($emlElem);
+
+			$link = $cArr['dwcaurl'];
+			$type = 'DWCA';
+			if(!$link){
+				$link = $urlPathPrefix.'collections/misc/collprofiles.php?collid='.$cArr['collid'];
+				$type = 'HTML';
+			}
+			$typeTitleElem = $newDoc->createElement('type','DWCA');
+			$itemElem->appendChild($typeTitleElem);
+
+			//link
+			$linkTitleElem = $newDoc->createElement('link');
+			$linkTitleElem->appendChild($newDoc->createTextNode($link));
+			$itemElem->appendChild($linkTitleElem);
+			$dateStr = '';
+			if($cArr['managementtype'] == 'Live Data'){
+				$dateStr = date("D, d M Y H:i:s");
+			}
+			elseif($cArr['uploaddate']){
+				$dateStr = date("D, d M Y H:i:s",strtotime($cArr['uploaddate']));
+			}
+			$pubDateTitleElem = $newDoc->createElement('pubDate');
+			$pubDateTitleElem->appendChild($newDoc->createTextNode($dateStr));
+			$itemElem->appendChild($pubDateTitleElem);
+			$itemArr[$title] = $itemElem;
+			$channelElem->appendChild($itemElem);
+		}
+		return $newDoc->saveXML();
 	}
 
 	//Generate Data files

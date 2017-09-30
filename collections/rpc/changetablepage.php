@@ -41,21 +41,23 @@ $recordListHtml = '';
 
 $qryCnt = $collManager->getRecordCnt();
 $navStr = '<div style="float:right;">';
-if($occIndex >= 1000){
-    $navStr .= "<a href='' title='Previous 1000 records' onclick='changeTablePage(".($occIndex-1000).");return false;'>&lt;&lt;</a>";
+if(($occIndex*1000) > 1000){
+    $navStr .= "<a href='' title='Previous 1000 records' onclick='changeTablePage(".($occIndex-1).");return false;'>&lt;&lt;</a>";
 }
 $navStr .= ' | ';
-$navStr .= ($occIndex+1).'-'.($qryCnt<1000+$occIndex?$qryCnt:1000+$occIndex).' of '.$qryCnt.' records';
+$navStr .= ($occIndex <= 1?1:(($occIndex-1)*1000)+1).'-'.($qryCnt<1000+$occIndex?$qryCnt:(($occIndex-1)*1000)+1000).' of '.$qryCnt.' records';
 $navStr .= ' | ';
 if($qryCnt > (1000+$occIndex)){
-    $navStr .= "<a href='' title='Next 1000 records' onclick='changeTablePage(".($occIndex+1000).");return false;'>&gt;&gt;</a>";
+    $navStr .= "<a href='' title='Next 1000 records' onclick='changeTablePage(".($occIndex+1).");return false;'>&gt;&gt;</a>";
 }
 $navStr .= '</div>';
 
 if($recArr){
     $recordListHtml .= '<div style="width:790px;clear:both;margin:5px;">';
     $recordListHtml .= '<div style="float:left;"><button type="button" id="copyurl" onclick="copySearchUrl();">Copy URL to These Results</button></div>';
-    $recordListHtml .= $navStr;
+    if($qryCnt > 1){
+        $recordListHtml .= $navStr;
+    }
     $recordListHtml .= '</div>';
     $recordListHtml .= '<div style="clear:both;height:5px;"></div>';
     $recordListHtml .= '<table class="styledtable" style="font-family:Arial;font-size:12px;"><tr>';
@@ -73,6 +75,9 @@ if($recArr){
     $recordListHtml .= '<th>Event Date</th>';
     $recordListHtml .= '<th>Collector</th>';
     $recordListHtml .= '<th>Number</th>';
+    $recordListHtml .= '<th>Individual Count</th>';
+    $recordListHtml .= '<th>Life Stage</th>';
+    $recordListHtml .= '<th>Sex</th>';
     $recordListHtml .= '</tr>';
     $recCnt = 0;
     foreach($recArr as $id => $occArr){
@@ -110,6 +115,9 @@ if($recArr){
         $recordListHtml .= '<td>'.(array_key_exists("date",$occArr)?$occArr['date']:"").'</td>'."\n";
         $recordListHtml .= '<td>'.$occArr['collector'].'</td>'."\n";
         $recordListHtml .= '<td>'.(array_key_exists("collnumber",$occArr)?$occArr['collnumber']:"").'</td>'."\n";
+        $recordListHtml .= '<td>'.(array_key_exists("individualCount",$occArr)?$occArr['individualCount']:"").'</td>'."\n";
+        $recordListHtml .= '<td>'.(array_key_exists("lifeStage",$occArr)?$occArr['lifeStage']:"").'</td>'."\n";
+        $recordListHtml .= '<td>'.(array_key_exists("sex",$occArr)?$occArr['sex']:"").'</td>'."\n";
         $recordListHtml .= "</tr>\n";
         $recCnt++;
     }
@@ -117,7 +125,9 @@ if($recArr){
     $recordListHtml .= '<div style="clear:both;height:5px;"></div>';
     $recordListHtml .= '<textarea id="urlPrefixBox" style="position:absolute;left:-9999px;top:-9999px">'.$urlPrefix.$collManager->getSearchResultUrl().'</textarea>';
     $recordListHtml .= '<textarea id="urlFullBox" style="position:absolute;left:-9999px;top:-9999px"></textarea>';
-    $recordListHtml .= '<div style="width:790px;">'.$navStr.'</div>';
+    if($qryCnt > 1){
+        $recordListHtml .= '<div style="width:790px;">'.$navStr.'</div>';
+    }
     $recordListHtml .= '*Click on the Symbiota identifier in the first column to see Full Record Details.';
 }
 else{

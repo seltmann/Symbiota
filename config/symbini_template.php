@@ -55,14 +55,17 @@ $FP_ENABLED = 0;					//Enable Filtered-Push modules
 
 //Misc variables
 $GOOGLE_MAP_KEY = '';				//Needed for Google Map; get from Google 
+$GOOGLE_MAP_ZOOM = 6;                           // Set the map zoom level
 $MAPPING_BOUNDARIES = '';			//Project bounding box; default map centering; (e.g. 42.3;-100.5;18.0;-127)
 $SPATIAL_INITIAL_CENTER = '';	    //Initial map center for Spatial Module. Default: '[-110.90713, 32.21976]'
 $SPATIAL_INITIAL_ZOOM = '';			//Initial zoom for Spatial Module. Default: 7
 $ACTIVATE_GEOLOCATION = false;			//Activates HTML5 geolocation services in Map Search
+$GEOREFERENCE_POLITICAL_DIVISIONS = false;			//Allow Batch Georeference module to georeference records without locality description, but with county
 $GOOGLE_ANALYTICS_KEY = '';			//Needed for setting up Google Analytics
 $RECAPTCHA_PUBLIC_KEY = '';			//Now called site key
 $RECAPTCHA_PRIVATE_KEY = '';		//Now called secret key
 $EOL_KEY = '';						//Not required, but good to add a key if you plan to do a lot of EOL mapping
+$TAXONOMIC_AUTHORITIES = array('COL'=>'','WoRMS'=>'');		//List of taxonomic authority APIs to use in data cleaning and thesaurus building tools, concatenated with commas and order by preference; E.g.: array('COL'=>'','WoRMS'=>'','TROPICOS'=>'','EOL'=>'')
 $QUICK_HOST_ENTRY_IS_ACTIVE = 0;   // Allows quick entry for host taxa in occurrence editor
 $PORTAL_TAXA_DESC = '';				//Preferred taxa descriptions for the portal.
 $GLOSSARY_EXPORT_BANNER = '';		//Banner image for glossary exports. Place in images/layout folder.

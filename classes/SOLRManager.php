@@ -92,6 +92,7 @@ class SOLRManager extends OccurrenceManager{
             $sortArr = Array();
             $sortFields = array('Collection' => 'CollectionName','Catalog Number' => 'catalogNumber','Family' => 'family',
                 'Scientific Name' => 'sciname','Collector' => 'recordedBy','Number' => 'recordNumber','Event Date' => 'eventDate',
+                'Individual Count' => 'individualCount','Life Stage' => 'lifeStage','Sex' => 'sex',
                 'Country' => 'country','State/Province' => 'StateProvince','County' => 'county','Elevation' => 'minimumElevationInMeters');
             if($this->sortField1) $this->sortField1 = $sortFields[$this->sortField1];
             if($this->sortField2) $this->sortField2 = $sortFields[$this->sortField2];
@@ -150,10 +151,10 @@ class SOLRManager extends OccurrenceManager{
         }
         if(!$canReadRareSpp){
             if($q == '*:*'){
-                $q = '(-localitySecurity:1)';
+                $q = '(localitySecurity:0)';
             }
             else{
-                $q .= ' AND (-localitySecurity:1)';
+                $q .= ' AND (localitySecurity:0)';
             }
         }
 
@@ -192,6 +193,9 @@ class SOLRManager extends OccurrenceManager{
             $returnArr[$occId]["state"] = (isset($k['StateProvince'])?$k['StateProvince']:'');
             $returnArr[$occId]["county"] = (isset($k['county'])?$k['county']:'');
             $returnArr[$occId]["observeruid"] = (isset($k['observeruid'])?$k['observeruid']:'');
+            $returnArr[$occId]["individualCount"] = (isset($k['individualCount'])?$k['individualCount']:'');
+            $returnArr[$occId]["lifeStage"] = (isset($k['lifeStage'])?$k['lifeStage']:'');
+            $returnArr[$occId]["sex"] = (isset($k['sex'])?$k['sex']:'');
             $localitySecurity = (isset($k['localitySecurity'])?$k['localitySecurity']:false);
             if(!$localitySecurity || $canReadRareSpp
                 || (array_key_exists("CollEditor", $GLOBALS['USER_RIGHTS']) && in_array($collId,$GLOBALS['USER_RIGHTS']["CollEditor"]))
@@ -667,12 +671,22 @@ class SOLRManager extends OccurrenceManager{
             $localArr = explode(";",$searchStr);
             $tempArr = Array();
             foreach($localArr as $k => $value){
-                if($value == 'NULL'){
-                    $tempArr[] = '-locality:["" TO *]';
-                    $localArr[$k] = 'Locality IS NULL';
+                if(strpos($value,' ')){
+                    $wordArr = explode(" ",$value);
+                    $tempStrArr = Array();
+                    foreach($wordArr as $w => $word){
+                        $tempStrArr[] = '((municipality:'.trim($word).'*) OR (locality:*'.trim($word).'*))';
+                    }
+                    $tempArr[] = '('.implode(' AND ',$tempStrArr).')';
                 }
                 else{
-                    $tempArr[] = '((municipality:'.str_replace(' ','\ ',trim($value)).'*) OR (locality:*'.str_replace(' ','\ ',trim($value)).'*))';
+                    if($value == 'NULL'){
+                        $tempArr[] = '-locality:["" TO *]';
+                        $localArr[$k] = 'Locality IS NULL';
+                    }
+                    else{
+                        $tempArr[] = '((municipality:'.trim($value).'*) OR (locality:*'.trim($value).'*))';
+                    }
                 }
             }
             $solrWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
@@ -809,9 +823,6 @@ class SOLRManager extends OccurrenceManager{
                 else{
                     $vStr = trim($v);
                     $inFrag[] = $vStr;
-                    if(is_numeric($vStr) && substr($vStr,0,1) == '0'){
-                        $inFrag[] = ltrim($vStr,0);
-                    }
                 }
             }
             $catWhere = '';

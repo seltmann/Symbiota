@@ -16,7 +16,7 @@
                     o.cultivationStatus, o.`country`, o.stateProvince, o.`county`, o.municipality, o.locality,
                     o.localitySecurity, o.localitySecurityReason, o.decimalLatitude, o.decimalLongitude,
                     CONCAT('POINT(',o.decimalLongitude,' ',o.decimalLatitude,')') as pointLocation, o.minimumElevationInMeters,
-                    o.maximumElevationInMeters, o.observeruid,
+                    o.maximumElevationInMeters, o.observeruid, o.lifeStage, o.sex, o.individualCount,
                     c.InstitutionCode, c.CollectionCode, c.CollectionName, c.icon, c.CollType, c.SortSeq
                     FROM omoccurrences AS o LEFT JOIN omcollections AS c ON o.collid = c.collid"
                 deltaImportQuery="SELECT o.occid, o.collid, o.catalogNumber, o.otherCatalogNumbers, o.family, o.sciname, o.tidinterpreted,
@@ -28,12 +28,12 @@
                     o.cultivationStatus, o.`country`, o.stateProvince, o.`county`, o.municipality, o.locality,
                     o.localitySecurity, o.localitySecurityReason, o.decimalLatitude, o.decimalLongitude,
                     CONCAT('POINT(',o.decimalLongitude,' ',o.decimalLatitude,')') as pointLocation, o.minimumElevationInMeters,
-                    o.maximumElevationInMeters, o.observeruid,
+                    o.maximumElevationInMeters, o.observeruid, o.lifeStage, o.sex, o.individualCount,
                     c.InstitutionCode, c.CollectionCode, c.CollectionName, c.icon, c.CollType, c.SortSeq
                     FROM omoccurrences AS o LEFT JOIN omcollections AS c ON o.collid = c.collid
                     WHERE o.occid = '${dih.delta.occid}'"
-                deltaQuery="SELECT o.occid FROM omoccurrences AS o LEFT JOIN images AS i ON o.occid = i.occid
-                    WHERE (o.dateLastModified > CONVERT_TZ('${dih.last_index_time}','+00:00','-06:00')) OR (i.InitialTimeStamp > CONVERT_TZ('${dih.last_index_time}','+00:00','-06:00'))">
+                deltaQuery="SELECT occid FROM images i WHERE (i.InitialTimeStamp > CONVERT_TZ('${dih.last_index_time}','+00:00','-06:00'))
+                    UNION SELECT o.occid FROM omoccurrences AS o WHERE (o.dateLastModified > CONVERT_TZ('${dih.last_index_time}','+00:00','-06:00'))">
                 <field column="occid" name="id"/>
                 <field column="occid" name="occid"/>
                 <field column="collid" name="collid"/>
@@ -70,6 +70,9 @@
                 <field column="minimumElevationInMeters" name="minimumElevationInMeters"/>
                 <field column="maximumElevationInMeters" name="maximumElevationInMeters"/>
                 <field column="observeruid" name="observeruid"/>
+                <field column="lifeStage" name="lifeStage"/>
+                <field column="sex" name="sex"/>
+                <field column="individualCount" name="individualCount"/>
                 <field column="InstitutionCode" name="InstitutionCode"/>
                 <field column="CollectionCode" name="CollectionCode"/>
                 <field column="CollectionName" name="CollectionName"/>
@@ -77,13 +80,15 @@
                 <field column="CollType" name="CollType"/>
                 <field column="SortSeq" name="SortSeq"/>
                 <entity name="images_inner"
-                  query="SELECT imgid, thumbnailurl FROM images WHERE occid ='${omoccurrences.occid}'">
+                  query="SELECT imgid, thumbnailurl FROM images WHERE occid ='${omoccurrences.occid}' ORDER BY sortsequence">
                   <field column="imgid" name="imgid"/>
                   <field column="thumbnailurl" name="thumbnailurl"/>
                 </entity>
                 <entity name="genetic_inner"
-                  query="SELECT resourcename FROM omoccurgenetic WHERE occid ='${omoccurrences.occid}'">
+                  query="SELECT identifier, resourcename, locus FROM omoccurgenetic WHERE occid ='${omoccurrences.occid}'">
+                  <field column="identifier" name="genidentifier"/>
                   <field column="resourcename" name="resourcename"/>
+                  <field column="locus" name="locus"/>
                 </entity>
                 <entity name="clid_inner"
                   query="SELECT CLID FROM fmvouchers WHERE occid ='${omoccurrences.occid}'">

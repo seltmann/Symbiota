@@ -60,11 +60,11 @@ class SpatialModuleManager{
         return $retArr;
     }
 
-	public function getLayersArr(){
+    public function getLayersArr(){
         global $GEOSERVER_URL, $GEOSERVER_LAYER_WORKSPACE;
-        $url = $GEOSERVER_URL.'/wfs?service=wfs&version=2.0.0&request=GetCapabilities';
+        $url = $GEOSERVER_URL.'/wms?service=wms&version=2.0.0&request=GetCapabilities';
         $xml = simplexml_load_file($url);
-        $layers = $xml->FeatureTypeList->FeatureType;
+        $layers = $xml->Capability->Layer->Layer;
         $retArr = Array();
         foreach ($layers as $l){
             $nameArr = explode(":",(string)$l->Name);
@@ -75,7 +75,16 @@ class SpatialModuleManager{
                 $retArr[$i]['Name'] = $layername;
                 $retArr[$i]['Title'] = (string)$l->Title;
                 $retArr[$i]['Abstract'] = (string)$l->Abstract;
-                $retArr[$i]['DefaultCRS'] = (string)$l->DefaultCRS;
+                $crsArr = $l->CRS;
+                foreach ($crsArr as $c){
+                    if(strpos($c, 'EPSG:') !== false) $retArr[$i]['DefaultCRS'] = (string)$c;
+                }
+                $keywordArr = $l->KeywordList->Keyword;
+                foreach ($keywordArr as $k){
+                    if($k == 'features') $retArr[$i]['layerType'] = 'vector';
+                    elseif($k == 'GeoTIFF') $retArr[$i]['layerType'] = 'raster';
+                }
+                $retArr[$i]['legendUrl'] = (string)$l->Style->LegendURL->OnlineResource->attributes('xlink', TRUE)->href;
             }
         }
         ksort($retArr);

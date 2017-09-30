@@ -447,7 +447,7 @@ class TaxonProfileManager {
 				'INNER JOIN taxa t ON ti.tid = t.tid '.
 				'WHERE ts.taxauthid = 1 AND ts.tidaccepted IN ('.$tidStr.') AND ti.SortSequence < 500 AND ti.thumbnailurl IS NOT NULL ';
 			if(!$this->displayLocality) $sql .= 'AND ti.occid IS NULL ';
-			$sql .= 'ORDER BY ti.sortsequence ';
+			$sql .= 'ORDER BY ti.sortsequence LIMIT 100 ';
 			//echo $sql;
 			$result = $this->con->query($sql);
 			while($row = $result->fetch_object()){

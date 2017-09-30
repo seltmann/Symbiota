@@ -148,7 +148,7 @@
     <field name="county" type="string" indexed="true" stored="true"/>
     <field name="municipality" type="string" indexed="true" stored="true"/>
     <field name="locality" type="text_general" indexed="true" stored="true"/>
-    <field name="localitySecurity" type="int" indexed="true" stored="true"/>
+    <field name="localitySecurity" type="int" default="0" indexed="true" stored="true"/>
     <field name="localitySecurityReason" type="string" indexed="true" stored="true"/>
     <field name="decimalLatitude" type="double" indexed="true" stored="true"/>
     <field name="decimalLongitude" type="double" indexed="true" stored="true"/>
@@ -156,6 +156,9 @@
     <field name="minimumElevationInMeters" type="int" indexed="true" stored="true"/>
     <field name="maximumElevationInMeters" type="int" indexed="true" stored="true"/>
     <field name="observeruid" type="int" indexed="true" stored="true"/>
+    <field name="lifeStage" type="string" indexed="true" stored="true"/>
+    <field name="sex" type="string" indexed="true" stored="true"/>
+    <field name="individualCount" type="string" indexed="true" stored="true"/>
     <field name="InstitutionCode" type="string" indexed="true" stored="true"/>
     <field name="CollectionCode" type="string" indexed="true" stored="true"/>
     <field name="CollectionName" type="string" indexed="true" stored="true"/>
@@ -164,7 +167,9 @@
     <field name="SortSeq" type="int" indexed="true" stored="true"/>
     <field name="imgid" type="int" indexed="true" stored="true" multiValued="true" />
     <field name="thumbnailurl" type="text_general" indexed="true" stored="true" multiValued="true" />
+    <field name="genidentifier" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="resourcename" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="locus" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="CLID" type="int" indexed="true" stored="true" multiValued="true" />
     <field name="accFamily" type="string" indexed="true" stored="true"/>
     <field name="parenttid" type="int" indexed="true" stored="true" multiValued="true" />
