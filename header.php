@@ -74,20 +74,20 @@ if (top.frames.length!=0)
 							</li>
 						</ul>
 					</li>
-					<!--<li>
-						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Inventories</a>
+					<li>
+						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Projects</a>
 						<ul>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/projects/index.php?pid=1" >Project 1</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=5" >Encyrtidae of NCOS</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/projects/index.php?pid=2" >Project 2</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of Goleta and Isla Vista</a>
 							</li>
-							<li>
-								<a href="<?php echo $clientRoot; ?>/projects/index.php?pid=3" >Project 3</a>
+							<<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=7" >Ophioninae of Coastal California</a>
 							</li>
 						</ul>
-					</li>-->
+					</li>
 					<li>
 						<a href="#" >Interactive Tools</a>
 						<ul>
