@@ -83,7 +83,7 @@ if (top.frames.length!=0)
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of Goleta and Isla Vista</a>
 							</li>
-							<<li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=7" >Ophioninae of Coastal California</a>
 							</li>
 						</ul>
