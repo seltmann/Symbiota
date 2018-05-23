@@ -8,7 +8,7 @@ header("Cache-Control: no-cache, must-revalidate");
 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
 ini_set('max_execution_time', 300); //180 seconds = 5 minutes
 
-$schema = array_key_exists("schema",$_POST)?$_POST["schema"]:"symbiota"; 
+$schema = array_key_exists("schema",$_REQUEST)?$_REQUEST["schema"]:"symbiota";
 $cSet = array_key_exists("cset",$_POST)?$_POST["cset"]:'';
 $taxonFilterCode = array_key_exists("taxonFilterCode",$_POST)?$_POST["taxonFilterCode"]:0;
 $stArrCollJson = array_key_exists("jsoncollstarr",$_REQUEST)?$_REQUEST["jsoncollstarr"]:'';
@@ -67,9 +67,9 @@ if($schema == "backup"){
 			$dwcaHandler->setIncludeAttributes(1);
 			$dwcaHandler->setRedactLocalities(0);
 			$dwcaHandler->setCollArr($collid);
-			
+
 			$archiveFile = $dwcaHandler->createDwcArchive();
-			
+
 			if($archiveFile){
 				//ob_start();
 				header('Content-Description: Symbiota Occurrence Backup File (DwC-Archive data package)');
@@ -92,7 +92,7 @@ if($schema == "backup"){
 }
 else{
 	$zip = (array_key_exists('zip',$_POST)?$_POST['zip']:0);
-	$format = $_POST['format'];
+	$format = (array_key_exists('format',$_POST)?$_POST['format']:'csv');
 	$extended = (array_key_exists('extended',$_POST)?$_POST['extended']:0);
 
 	$redactLocalities = 1;
@@ -112,6 +112,7 @@ else{
 		}
 	}
 	if($schema == "georef"){
+		if(array_key_exists("publicsearch",$_POST)) $dlManager->setIsPublicDownload();
 		if(array_key_exists("publicsearch",$_POST) && $_POST["publicsearch"]){
 			$dlManager->setSqlWhere($occurManager->getSqlWhere());
 		}
@@ -171,14 +172,15 @@ else{
 			}
 		}
 		else{
-			//Is an occurrence download 
+			//Is an occurrence download
 			$dwcaHandler->setCharSetOut($cSet);
 			$dwcaHandler->setSchemaType($schema);
 			$dwcaHandler->setExtended($extended);
 			$dwcaHandler->setDelimiter($format);
 			$dwcaHandler->setRedactLocalities($redactLocalities);
 			if($rareReaderArr) $dwcaHandler->setRareReaderArr($rareReaderArr);
-				
+
+			if(array_key_exists("publicsearch",$_POST)) $dwcaHandler->setIsPublicDownload();
 			if(array_key_exists("publicsearch",$_POST) && $_POST["publicsearch"]){
                 if($SOLR_MODE && $occWhereStr){
                     $dwcaHandler->setCustomWhereSql($occWhereStr);
@@ -225,7 +227,7 @@ else{
 			$dwcaHandler->setIncludeAttributes($includeAttributes);
 
 			$outputFile = $dwcaHandler->createDwcArchive('webreq');
-			
+
 		}
 		else{
 			//Output file is a flat occurrence file (not a zip file)
@@ -246,7 +248,7 @@ else{
 			}
 			$contentDesc .= 'File';
 			header('Content-Description: '.$contentDesc);
-			
+
 			if($zip){
 				header('Content-Type: application/zip');
 			}
@@ -256,7 +258,7 @@ else{
 			else{
 				header('Content-Type: text/html; charset='.$CHARSET);
 			}
-			
+
 			header('Content-Disposition: attachment; filename='.basename($outputFile));
 			header('Content-Transfer-Encoding: binary');
 			header('Expires: 0');

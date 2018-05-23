@@ -1,6 +1,7 @@
 <?php
 include_once('../config/symbini.php');
 include_once($SERVER_ROOT.'/classes/ProfileManager.php');
+include_once($SERVER_ROOT.'/classes/Manager.php');
 header("Content-Type: text/html; charset=".$CHARSET);
 header('Cache-Control: no-cache, no-cache="set-cookie", no-store, must-revalidate');
 header('Pragma: no-cache'); // HTTP 1.0.
@@ -11,6 +12,8 @@ $emailAddr = array_key_exists('emailaddr',$_POST)?$_POST['emailaddr']:'';
 $action = array_key_exists("submit",$_REQUEST)?$_REQUEST["submit"]:'';
 
 $pHandler = new ProfileManager();
+$manager = new Manager();
+$middle = $manager->checkFieldExists('users','middleinitial');
 $displayStr = '';
 
 //Sanitation
@@ -219,6 +222,18 @@ if($action == "Create Login"){
 							<span style="color:red;">*</span>
 						</td>
 					</tr>
+                    <?php
+                    if($middle){
+                        ?>
+                        <tr>
+                            <td><span style="font-weight:bold;">Middle Initial:</span></td>
+                            <td>
+                                <input id="middleinitial" name="middleinitial" size="3" value="<?php echo (isset($_POST['middleinitial'])?htmlspecialchars($_POST['middleinitial']):''); ?>">
+                            </td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
 					<tr>
 						<td><span style="font-weight:bold;">Last Name:</span></td>
 						<td>
@@ -252,6 +267,18 @@ if($action == "Create Login"){
 							<span class="profile"><input name="institution"  size="40" value="<?php echo (isset($_POST['institution'])?htmlspecialchars($_POST['institution']):'') ?>"></span>
 						</td>
 					</tr>
+                    <tr>
+                        <td><b>Department:</b></td>
+                        <td>
+                            <span class="profile"><input name="department"  size="40" value="<?php echo (isset($_POST['department'])?htmlspecialchars($_POST['department']):'') ?>"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><b>Street Address:</b></td>
+                        <td>
+                            <span class="profile"><input name="address"  size="40" value="<?php echo (isset($_POST['address'])?htmlspecialchars($_POST['address']):'') ?>"></span>
+                        </td>
+                    </tr>
 					<tr>
 						<td><span style="font-weight:bold;">City:</span></td>
 						<td>

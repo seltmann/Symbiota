@@ -66,7 +66,7 @@ class SOLRManager extends OccurrenceManager{
         $cnt = $this->getMaxCnt();
         $solrWhere = $this->getSOLRWhere();
         $solrURLpre = $SOLR_URL.'/select?';
-        $solrURLsuf = '&rows='.$cnt.'&start=1&fl=occid&wt=json';
+        $solrURLsuf = '&rows='.$cnt.'&start=0&fl=occid&wt=json';
         $solrURL = $solrURLpre.$solrWhere.$solrURLsuf;
         //echo str_replace(' ','%20',$solrURL);
         $solrArrJson = file_get_contents(str_replace(' ','%20',$solrURL));
@@ -162,7 +162,8 @@ class SOLRManager extends OccurrenceManager{
     }
 
     public function translateSOLRRecList($sArr){
-        $returnArr = Array();
+        global $imageDomain;
+ 	    $returnArr = Array();
         $canReadRareSpp = false;
         if($GLOBALS['USER_RIGHTS']){
             if($GLOBALS['IS_ADMIN'] || array_key_exists("CollAdmin", $GLOBALS['USER_RIGHTS']) || array_key_exists("RareSppAdmin", $GLOBALS['USER_RIGHTS']) || array_key_exists("RareSppReadAll", $GLOBALS['USER_RIGHTS'])){
@@ -192,6 +193,7 @@ class SOLRManager extends OccurrenceManager{
             $returnArr[$occId]["country"] = (isset($k['country'])?$k['country']:'');
             $returnArr[$occId]["state"] = (isset($k['StateProvince'])?$k['StateProvince']:'');
             $returnArr[$occId]["county"] = (isset($k['county'])?$k['county']:'');
+            $returnArr[$occId]["assochost"] = (isset($k['assocverbatimsciname'])?$k['assocverbatimsciname'][0]:'');
             $returnArr[$occId]["observeruid"] = (isset($k['observeruid'])?$k['observeruid']:'');
             $returnArr[$occId]["individualCount"] = (isset($k['individualCount'])?$k['individualCount']:'');
             $returnArr[$occId]["lifeStage"] = (isset($k['lifeStage'])?$k['lifeStage']:'');
@@ -218,7 +220,11 @@ class SOLRManager extends OccurrenceManager{
                 $returnArr[$occId]["locality"] = $securityStr.'</span>';
             }
             if(isset($k['thumbnailurl'])){
-                $returnArr[$occId]["img"] = $k['thumbnailurl'][0];
+                $tnUrl = $k['thumbnailurl'][0];
+                if($imageDomain){
+                    if(substr($tnUrl,0,1)=="/") $tnUrl = $imageDomain.$tnUrl;
+                }
+                $returnArr[$occId]["img"] = $tnUrl;
             }
 	    }
 
@@ -464,6 +470,107 @@ class SOLRManager extends OccurrenceManager{
         }
     }
 
+    public function deleteSOLRDocument($occid){
+        global $SOLR_URL;
+        $occidStr = '';
+        $pArr = Array();
+        if(!is_array($occid) || count($occid) < 1000){
+            if(is_array($occid)){
+                $occidStr = '('.implode(' ',$occid).')';
+            }
+            else{
+                $occidStr = '('.$occid.')';
+            }
+            $pArr["commit"] = 'true';
+            $pArr["stream.body"] = '<delete><query>(occid:'.$occidStr.')</query></delete>';
+
+            $headers = array(
+                'Content-Type: application/x-www-form-urlencoded',
+                'Accept: application/json',
+                'Cache-Control: no-cache',
+                'Pragma: no-cache',
+                'Content-Length: '.strlen(http_build_query($pArr))
+            );
+            $ch = curl_init();
+            $options = array(
+                CURLOPT_URL => $SOLR_URL.'/update',
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_TIMEOUT => 90,
+                CURLOPT_POSTFIELDS => http_build_query($pArr),
+                CURLOPT_RETURNTRANSFER => true
+            );
+            curl_setopt_array($ch, $options);
+            curl_exec($ch);
+            curl_close($ch);
+        }
+        else{
+            $delCnt = count($occid);
+            $i = 0;
+            do{
+                $subArr = array_slice($occid,$i,1000);
+                $occidStr = '('.implode(' ',$subArr).')';
+                $pArr["commit"] = 'true';
+                $pArr["stream.body"] = '<delete><query>(occid:'.$occidStr.')</query></delete>';
+
+                $headers = array(
+                    'Content-Type: application/x-www-form-urlencoded',
+                    'Accept: application/json',
+                    'Cache-Control: no-cache',
+                    'Pragma: no-cache',
+                    'Content-Length: '.strlen(http_build_query($pArr))
+                );
+                $ch = curl_init();
+                $options = array(
+                    CURLOPT_URL => $SOLR_URL.'/update',
+                    CURLOPT_POST => true,
+                    CURLOPT_HTTPHEADER => $headers,
+                    CURLOPT_TIMEOUT => 90,
+                    CURLOPT_POSTFIELDS => http_build_query($pArr),
+                    CURLOPT_RETURNTRANSFER => true
+                );
+                curl_setopt_array($ch, $options);
+                $result = curl_exec($ch);
+                curl_close($ch);
+                $i = $i + 1000;
+            } while($i < $delCnt);
+        }
+    }
+
+    public function cleanSOLRIndex($collid){
+        global $SOLR_URL;
+        $cnt = 0;
+        $SOLROccArr = Array();
+        $mysqlOccArr = Array();
+        $delOccArr = Array();
+        $solrWhere = 'q=(collid:('.$collid.'))';
+        $solrURL = $SOLR_URL.'/select?'.$solrWhere;
+        $solrURL .= '&rows=1&start=1&wt=json';
+        //echo str_replace(' ','%20',$solrURL);
+        $solrArrJson = file_get_contents(str_replace(' ','%20',$solrURL));
+        $solrArr = json_decode($solrArrJson, true);
+        $cnt = $solrArr['response']['numFound'];
+        $occURL = $SOLR_URL.'/select?'.$solrWhere.'&rows='.$cnt.'&start=1&fl=occid&wt=json';
+        //echo str_replace(' ','%20',$occURL);
+        $solrOccArrJson = file_get_contents(str_replace(' ','%20',$occURL));
+        $solrOccArr = json_decode($solrOccArrJson, true);
+        $recArr = $solrOccArr['response']['docs'];
+        foreach($recArr as $k){
+            $SOLROccArr[] = $k['occid'];
+        }
+        $sql = 'SELECT occid FROM omoccurrences WHERE collid = '.$collid;
+        if($rs = $this->conn->query($sql)){
+            while($r = $rs->fetch_object()){
+                $mysqlOccArr[] = $r->occid;
+            }
+        }
+        $delOccArr = array_diff($SOLROccArr,$mysqlOccArr);
+        if($delOccArr){
+            $this->deleteSOLRDocument($delOccArr);
+        }
+        echo '<li>...Complete!</li>';
+    }
+
     private function checkLastSOLRUpdate(){
         global $SERVER_ROOT, $SOLR_FULL_IMPORT_INTERVAL;
         $now = new DateTime();
@@ -587,7 +694,7 @@ class SOLRManager extends OccurrenceManager{
                         }
                         if(array_key_exists("scinames",$valueArray)){
                             foreach($valueArray["scinames"] as $sciName){
-                                $sqlWhereTaxa .= "OR (sciname:".str_replace(' ','\ ',$sciName)."*) ";
+                                $sqlWhereTaxa .= "OR ((sciname:".str_replace(' ','\ ',$sciName).") OR (sciname:".str_replace(' ','\ ',$sciName)."\ *)) ";
                             }
                         }
                     }
@@ -596,7 +703,7 @@ class SOLRManager extends OccurrenceManager{
                             $sqlWhereTaxa .= 'OR (family:'.$key.') ';
                         }
                         if($this->taxaSearchType == 3 || ($this->taxaSearchType == 1 && strtolower(substr($key,-5)) != "aceae" && strtolower(substr($key,-4)) != "idae")){
-                            $sqlWhereTaxa .= "OR (sciname:".str_replace(' ','\ ',$key)."*) ";
+                            $sqlWhereTaxa .= "OR ((sciname:".str_replace(' ','\ ',$key).") OR (sciname:".str_replace(' ','\ ',$key)."\ *)) ";
                         }
                     }
                     if(array_key_exists("synonyms",$valueArray)){
@@ -698,7 +805,23 @@ class SOLRManager extends OccurrenceManager{
             if (array_key_exists("elevlow",$this->searchTermsArr))  { $elevlow = $this->searchTermsArr["elevlow"]; }
             if (array_key_exists("elevhigh",$this->searchTermsArr))  { $elevhigh = $this->searchTermsArr["elevhigh"]; }
             $solrWhere .= 'AND ((minimumElevationInMeters:['.$elevlow.' TO *] AND maximumElevationInMeters:[* TO '.$elevhigh.']) OR '.
-                '(-maximumElevationInMeters:["" TO *] AND minimumElevationInMeters:['.$elevlow.' TO *] AND minimumElevationInMeters:[* TO '.$elevhigh.']))';
+                '(-maximumElevationInMeters:[* TO *] AND minimumElevationInMeters:['.$elevlow.' TO *] AND minimumElevationInMeters:[* TO '.$elevhigh.']))';
+        }
+        if(array_key_exists("assochost",$this->searchTermsArr)){
+            $searchStr = str_replace("%apos;","'",$this->searchTermsArr["assochost"]);
+            $hostAr = explode(";",$searchStr);
+            $tempArr = Array();
+            foreach($hostAr as $k => $value){
+                if($value == 'NULL'){
+                    $tempArr[] = '((assocrelationship:"host") AND (-assocverbatimsciname:["" TO *]))';
+                    $hostAr[$k] = 'Host IS NULL';
+                }
+                else{
+                    $tempArr[] = '((assocrelationship:"host") AND (assocverbatimsciname:*'.str_replace(' ','\ ',trim($value)).'*))';
+                }
+            }
+            $solrWhere .= 'AND ('.implode(' OR ',$tempArr).') ';
+            $this->localSearchArr[] = implode(' OR ',$hostAr);
         }
         if(array_key_exists("llbound",$this->searchTermsArr)){
             $llboundArr = explode(";",$this->searchTermsArr["llbound"]);
@@ -830,9 +953,9 @@ class SOLRManager extends OccurrenceManager{
                 $catWhere .= 'OR '.implode(' OR ',$betweenFrag);
             }
             if($inFrag){
-                $catWhere .= 'OR (catalogNumber:("'.implode(' ',$inFrag).'")) ';
+                $catWhere .= 'OR (catalogNumber:("'.implode('" "',$inFrag).'")) ';
                 if($includeOtherCatNum){
-                    $catWhere .= 'OR (otherCatalogNumbers:("'.implode(' ',$inFrag).'")) ';
+                    $catWhere .= 'OR (otherCatalogNumbers:("'.implode('" "',$inFrag).'")) ';
                 }
             }
             $solrWhere .= 'AND ('.substr($catWhere,3).') ';

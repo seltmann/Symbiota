@@ -50,13 +50,17 @@ if($chars){
 <html>
 <head>
 	<title><?php echo $DEFAULT_TITLE; ?><?php echo $LANG['WEBKEY'];?>
-        <?php echo preg_replace('/\<[^\>]+\>/','',$dataManager->getClName()); ?></title>
-	<link href="../css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-	<link href="../css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
+        <?php echo preg_replace('/\<[^\>]+\>/','',$dataManager->getClName()); ?>
+    </title>
+    <link href="<?php echo $CLIENT_ROOT; ?>/css/jquery-ui.css" type="text/css" rel="stylesheet" />
+	<link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?ver=<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+	<link href="<?php echo $CLIENT_ROOT; ?>/css/main.css<?php echo (isset($CSS_VERSION_LOCAL)?'?ver='.$CSS_VERSION_LOCAL:''); ?>" type="text/css" rel="stylesheet" />
 	<script type="text/javascript">
 		<?php include_once($SERVER_ROOT.'/config/googleanalytics.php'); ?>
 	</script>
-	<script type="text/javascript" src="../js/symb/ident.key.js"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery.js" type="text/javascript"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery-ui.js" type="text/javascript"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/symb/ident.key.js" type="text/javascript"></script>
 </head>
 <body>
 	<?php 
@@ -108,9 +112,9 @@ if($chars){
 	<?php 
 	if($isEditor){
 		?>
-		<div style="float:right;margin:15px;" title="Edit Character Matrix">
-			<a href="tools/massupdate.php?clid=<?php echo $clid; ?>"><img src="../images/edit.png" /><span style="font-size:70%;">CM</span></a>
-		</div>
+		<!-- <div style="float:right;margin:15px;" title="Edit Character Matrix">
+			<a href="tools/massupdate.php?clid=<?php echo ($clValue?$clValue:$dynClid); ?>"><img src="../images/edit.png" /><span style="font-size:70%;">CM</span></a>
+		</div> -->
 		<?php 
 	}
 	?>
@@ -151,7 +155,7 @@ if($chars){
                         }
                         echo "</select></div>\n";
                     }
-                    echo "<div style='margin:5px'>".$LANG['DISPLAY'].": <select name='displaymode' onchange='javascript: document.forms[0].submit();'><option value='0'>".$LANG['SCINAME']."</option><option value='1'".($displayMode?" SELECTED":"").">".$LANG['COMMON']."</option></select></div>";
+                    echo "<div style='margin:5px'>".$LANG['DISPLAY'].": <select name='displaymode' onchange='javascript: document.getElementById(\"keyform\").submit();'><option value='0'>".$LANG['SCINAME']."</option><option value='1'".($displayMode?" SELECTED":"").">".$LANG['COMMON']."</option></select></div>";
                     if($chars){
                         //echo "<div id='showall' class='dynamControl' style='display:none'><a href='#' onclick='javascript: toggleAll();'>Show All Characters</a></div>\n";
                         //echo "<div class='dynamControl' style='display:block'><a href='#' onclick='javascript: toggleAll();'>Hide Advanced Characters</a></div>\n";
@@ -172,7 +176,7 @@ if($chars){
                                 <h2>
                                     <?php
                                     if($FLORA_MOD_IS_ACTIVE){
-                                        echo '<a href="../checklists/checklist.php?cl='.$clid.'&dynclid='.$dynClid.'&proj='.$projValue.'">';
+                                        echo '<a href="../checklists/checklist.php?cl='.$clid.'&dynclid='.$dynClid.'&proj='.$projValue.'" target="_blank">';
                                     }
                                     echo $dataManager->getClName()." ";
                                     if($FLORA_MOD_IS_ACTIVE){

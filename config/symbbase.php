@@ -20,29 +20,31 @@ if(substr($SERVER_ROOT,-1) == '/'){
 //Check cookie to see if signed in
 $PARAMS_ARR = Array();				//params => 'un=egbot&dn=Edward+Gilbert&uid=301'
 $USER_RIGHTS = Array();
-if((isset($_COOKIE["SymbiotaCrumb"]) && (!isset($_REQUEST['submit']) || $_REQUEST['submit'] != "logout"))){
-    $tokenArr = json_decode(Encryption::decrypt($_COOKIE["SymbiotaCrumb"]), true);
-    if($tokenArr){
-        $pHandler = new ProfileManager();
-        if($pHandler->setUserName($tokenArr[0])){
-            $pHandler->setRememberMe(true);
-            $pHandler->setToken($tokenArr[1]);
-            $pHandler->setTokenAuthSql();
-            if(!$pHandler->authenticate()){
-                $pHandler->reset();
+if(!isset($_SESSION['userparams'])){
+    if((isset($_COOKIE["SymbiotaCrumb"]) && (!isset($_REQUEST['submit']) || $_REQUEST['submit'] != "logout"))){
+        $tokenArr = json_decode(Encryption::decrypt($_COOKIE["SymbiotaCrumb"]), true);
+        if($tokenArr){
+            $pHandler = new ProfileManager();
+            if($pHandler->setUserName($tokenArr[0])){
+                $pHandler->setRememberMe(true);
+                $pHandler->setToken($tokenArr[1]);
+                $pHandler->setTokenAuthSql();
+                if(!$pHandler->authenticate()){
+                    $pHandler->reset();
+                }
             }
+            $pHandler->__destruct();
         }
-        $pHandler->__destruct();
     }
-}
 
-if((isset($_COOKIE["SymbiotaCrumb"]) && ((isset($_REQUEST['submit']) && $_REQUEST['submit'] == "logout") || isset($_REQUEST['loginas'])))){
-    $tokenArr = json_decode(Encryption::decrypt($_COOKIE["SymbiotaCrumb"]), true);
-    if($tokenArr){
-        $pHandler = new ProfileManager();
-        $uid = $pHandler->getUid($tokenArr[0]);
-        $pHandler->deleteToken($uid,$tokenArr[1]);
-        $pHandler->__destruct();
+    if((isset($_COOKIE["SymbiotaCrumb"]) && ((isset($_REQUEST['submit']) && $_REQUEST['submit'] == "logout") || isset($_REQUEST['loginas'])))){
+        $tokenArr = json_decode(Encryption::decrypt($_COOKIE["SymbiotaCrumb"]), true);
+        if($tokenArr){
+            $pHandler = new ProfileManager();
+            $uid = $pHandler->getUid($tokenArr[0]);
+            $pHandler->deleteToken($uid,$tokenArr[1]);
+            $pHandler->__destruct();
+        }
     }
 }
 
@@ -54,12 +56,15 @@ if(isset($_SESSION['userrights'])){
     $USER_RIGHTS = $_SESSION['userrights'];
 }
 
-$CSS_VERSION = '4';
+$CSS_VERSION = '5';
+if(!isset($CSS_VERSION_LOCAL)) $CSS_VERSION_LOCAL = $CSS_VERSION;
 $USER_DISPLAY_NAME = (array_key_exists("dn",$PARAMS_ARR)?$PARAMS_ARR["dn"]:"");
 $USERNAME = (array_key_exists("un",$PARAMS_ARR)?$PARAMS_ARR["un"]:0);
 $SYMB_UID = (array_key_exists("uid",$PARAMS_ARR)?$PARAMS_ARR["uid"]:0);
 $IS_ADMIN = (array_key_exists("SuperAdmin",$USER_RIGHTS)?1:0);
 $SOLR_MODE = ((isset($SOLR_URL) && $SOLR_URL)?true:false);
+$CHECKLIST_FG_EXPORT = ((isset($ACTIVATE_CHECKLIST_FG_EXPORT) && $ACTIVATE_CHECKLIST_FG_EXPORT)?true:false);
+$FIELDGUIDE_ACTIVE = ((isset($ACTIVATE_FIELDGUIDE) && $ACTIVATE_FIELDGUIDE)?true:false);
 $GEOLOCATION = ((isset($ACTIVATE_GEOLOCATION) && $ACTIVATE_GEOLOCATION)?true:false);
 $BROADGEOREFERENCE = ((isset($GEOREFERENCE_POLITICAL_DIVISIONS) && $GEOREFERENCE_POLITICAL_DIVISIONS)?true:false);
 //Can get rid of following once all parameters are remapped to constants

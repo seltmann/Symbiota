@@ -1,5 +1,6 @@
 <?php
 include_once("OccurrenceManager.php");
+include_once("OccurrenceAccessStats.php");
 
 class OccurrenceListManager extends OccurrenceManager{
 
@@ -7,7 +8,7 @@ class OccurrenceListManager extends OccurrenceManager{
 	protected $sortField1 = '';
 	protected $sortField2 = '';
 	protected $sortOrder = '';
-	
+
 	public function __construct($readVariables = true){
 		parent::__construct($readVariables);
  	}
@@ -17,7 +18,8 @@ class OccurrenceListManager extends OccurrenceManager{
 	}
 
     public function getRecordArr($pageRequest,$cntPerPage){
-        $canReadRareSpp = false;
+        global $imageDomain;
+	    $canReadRareSpp = false;
         if($GLOBALS['USER_RIGHTS']){
             if($GLOBALS['IS_ADMIN'] || array_key_exists("CollAdmin", $GLOBALS['USER_RIGHTS']) || array_key_exists("RareSppAdmin", $GLOBALS['USER_RIGHTS']) || array_key_exists("RareSppReadAll", $GLOBALS['USER_RIGHTS'])){
                 $canReadRareSpp = true;
@@ -38,9 +40,9 @@ class OccurrenceListManager extends OccurrenceManager{
             'CONCAT_WS(", ",o.locality,CONCAT(ROUND(o.decimallatitude,5)," ",ROUND(o.decimallongitude,5))) AS locality, '.
             'IFNULL(o.LocalitySecurity,0) AS LocalitySecurity, o.localitysecurityreason, IFNULL(o.habitat,"") AS habitat, '.
             'CONCAT_WS("-",o.minimumElevationInMeters, o.maximumElevationInMeters) AS elev, o.observeruid, '.
-            'o.individualCount, o.lifeStage, o.sex '.
-            'FROM omoccurrences AS o LEFT JOIN omcollections AS c ON o.collid = c.collid '.
-        	$this->setTableJoins($sqlWhere).$sqlWhere;
+            'o.individualCount, o.lifeStage, o.sex, c.sortseq ';
+        $sql .= (array_key_exists("assochost",$this->searchTermsArr)?', oas.verbatimsciname ':' ');
+        $sql .= 'FROM omoccurrences AS o LEFT JOIN omcollections AS c ON o.collid = c.collid '.$this->setTableJoins($sqlWhere).$sqlWhere;
         if($this->sortField1 || $this->sortField2 || $this->sortOrder){
             $sortFields = array('Collection' => 'collection','Catalog Number' => 'o.CatalogNumber','Family' => 'o.family',
                 'Scientific Name' => 'o.sciname','Collector' => 'o.recordedBy','Number' => 'o.recordNumber','Event Date' => 'o.eventDate',
@@ -59,38 +61,39 @@ class OccurrenceListManager extends OccurrenceManager{
         }
         else{
             $sql .= "ORDER BY c.sortseq, c.collectionname ";
-            $pageRequest = ($pageRequest - 1)*$cntPerPage;
         }
+        $pageRequest = ($pageRequest - 1)*$cntPerPage;
         $sql .= "LIMIT ".$pageRequest.",".$cntPerPage;
         //echo "<div>Spec sql: ".$sql."</div>";
         $result = $this->conn->query($sql);
         while($row = $result->fetch_object()){
             $occId = $row->occid;
             $returnArr[$occId]["collid"] = $row->CollID;
-            $returnArr[$occId]["institutioncode"] = $row->institutioncode;
-            $returnArr[$occId]["collectioncode"] = $row->collectioncode;
-            $returnArr[$occId]["collectionname"] = $row->collectionname;
+            $returnArr[$occId]["institutioncode"] = $this->cleanOutStr($row->institutioncode);
+            $returnArr[$occId]["collectioncode"] = $this->cleanOutStr($row->collectioncode);
+            $returnArr[$occId]["collectionname"] = $this->cleanOutStr($row->collectionname);
             $returnArr[$occId]["collicon"] = $row->icon;
-            $returnArr[$occId]["accession"] = $row->catalognumber;
+            $returnArr[$occId]["accession"] = $this->cleanOutStr($row->catalognumber);
             $returnArr[$occId]["family"] = $this->cleanOutStr($row->family);
             $returnArr[$occId]["sciname"] = $this->cleanOutStr($row->sciname);
             $returnArr[$occId]["tid"] = $row->tidinterpreted;
             $returnArr[$occId]["author"] = $this->cleanOutStr($row->author);
             $returnArr[$occId]["collector"] = $this->cleanOutStr($row->recordedby);
-            $returnArr[$occId]["country"] = $row->country;
-            $returnArr[$occId]["state"] = $row->state;
-            $returnArr[$occId]["county"] = $row->county;
+            $returnArr[$occId]["country"] = $this->cleanOutStr($row->country);
+            $returnArr[$occId]["state"] = $this->cleanOutStr($row->state);
+            $returnArr[$occId]["county"] = $this->cleanOutStr($row->county);
+            if(array_key_exists("assochost",$this->searchTermsArr)) $returnArr[$occId]["assochost"] = $this->cleanOutStr($row->verbatimsciname);
             $returnArr[$occId]["observeruid"] = $row->observeruid;
-            $returnArr[$occId]["individualCount"] = $row->individualCount;
-            $returnArr[$occId]["lifeStage"] = $row->lifeStage;
-            $returnArr[$occId]["sex"] = $row->sex;
+            $returnArr[$occId]["individualCount"] = $this->cleanOutStr($row->individualCount);
+            $returnArr[$occId]["lifeStage"] = $this->cleanOutStr($row->lifeStage);
+            $returnArr[$occId]["sex"] = $this->cleanOutStr($row->sex);
             $localitySecurity = $row->LocalitySecurity;
             if(!$localitySecurity || $canReadRareSpp
-                || (array_key_exists("CollEditor", $GLOBALS['USER_RIGHTS']) && in_array($collIdStr,$GLOBALS['USER_RIGHTS']["CollEditor"]))
-                || (array_key_exists("RareSppReader", $GLOBALS['USER_RIGHTS']) && in_array($collIdStr,$GLOBALS['USER_RIGHTS']["RareSppReader"]))){
-                $returnArr[$occId]["locality"] = str_replace('.,',',',$row->locality);
+           		|| (array_key_exists("CollEditor", $GLOBALS['USER_RIGHTS']) && in_array($row->CollID,$GLOBALS['USER_RIGHTS']["CollEditor"]))
+           		|| (array_key_exists("RareSppReader", $GLOBALS['USER_RIGHTS']) && in_array($row->CollID,$GLOBALS['USER_RIGHTS']["RareSppReader"]))){
+                $returnArr[$occId]["locality"] = $this->cleanOutStr(str_replace('.,',',',$row->locality));
                 $returnArr[$occId]["collnumber"] = $this->cleanOutStr($row->recordnumber);
-                $returnArr[$occId]["habitat"] = $row->habitat;
+                $returnArr[$occId]["habitat"] = $this->cleanOutStr($row->habitat);
                 $returnArr[$occId]["date"] = $row->date;
                 $returnArr[$occId]["eventDate"] = $row->eventDate;
                 $returnArr[$occId]["elev"] = $row->elev;
@@ -117,10 +120,21 @@ class OccurrenceListManager extends OccurrenceManager{
             $rs = $this->conn->query($sql);
             $previousOccid = 0;
             while($r = $rs->fetch_object()){
-                if($r->occid != $previousOccid) $returnArr[$r->occid]['img'] = $r->thumbnailurl;
+                if($r->occid != $previousOccid){
+                    $tnUrl = $r->thumbnailurl;
+                    if($imageDomain){
+                        if($tnUrl && substr($tnUrl,0,1)=="/") $tnUrl = $imageDomain.$tnUrl;
+                    }
+                    $returnArr[$r->occid]['img'] = $tnUrl;
+                }
                 $previousOccid = $r->occid;
             }
             $rs->free();
+        }
+        //Set access statistics
+        if($returnArr){
+        	$statsManager = new OccurrenceAccessStats();
+        	$statsManager->recordAccessEventByArr(array_keys($returnArr),'list');
         }
         return $returnArr;
     }
@@ -141,23 +155,25 @@ class OccurrenceListManager extends OccurrenceManager{
     public function getRecordCnt(){
 		return $this->recordCount;
 	}
-	
+
 	public function setSorting($sf1,$sf2,$so){
 		$this->sortField1 = $sf1;
 		$this->sortField2 = $sf2;
 		$this->sortOrder = $so;
 	}
-	
+
 	public function getCloseTaxaMatch($name){
 		$retArr = array();
-		$searchName = trim($name); 
-		$sql = 'SELECT tid, sciname FROM taxa WHERE soundex(sciname) = soundex("'.$searchName.'") AND sciname != "'.$searchName.'"';
-		if($rs = $this->conn->query($sql)){
-			while($r = $rs->fetch_object()){
-				$retArr[] = $r->sciname;
-			}
-			$rs->free();
+		$searchName = $this->cleanInStr($name);
+		$sql = 'SELECT tid, sciname FROM taxa WHERE soundex(sciname) = soundex(?)';
+		$stmt = $this->conn->prepare($sql);
+		$stmt->bind_param('s', $searchName);
+		$stmt->execute();
+		$stmt->bind_result($tid, $sciname);
+		while($stmt->fetch()){
+			if($searchName != $sciname) $retArr[$tid] = $sciname;
 		}
+		$stmt->close();
 		return $retArr;
 	}
 }

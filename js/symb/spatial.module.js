@@ -52,6 +52,7 @@ $(document).ready(function() {
                 else{
                     rankLow = 140;
                 }
+                //console.log('term: '+request.term+'rlow: '+rankLow+'rhigh: '+rankHigh+'rlimit: '+rankLimit);
                 $.getJSON( source, {
                     term: extractLast( request.term ),
                     rlow: rankLow,
@@ -107,6 +108,82 @@ function adjustSelectionsTab(){
         if(activeTab==3){
             buildCollKey();
             $('#recordstab').tabs({active:0});
+        }
+    }
+}
+
+function animateDS(){
+    if(!dsAnimStop){
+        var lowDate = document.getElementById("datesliderearlydate").value;
+        var highDate = document.getElementById("datesliderlatedate").value;
+        var lowDateVal = new Date(lowDate);
+        lowDateVal = new Date(lowDateVal.setTime(lowDateVal.getTime()+86400000));
+        var highDateVal = new Date(highDate);
+        highDateVal = new Date(highDateVal.setTime(highDateVal.getTime()+86400000));
+        if(dsAnimReverse){
+            if(dsAnimDual){
+                if(lowDateVal.getTime() !== highDateVal.getTime()) highDateVal = new Date(highDateVal.setDate(highDateVal.getDate() - dsAnimDuration));
+                var calcLowDate = new Date(lowDateVal.setDate(lowDateVal.getDate() - dsAnimDuration));
+                if(calcLowDate.getTime() > dsAnimLow.getTime()){
+                    lowDateVal = calcLowDate;
+                }
+                else{
+                    lowDateVal = dsAnimLow;
+                    dsAnimStop = true;
+                }
+            }
+            else{
+                var calcHighDate = new Date(highDateVal.setDate(highDateVal.getDate() - dsAnimDuration));
+                if(calcHighDate.getTime() > dsAnimLow.getTime()){
+                    highDateVal = calcHighDate;
+                }
+                else{
+                    dsAnimStop = true;
+                }
+            }
+        }
+        else{
+            if(dsAnimDual && (lowDateVal.getTime() !== highDateVal.getTime())) lowDateVal = new Date(lowDateVal.setDate(lowDateVal.getDate() + dsAnimDuration));
+            var calcHighDate = new Date(highDateVal.setDate(highDateVal.getDate() + dsAnimDuration));
+            if(calcHighDate.getTime() < dsAnimHigh.getTime()){
+                highDateVal = calcHighDate;
+            }
+            else{
+                highDateVal = dsAnimHigh;
+                dsAnimStop = true;
+            }
+        }
+        tsOldestDate = lowDateVal;
+        tsNewestDate = highDateVal;
+        var lowDateValStr = getISOStrFromDateObj(lowDateVal);
+        var highDateValStr = getISOStrFromDateObj(highDateVal);
+        $("#sliderdiv").slider('values',0,tsOldestDate.getTime());
+        $("#sliderdiv").slider('values',1,tsNewestDate.getTime());
+        $("#custom-label-min").text(lowDateValStr);
+        $("#custom-label-max").text(highDateValStr);
+        document.getElementById("datesliderearlydate").value = lowDateValStr;
+        document.getElementById("datesliderlatedate").value = highDateValStr;
+        layersArr['pointv'].getSource().changed();
+        if(dsAnimImageSave){
+            var filename = lowDateValStr+'-to-'+highDateValStr+'.png';
+            exportMapPNG(filename,true);
+        }
+        if(!dsAnimStop){
+            dsAnimation = setTimeout(animateDS,dsAnimTime);
+        }
+        else{
+            tsOldestDate = dsAnimLow;
+            tsNewestDate = dsAnimHigh;
+            var lowDateValStr = getISOStrFromDateObj(dsAnimLow);
+            var highDateValStr = getISOStrFromDateObj(dsAnimHigh);
+            $("#sliderdiv").slider('values',0,tsOldestDate.getTime());
+            $("#sliderdiv").slider('values',1,tsNewestDate.getTime());
+            $("#custom-label-min").text(lowDateValStr);
+            $("#custom-label-max").text(highDateValStr);
+            document.getElementById("datesliderearlydate").value = lowDateValStr;
+            document.getElementById("datesliderlatedate").value = highDateValStr;
+            layersArr['pointv'].getSource().changed();
+            dsAnimation = '';
         }
     }
 }
@@ -231,7 +308,7 @@ function buildLayerTableRow(lArr,removable){
         }
         trfragment += '</td>';
         var layerTable = document.getElementById("layercontroltable");
-        var newLayerRow = layerTable.insertRow();
+        var newLayerRow = (removable?layerTable.insertRow(0):layerTable.insertRow());
         newLayerRow.id = 'lay-'+layerID;
         newLayerRow.innerHTML = trfragment;
         if(removable) addLayerToSelList(layerID,lArr['Title']);
@@ -240,6 +317,7 @@ function buildLayerTableRow(lArr,removable){
         document.getElementById("selectlayerselect").value = layerID;
         setActiveLayer();
     }
+    toggleLayerTable();
 }
 
 function buildQueryStrings(){
@@ -248,18 +326,17 @@ function buildQueryStrings(){
     solrgeoqArr = [];
     newcqlString = '';
     newsolrqString = '';
-    if(getCollectionParams()){
-        prepareTaxaParams(function(res){
-            getTextParams();
-            getGeographyParams(loadVectorPoints);
-            if(cqlArr.length > 0){
-                buildCQLString();
-            }
-            if(solrqArr.length > 0 || solrgeoqArr.length > 0){
-                buildSOLRQString();
-            }
-        });
-    }
+    getCollectionParams();
+    prepareTaxaParams(function(res){
+        getTextParams();
+        getGeographyParams(loadVectorPoints);
+        if(cqlArr.length > 0){
+            buildCQLString();
+        }
+        if(solrqArr.length > 0 || solrgeoqArr.length > 0){
+            buildSOLRQString();
+        }
+    });
 }
 
 function buildRasterCalcDropDown(){
@@ -302,8 +379,8 @@ function buildSOLRQString(){
         newsolrqString += tempqStr;
     }
     else{
-        document.getElementById("dh-q").value = '*:*';
-        newsolrqString += '*:*';
+        document.getElementById("dh-q").value = '(sciname:[* TO *])';
+        newsolrqString += '(sciname:[* TO *])';
     }
 
     if(solrgeoqArr.length > 0){
@@ -431,13 +508,19 @@ function changeClusterDistance(){
 }
 
 function changeClusterSetting(){
-    clusterPoints = document.getElementById("clusterswitch").checked;
-    if(clusterPoints){
-        removeDateSlider();
-        loadPointWFSLayer(0);
+    if(document.getElementById("sliderdiv")){
+        document.getElementById("clusterswitch").checked = clusterPoints;
+        alert('You cannot change the cluster setting while the Date Slider is active.');
     }
     else{
-        layersArr['pointv'].setSource(pointvectorsource);
+        clusterPoints = document.getElementById("clusterswitch").checked;
+        if(clusterPoints){
+            removeDateSlider();
+            loadPointWFSLayer(0);
+        }
+        else{
+            layersArr['pointv'].setSource(pointvectorsource);
+        }
     }
 }
 
@@ -445,6 +528,13 @@ function changeCollColor(color,key){
     changeMapSymbology('coll');
     collSymbology[key]['color'] = color;
     layersArr['pointv'].getSource().changed();
+    if(spiderCluster){
+        var spiderFeatures = layersArr['spider'].getSource().getFeatures();
+        for(f in spiderFeatures){
+            var style = (spiderFeatures[f].get('features')?setClusterSymbol(spiderFeatures[f]):setSymbol(spiderFeatures[f]));
+            spiderFeatures[f].setStyle(style);
+        }
+    }
 }
 
 function changeDraw() {
@@ -462,6 +552,7 @@ function changeDraw() {
                 var infoArr = [];
                 infoArr['Name'] = 'select';
                 infoArr['Title'] = 'Shapes';
+                infoArr['layerType'] = 'vector';
                 infoArr['Abstract'] = '';
                 infoArr['DefaultCRS'] = '';
                 buildLayerTableRow(infoArr,true);
@@ -494,6 +585,23 @@ function changeHeatMapRadius(){
 }
 
 function changeMapSymbology(symbology){
+    if(symbology != mapSymbology){
+        if(spiderCluster){
+            var source = layersArr['spider'].getSource();
+            source.clear();
+            var blankSource = new ol.source.Vector({
+                features: new ol.Collection(),
+                useSpatialIndex: true
+            });
+            layersArr['spider'].setSource(blankSource);
+            for(i in hiddenClusters){
+                showFeature(hiddenClusters[i]);
+            }
+            hiddenClusters = [];
+            spiderCluster = '';
+            layersArr['pointv'].getSource().changed();
+        }
+    }
     if(symbology == 'coll'){
         if(mapSymbology == 'taxa'){
             clearTaxaSymbology();
@@ -549,11 +657,161 @@ function checkDateSliderType(){
     }
 }
 
+function checkDSAnimDuration(){
+    var duration = document.getElementById("datesliderinterduration").value;
+    var imageSave = document.getElementById("dateslideranimimagesave").checked;
+    if(duration){
+        if(!isNaN(duration) && duration > 0){
+            var lowDate = document.getElementById("datesliderearlydate").value;
+            var hLowDate = new Date(lowDate);
+            hLowDate = new Date(hLowDate.setTime(hLowDate.getTime()+86400000));
+            var highDate = document.getElementById("datesliderlatedate").value;
+            var hHighDate = new Date(highDate);
+            hHighDate = new Date(hHighDate.setTime(hHighDate.getTime()+86400000));
+            var difference = (hHighDate-hLowDate)/1000;
+            difference /= (60*60*24);
+            var diffYears = Math.abs(difference/365.25);
+            if(duration >= diffYears){
+                alert("Interval duration must less than the difference between the earliest and latest dates in years: "+diffYears.toFixed(4));
+                document.getElementById("datesliderinterduration").value = '';
+            }
+            else if(imageSave){
+                var lowDate = document.getElementById("datesliderearlydate").value;
+                var hLowDate = new Date(lowDate);
+                hLowDate = new Date(hLowDate.setTime(hLowDate.getTime()+86400000));
+                var highDate = document.getElementById("datesliderlatedate").value;
+                var hHighDate = new Date(highDate);
+                hHighDate = new Date(hHighDate.setTime(hHighDate.getTime()+86400000));
+                var difference = (hHighDate - hLowDate)/1000;
+                difference /= (60*60*24);
+                var diffYears = difference/365.25;
+                var imageCount = Math.ceil(diffYears/duration);
+                if(!confirm("You have Save Images checked. With the current interval duration and date settings, this will produce "+imageCount+" images. Click OK to continue.")){
+                    document.getElementById("dateslideranimimagesave").checked = false;
+                }
+            }
+        }
+        else{
+            alert("Interval duration must be a number greater than zero.");
+            document.getElementById("datesliderinterduration").value = '';
+        }
+    }
+}
+
+function checkDSAnimTime(){
+    var animtime = Number(document.getElementById("datesliderintertime").value);
+    if(animtime){
+        if(isNaN(animtime) || animtime < 0.1 || animtime > 5){
+            alert("Interval time must be a number greater than or equal to .1, and less than or equal to 5.");
+            document.getElementById("datesliderintertime").value = '';
+        }
+    }
+}
+
+function checkDSHighDate(){
+    var maxDate = dsNewestDate.getTime();
+    var hMaxDate = new Date(maxDate);
+    var hMaxDateStr = getISOStrFromDateObj(hMaxDate);
+    var currentHighSetting = new Date($("#sliderdiv").slider("values",1));
+    var currentHighSettingStr = getISOStrFromDateObj(currentHighSetting);
+    var highDate = document.getElementById("datesliderlatedate").value;
+    if(highDate){
+        if(formatCheckDate(highDate)){
+            var currentLowSetting = new Date($("#sliderdiv").slider("values",0));
+            var currentLowSettingStr = getISOStrFromDateObj(currentLowSetting);
+            var hHighDate = new Date(highDate);
+            if(hHighDate < hMaxDate){
+                if(hHighDate < currentLowSetting){
+                    alert("Date cannot be earlier than the currently set earliest date: "+currentLowSettingStr+'.');
+                    document.getElementById("datesliderlatedate").value = currentHighSettingStr;
+                }
+            }
+            else{
+                alert("Date cannot be later than the latest date on slider: "+hMaxDateStr+'.');
+                document.getElementById("datesliderlatedate").value = currentHighSettingStr;
+            }
+        }
+    }
+    else{
+        document.getElementById("datesliderlatedate").value = currentHighSettingStr;
+    }
+}
+
+function checkDSLowDate(){
+    var minDate = dsOldestDate.getTime();;
+    var hMinDate = new Date(minDate);
+    var hMinDateStr = getISOStrFromDateObj(hMinDate);
+    var currentLowSetting = new Date($("#sliderdiv").slider("values",0));
+    var currentLowSettingStr = getISOStrFromDateObj(currentLowSetting);
+    var lowDate = document.getElementById("datesliderearlydate").value;
+    if(lowDate){
+        if(formatCheckDate(lowDate)){
+            var currentHighSetting = new Date($("#sliderdiv").slider("values",1));
+            var currentHighSettingStr = getISOStrFromDateObj(currentHighSetting);
+            var hLowDate = new Date(lowDate);
+            if(hLowDate > hMinDate){
+                if(hLowDate > currentHighSetting){
+                    alert("Date cannot be after the currently set latest date: "+currentHighSettingStr+'.');
+                    document.getElementById("datesliderearlydate").value = currentLowSettingStr;
+                }
+            }
+            else{
+                alert("Date cannot be earlier than the earliest date on slider: "+hMinDateStr+'.');
+                document.getElementById("datesliderearlydate").value = currentLowSettingStr;
+            }
+        }
+    }
+    else{
+        document.getElementById("datesliderearlydate").value = currentLowSettingStr;
+    }
+}
+
+function checkDSSaveImage(){
+    var imageSave = document.getElementById("dateslideranimimagesave").checked;
+    var duration = document.getElementById("datesliderinterduration").value;
+    if(imageSave){
+        if(duration){
+            var lowDate = document.getElementById("datesliderearlydate").value;
+            var hLowDate = new Date(lowDate);
+            hLowDate = new Date(hLowDate.setTime(hLowDate.getTime()+86400000));
+            var highDate = document.getElementById("datesliderlatedate").value;
+            var hHighDate = new Date(highDate);
+            hHighDate = new Date(hHighDate.setTime(hHighDate.getTime()+86400000));
+            var difference = (hHighDate - hLowDate)/1000;
+            difference /= (60*60*24);
+            var diffYears = difference/365.25;
+            var imageCount = Math.ceil(diffYears/duration);
+            if(!confirm("With the current interval duration and date settings, this will produce "+imageCount+" images. Click OK to continue.")){
+                document.getElementById("dateslideranimimagesave").checked = false;
+            }
+        }
+        else{
+            alert("Please enter an interval duration before selecting to save images.");
+            document.getElementById("dateslideranimimagesave").checked = false;
+        }
+    }
+}
+
+function checkLoading(){
+    if(!loadingComplete){
+        loadingComplete = true;
+        loadPointsEvent = false;
+        hideWorking();
+    }
+}
+
 function checkObjectNotEmpty(obj){
     for(var i in obj){
         if(obj[i]) return true;
     }
     return false;
+}
+
+function checkPointToolSource(selector){
+    if(!(selections.length >= 3)){
+        document.getElementById(selector).value = 'all';
+        alert('There must be at least 3 selected points on the map.');
+    }
 }
 
 function checkReclassifyForm(){
@@ -562,16 +820,29 @@ function checkReclassifyForm(){
     var rasterMinVal = document.getElementById("reclassifyRasterMin").value;
     var rasterMaxVal = document.getElementById("reclassifyRasterMax").value;
     var colorVal = document.getElementById("reclassifyColorVal").value;
-    var newVal = document.getElementById("reclassifyNewVal").value;
     if(rasterLayer == "") alert("Please select a raster layer to reclassify.");
     else if(outputName == "") alert("Please enter a name for the output overlay.");
     else if(layersArr[outputName]) alert("The name for the output you entered is already being used by another layer. Please enter a different name.");
     else if(colorVal == "FFFFFF") alert("Please select a color other than white for this overlay.");
-    else if(rasterMinVal == "" || rasterMaxVal == "" || newVal == "") alert("Please enter a min and max value for the raster and a new value to reclassify.");
-    else if(isNaN(rasterMinVal) || isNaN(rasterMaxVal) || isNaN(newVal)) alert("Please enter only numbers for the min, max, and new values.");
+    else if(rasterMinVal == "" || rasterMaxVal == "") alert("Please enter a min and max value for the raster to reclassify.");
+    else if(isNaN(rasterMinVal) || isNaN(rasterMaxVal)) alert("Please enter only numbers for the min and max values.");
     else{
         $("#reclassifytool").popup("hide");
         reclassifyRaster();
+    }
+}
+
+function checkReclassifyToolOpen(){
+    if(rasterLayers.length > 0){
+        document.getElementById("reclassifyOutputName").value = "";
+        buildReclassifyDropDown();
+        document.getElementById("reclassifysourcelayer").selectedIndex = 0;
+        setReclassifyTable();
+        $("#maptools").popup("hide");
+        $("#reclassifytool").popup("show");
+    }
+    else{
+        alert('There are no raster layers available.')
     }
 }
 
@@ -585,13 +856,14 @@ function checkVectorizeForm(){
 }
 
 function checkVectorizeOverlayToolOpen(){
-    var featureCnt = selectsource.getFeatures().length;
-    if(selectInteraction.getFeatures().getArray().length == 1){
+    if(checkObjectNotEmpty(vectorizeLayers) && selectInteraction.getFeatures().getArray().length == 1){
+        buildVectorizeDropDown();
+        document.getElementById("vectorizesourcelayer").selectedIndex = 0;
         $("#maptools").popup("hide");
         $("#vectorizeoverlaytool").popup("show");
     }
     else{
-        alert('You must have one, and only one, polygon selected from your shapes layer to define vectorize boundaries.')
+        alert('To use this tool, you must first use the Reclassify Tool to create at least one reclassified raster layer and have one, and only one, polygon selected from your Shapes layer to define the vectorize boundaries.')
     }
 }
 
@@ -653,6 +925,125 @@ function coordFormat(){
     });
 }
 
+function createBuffers(){
+    var bufferSize = document.getElementById("bufferSize").value;
+    if(bufferSize == '' || isNaN(bufferSize)) alert("Please enter a number for the buffer size.");
+    else if(selectInteraction.getFeatures().getArray().length >= 1){
+        selectInteraction.getFeatures().forEach(function(feature){
+            if(feature){
+                var selectedClone = feature.clone();
+                var geoType = selectedClone.getGeometry().getType();
+                var geoJSONFormat = new ol.format.GeoJSON();
+                var selectiongeometry = selectedClone.getGeometry();
+                var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+                var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+                var featCoords = JSON.parse(geojsonStr).coordinates;
+                if(geoType == 'Point'){
+                    var turfFeature = turf.point(featCoords);
+                }
+                else if(geoType == 'LineString'){
+                    var turfFeature = turf.lineString(featCoords);
+                }
+                else if(geoType == 'Polygon'){
+                    var turfFeature = turf.polygon(featCoords);
+                }
+                else if(geoType == 'MultiPolygon'){
+                    var turfFeature = turf.multiPolygon(featCoords);
+                }
+                else if(geoType == 'Circle'){
+                    var center = fixedselectgeometry.getCenter();
+                    var radius = fixedselectgeometry.getRadius();
+                    var turfFeature = getWGS84CirclePoly(center,radius);
+                }
+                var buffered = turf.buffer(turfFeature,bufferSize,{units:'kilometers'});
+                var buffpoly = geoJSONFormat.readFeature(buffered);
+                buffpoly.getGeometry().transform(wgs84Projection,mapProjection);
+                selectsource.addFeature(buffpoly);
+            }
+        });
+        document.getElementById("bufferSize").value = '';
+    }
+    else{
+        alert('You must have at least one shape selected in your Shapes layer to create a buffer polygon.');
+    }
+}
+
+function createConcavePoly(){
+    var source = document.getElementById('concavepolysource').value;
+    var maxEdge = document.getElementById('concaveMaxEdgeSize').value;
+    var features = [];
+    var geoJSONFormat = new ol.format.GeoJSON();
+    if(maxEdge != '' && !isNaN(maxEdge) && maxEdge > 0){
+        if(source == 'all'){
+            features = getTurfPointFeaturesetAll();
+        }
+        else if(source == 'selected'){
+            if(selections.length >= 3){
+                features = getTurfPointFeaturesetSelected();
+            }
+            else{
+                document.getElementById('concavepolysource').value = 'all';
+                alert('There must be at least 3 selected points on the map. Please either select more points or re-run this tool for all points.');
+                return;
+            }
+        }
+        if(features){
+            var concavepoly = '';
+            try{
+                var options = {units: 'kilometers', maxEdge: Number(maxEdge)};
+                concavepoly = turf.concave(features,options);
+            }
+            catch(e){
+                alert('Concave polygon was not able to be calculated. Perhaps try using a larger value for the maximum edge length.');
+            }
+            if(concavepoly){
+                var cnvepoly = geoJSONFormat.readFeature(concavepoly);
+                cnvepoly.getGeometry().transform(wgs84Projection,mapProjection);
+                selectsource.addFeature(cnvepoly);
+            }
+        }
+        else{
+            alert('There must be at least 3 points on the map to calculate polygon.');
+        }
+        document.getElementById('concavepolysource').value = 'all';
+        document.getElementById('concaveMaxEdgeSize').value = '';
+    }
+    else{
+        alert('Please enter a number for the maximum edge size.');
+    }
+}
+
+function createConvexPoly(){
+    var source = document.getElementById('convexpolysource').value;
+    var features = [];
+    var geoJSONFormat = new ol.format.GeoJSON();
+    if(source == 'all'){
+        features = getTurfPointFeaturesetAll();
+    }
+    else if(source == 'selected'){
+        if(selections.length >= 3){
+            features = getTurfPointFeaturesetSelected();
+        }
+        else{
+            document.getElementById('convexpolysource').value = 'all';
+            alert('There must be at least 3 selected points on the map. Please either select more points or re-run this tool for all points.');
+            return;
+        }
+    }
+    if(features){
+        var convexpoly = turf.convex(features);
+        if(convexpoly){
+            var cnvxpoly = geoJSONFormat.readFeature(convexpoly);
+            cnvxpoly.getGeometry().transform(wgs84Projection,mapProjection);
+            selectsource.addFeature(cnvxpoly);
+        }
+    }
+    else{
+        alert('There must be at least 3 points on the map to calculate polygon.');
+    }
+    document.getElementById('convexpolysource').value = 'all';
+}
+
 function createDateSlider(dual){
     if(dsOldestDate && dsNewestDate){
         sliderdiv = document.createElement('div');
@@ -684,12 +1075,14 @@ function createDateSlider(dual){
         sliderdiv.appendChild(maxhandlediv);
         document.body.appendChild(sliderdiv);
 
-        var minDate = dsOldestDate;
-        var maxDate = dsNewestDate;
+        var minDate = dsOldestDate.getTime();
+        var maxDate = dsNewestDate.getTime();
         tsOldestDate = dsOldestDate;
         tsNewestDate = dsNewestDate;
-        minDate = minDate.getTime();
-        maxDate = maxDate.getTime();
+        var hMinDate = new Date(minDate);
+        var minDateStr = getISOStrFromDateObj(hMinDate);
+        var hMaxDate = new Date(maxDate);
+        var maxDateStr = getISOStrFromDateObj(hMaxDate);
 
         var minhandle = $("#custom-handle-min");
         var maxhandle = $("#custom-handle-max");
@@ -701,13 +1094,9 @@ function createDateSlider(dual){
             create: function() {
                 if(dual){
                     var mintextbox = $("#custom-label-min");
-                    var hMinDate = new Date(minDate);
-                    var minDateStr = getISOStrFromDateObj(hMinDate);
                     mintextbox.text(minDateStr);
                 }
                 var maxtextbox = $("#custom-label-max");
-                var hMaxDate = new Date(maxDate);
-                var maxDateStr = getISOStrFromDateObj(hMaxDate);
                 maxtextbox.text(maxDateStr);
             },
             //step: 7 * 24 * 60 * 60 * 1000,
@@ -716,13 +1105,15 @@ function createDateSlider(dual){
                 if(dual){
                     var mintextbox = $("#custom-label-min");
                     tsOldestDate = new Date(ui.values[0]);
-                    var minDateStr = getISOStrFromDateObj(tsOldestDate);
-                    mintextbox.text(minDateStr);
+                    var newMinDateStr = getISOStrFromDateObj(tsOldestDate);
+                    mintextbox.text(newMinDateStr);
+                    document.getElementById("datesliderearlydate").value = newMinDateStr;
                 }
                 var maxtextbox = $("#custom-label-max");
                 tsNewestDate = new Date(ui.values[1]);
-                var maxDateStr = getISOStrFromDateObj(tsNewestDate);
-                maxtextbox.text(maxDateStr);
+                var newMaxDateStr = getISOStrFromDateObj(tsNewestDate);
+                maxtextbox.text(newMaxDateStr);
+                document.getElementById("datesliderlatedate").value = newMaxDateStr;
                 layersArr['pointv'].getSource().changed();
             }
         });
@@ -731,6 +1122,159 @@ function createDateSlider(dual){
             document.getElementById("custom-handle-min").style.position = 'absolute';
             document.getElementById("custom-handle-min").style.left = '-9999px';
         }
+        document.getElementById("datesliderearlydate").value = minDateStr;
+        document.getElementById("datesliderlatedate").value = maxDateStr;
+        document.getElementById("dateslidercontrol").style.display = 'block';
+        document.getElementById("maptoolcontainer").style.top = 'initial';
+        document.getElementById("maptoolcontainer").style.left = 'initial';
+        document.getElementById("maptoolcontainer").style.bottom = '100px';
+        document.getElementById("maptoolcontainer").style.right = '-190px';
+    }
+}
+
+function createPolyDifference(){
+    var shapeCount = 0;
+    selectInteraction.getFeatures().forEach(function(feature){
+        var selectedClone = feature.clone();
+        var geoType = selectedClone.getGeometry().getType();
+        if(geoType == 'Polygon' || geoType == 'MultiPolygon' || geoType == 'Circle'){
+            shapeCount++;
+        }
+    });
+    if(shapeCount == 2){
+        var features = [];
+        var geoJSONFormat = new ol.format.GeoJSON();
+        selectInteraction.getFeatures().forEach(function(feature){
+            if(feature){
+                var selectedClone = feature.clone();
+                var geoType = selectedClone.getGeometry().getType();
+                var selectiongeometry = selectedClone.getGeometry();
+                var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+                var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+                var featCoords = JSON.parse(geojsonStr).coordinates;
+                if(geoType == 'Polygon'){
+                    features.push(turf.polygon(featCoords));
+                }
+                else if(geoType == 'MultiPolygon'){
+                    features.push(turf.multiPolygon(featCoords));
+                }
+                else if(geoType == 'Circle'){
+                    var center = fixedselectgeometry.getCenter();
+                    var radius = fixedselectgeometry.getRadius();
+                    features.push(getWGS84CirclePoly(center,radius));
+                }
+            }
+        });
+        var difference = turf.difference(features[0],features[1]);
+        if(difference){
+            var diffpoly = geoJSONFormat.readFeature(difference);
+            diffpoly.getGeometry().transform(wgs84Projection,mapProjection);
+            selectsource.addFeature(diffpoly);
+        }
+    }
+    else{
+        alert('You must have two polygons or circles, and only two polygons or circles, selected in your Shapes layer to find the difference.');
+    }
+}
+
+function createPolyIntersect(){
+    var shapeCount = 0;
+    selectInteraction.getFeatures().forEach(function(feature){
+        var selectedClone = feature.clone();
+        var geoType = selectedClone.getGeometry().getType();
+        if(geoType == 'Polygon' || geoType == 'MultiPolygon' || geoType == 'Circle'){
+            shapeCount++;
+        }
+    });
+    if(shapeCount == 2){
+        var features = [];
+        var geoJSONFormat = new ol.format.GeoJSON();
+        selectInteraction.getFeatures().forEach(function(feature){
+            if(feature){
+                var selectedClone = feature.clone();
+                var geoType = selectedClone.getGeometry().getType();
+                var selectiongeometry = selectedClone.getGeometry();
+                var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+                var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+                var featCoords = JSON.parse(geojsonStr).coordinates;
+                if(geoType == 'Polygon'){
+                    features.push(turf.polygon(featCoords));
+                }
+                else if(geoType == 'MultiPolygon'){
+                    features.push(turf.multiPolygon(featCoords));
+                }
+                else if(geoType == 'Circle'){
+                    var center = fixedselectgeometry.getCenter();
+                    var radius = fixedselectgeometry.getRadius();
+                    features.push(getWGS84CirclePoly(center,radius));
+                }
+            }
+        });
+        var intersection = turf.intersect(features[0],features[1]);
+        if(intersection){
+            var interpoly = geoJSONFormat.readFeature(intersection);
+            interpoly.getGeometry().transform(wgs84Projection,mapProjection);
+            selectsource.addFeature(interpoly);
+        }
+        else{
+            alert('The two selected shapes do not intersect.');
+        }
+    }
+    else{
+        alert('You must have two polygons or circles, and only two polygons or circles, selected in your Shapes layer to find the intersect.');
+    }
+}
+
+function createPolyUnion(){
+    var shapeCount = 0;
+    selectInteraction.getFeatures().forEach(function(feature){
+        var selectedClone = feature.clone();
+        var geoType = selectedClone.getGeometry().getType();
+        if(geoType == 'Polygon' || geoType == 'MultiPolygon' || geoType == 'Circle'){
+            shapeCount++;
+        }
+    });
+    if(shapeCount > 1){
+        var features = [];
+        var geoJSONFormat = new ol.format.GeoJSON();
+        selectInteraction.getFeatures().forEach(function(feature){
+            if(feature){
+                var selectedClone = feature.clone();
+                var geoType = selectedClone.getGeometry().getType();
+                var selectiongeometry = selectedClone.getGeometry();
+                var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+                var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+                var featCoords = JSON.parse(geojsonStr).coordinates;
+                if(geoType == 'Polygon'){
+                    features.push(turf.polygon(featCoords));
+                }
+                else if(geoType == 'MultiPolygon'){
+                    features.push(turf.multiPolygon(featCoords));
+                }
+                else if(geoType == 'Circle'){
+                    var center = fixedselectgeometry.getCenter();
+                    var radius = fixedselectgeometry.getRadius();
+                    features.push(getWGS84CirclePoly(center,radius));
+                }
+            }
+        });
+        var union = turf.union(features[0],features[1]);
+        for (f in features){
+            if(f > 1){
+                union = turf.union(union,features[f]);
+            }
+        }
+        if(union){
+            deleteSelections();
+            var unionpoly = geoJSONFormat.readFeature(union);
+            unionpoly.getGeometry().transform(wgs84Projection,mapProjection);
+            selectsource.addFeature(unionpoly);
+            document.getElementById("selectlayerselect").value = 'select';
+            setActiveLayer();
+        }
+    }
+    else{
+        alert('You must have at least two polygons or circles selected in your Shapes layer to find the union.');
     }
 }
 
@@ -760,8 +1304,15 @@ function downloadShapesLayer(){
         var filetype = 'application/vnd.geo+json';
     }
     var features = layersArr['select'].getSource().getFeatures();
-    var exportStr = format.writeFeatures(features,{'dataProjection': wgs84Projection, 'featureProjection': mapProjection});
-    var filename = 'shapes.'+dlType;
+    var fixedFeatures = setDownloadFeatures(features);
+    var exportStr = format.writeFeatures(fixedFeatures,{'dataProjection': wgs84Projection, 'featureProjection': mapProjection});
+    if(dlType == 'kml'){
+        exportStr = exportStr.replace(/<kml xmlns="http:\/\/www.opengis.net\/kml\/2.2" xmlns:gx="http:\/\/www.google.com\/kml\/ext\/2.2" xmlns:xsi="http:\/\/www.w3.org\/2001\/XMLSchema-instance" xsi:schemaLocation="http:\/\/www.opengis.net\/kml\/2.2 https:\/\/developers.google.com\/kml\/schema\/kml22gx.xsd">/g,'<kml xmlns="http://www.opengis.net/kml/2.2"><Document id="root_doc"><Folder><name>shapes_export</name>');
+        exportStr = exportStr.replace(/<Placemark>/g,'<Placemark><Style><LineStyle><color>ff000000</color><width>1</width></LineStyle><PolyStyle><color>4DAAAAAA</color><fill>1</fill></PolyStyle></Style>');
+        exportStr = exportStr.replace(/<Polygon>/g,'<Polygon><altitudeMode>clampToGround</altitudeMode>');
+        exportStr = exportStr.replace(/<\/kml>/g,'</Folder></Document></kml>');
+    }
+    var filename = 'shapes_'+getDateTimeString()+'.'+dlType;
     var blob = new Blob([exportStr], {type: filetype});
     if(window.navigator.msSaveOrOpenBlob) {
         window.navigator.msSaveBlob(blob, filename);
@@ -776,19 +1327,55 @@ function downloadShapesLayer(){
     }
 }
 
-function exportMapPNG(){
+function exportMapPNG(filename,zip){
     map.once('postcompose', function(event) {
         var canvas = document.getElementsByTagName('canvas').item(0);
-        if (navigator.msSaveBlob) {
-            navigator.msSaveBlob(canvas.msToBlob(), 'map.png');
+        if(zip){
+            var image = canvas.toDataURL('image/png', 1.0);
+            zipFolder.file(filename, image.substr(image.indexOf(',')+1), {base64: true});
+            if(dsAnimImageSave && dsAnimStop){
+                zipFile.generateAsync({type:"blob"}).then(function(content) {
+                    var zipfilename = 'dateanimationimages_'+getDateTimeString()+'.zip';
+                    saveAs(content,zipfilename);
+                });
+            }
+        }
+        else if(navigator.msSaveBlob) {
+            navigator.msSaveBlob(canvas.msToBlob(),filename);
         }
         else{
             canvas.toBlob(function(blob) {
-                saveAs(blob, 'map.png');
+                saveAs(blob,filename);
             });
         }
     });
     map.renderSync();
+}
+
+function exportTaxaCSV(){
+    var csvContent = '';
+    csvContent = '"ScientificName","Family","RecordCount"'+"\n";
+    var sortedTaxa = arrayIndexSort(taxaSymbology).sort();
+    for(i in sortedTaxa){
+        var family = taxaSymbology[sortedTaxa[i]]['family'].toLowerCase();
+        family = family.charAt(0).toUpperCase()+family.slice(1);
+        var row = taxaSymbology[sortedTaxa[i]]['sciname']+','+family+','+taxaSymbology[sortedTaxa[i]]['count']+"\n";
+        csvContent += row;
+    }
+    var filename = 'taxa_list.csv';
+    var filetype = 'text/csv; charset=utf-8';
+    var blob = new Blob([csvContent], {type: filetype});
+    if(window.navigator.msSaveOrOpenBlob) {
+        window.navigator.msSaveBlob(blob,filename);
+    }
+    else{
+        var elem = window.document.createElement('a');
+        elem.href = window.URL.createObjectURL(blob);
+        elem.download = filename;
+        document.body.appendChild(elem);
+        elem.click();
+        document.body.removeChild(elem);
+    }
 }
 
 function extensionSelected(obj){
@@ -808,7 +1395,15 @@ function findOccCluster(occid){
 }
 
 function findOccClusterPosition(occid){
-    if(clusterPoints){
+    if(spiderCluster){
+        var spiderPoints = layersArr['spider'].getSource().getFeatures();
+        for(p in spiderPoints){
+            if(spiderPoints[p].get('features')[0].get('occid') == Number(occid)){
+                return spiderPoints[p].getGeometry().getCoordinates();
+            }
+        }
+    }
+    else if(clusterPoints){
         var clusters = layersArr['pointv'].getSource().getFeatures();
         for(c in clusters){
             var clusterindex = clusters[c].get('identifiers');
@@ -1016,7 +1611,7 @@ function getCollectionParams(){
     for(i = 0; i < dbElements.length; i++){
         var dbElement = dbElements[i];
         if(dbElement.checked && !isNaN(dbElement.value)){
-            if(c == true) collid = collid+",";
+            if(c == true) collid = collid+" ";
             collid = collid + dbElement.value;
             c = true;
         }
@@ -1066,6 +1661,7 @@ function getDragDropStyle(feature, resolution) {
 
 function getGeographyParams(vector){
     tempcqlArr = [];
+    var totalArea = 0;
     selectInteraction.getFeatures().forEach(function(feature){
         var cqlfrag = '';
         var solrqfrag = '';
@@ -1082,32 +1678,34 @@ function getGeographyParams(vector){
                 var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
                 var polyCoords = JSON.parse(geojsonStr).coordinates;
                 if (geoType == 'MultiPolygon') {
+                    var areaFeat = turf.multiPolygon(polyCoords);
+                    var area = turf.area(areaFeat);
+                    var area_km = area/1000/1000;
+                    totalArea = totalArea + area_km;
                     for (e in polyCoords) {
-                        for (i in polyCoords[e]) {
-                            var ring = turf.lineString(polyCoords[e][i]);
-                            //console.log('start multipolygon length: '+ring.geometry.coordinates.length);
-                            //ring = turf.simplify(ring, 0.000001, true);
-                            if(ring.geometry.coordinates.length > 10){
-                                ring = turf.simplify(ring, 0.001, true);
-                            }
-                            ring = turf.simplify(ring, 0.001, true);
-                            //console.log('end multipolygon length: '+ring.geometry.coordinates.length);
-                            polyCoords[e][i] = ring.geometry.coordinates;
+                        var singlePoly = turf.polygon(polyCoords[e]);
+                        //console.log('start multipolygon length: '+singlePoly.geometry.coordinates.length);
+                        if(singlePoly.geometry.coordinates.length > 10){
+                            var options = {tolerance: 0.001, highQuality: true};
+                            singlePoly = turf.simplify(singlePoly,options);
                         }
+                        //console.log('end multipolygon length: '+singlePoly.geometry.coordinates.length);
+                        polyCoords[e] = singlePoly.geometry.coordinates;
                     }
                     var turfSimple = turf.multiPolygon(polyCoords);
                 }
                 if (geoType == 'Polygon') {
-                    for (i in polyCoords) {
-                        var ring = turf.lineString(polyCoords[i]);
-                        //console.log('start polygon length: '+ring.geometry.coordinates.length);
-                        //ring = turf.simplify(ring, 0.000001, true);
-                        if(ring.geometry.coordinates.length > 10){
-                            ring = turf.simplify(ring, 0.001, true);
-                        }
-                        //console.log('end polygon length: '+ring.geometry.coordinates.length);
-                        polyCoords[i] = ring.geometry.coordinates;
+                    var areaFeat = turf.polygon(polyCoords);
+                    var area = turf.area(areaFeat);
+                    var area_km = area/1000/1000;
+                    totalArea = totalArea + area_km;
+                    //console.log('start multipolygon length: '+areaFeat.geometry.coordinates.length);
+                    if(areaFeat.geometry.coordinates.length > 10){
+                        var options = {tolerance: 0.001, highQuality: true};
+                        areaFeat = turf.simplify(areaFeat,options);
                     }
+                    //console.log('end multipolygon length: '+areaFeat.geometry.coordinates.length);
+                    polyCoords = areaFeat.geometry.coordinates;
                     var turfSimple = turf.polygon(polyCoords);
                 }
                 var polySimple = geoJSONFormat.readFeature(turfSimple,{featureProjection:'EPSG:3857'});
@@ -1138,6 +1736,8 @@ function getGeographyParams(vector){
                     ol.proj.transform(edgeCoordinate, 'EPSG:3857', 'EPSG:4326')
                 );
                 groundRadius = groundRadius/1000;
+                var circleArea = Math.PI*groundRadius*groundRadius;
+                totalArea = totalArea + circleArea;
                 var fixedcenter = ol.proj.transform(center,'EPSG:3857','EPSG:4326');
                 geoSolrqString = '{!geofilt sfield=geo pt='+fixedcenter[1]+','+fixedcenter[0]+' d='+groundRadius+'}';
                 solrqfrag = geoSolrqString;
@@ -1158,6 +1758,12 @@ function getGeographyParams(vector){
             }
         }
     });
+    if(totalArea === 0){
+        document.getElementById("polyarea").value = totalArea;
+    }
+    else{
+        document.getElementById("polyarea").value = totalArea.toFixed(2);
+    }
     finishGetGeographyParams();
 }
 
@@ -1275,7 +1881,7 @@ function getTextParams(){
             if(countryCqlString) countryCqlString += " OR ";
             if(countrySolrqString) countrySolrqString += " OR ";
             countryCqlString += "(country = '"+countryvals[i]+"')";
-            countrySolrqString += "(country:'"+countryvals[i]+"')";
+            countrySolrqString += '(country:"'+countryvals[i]+'")';
         }
         cqlfrag = '('+countryCqlString+')';
         cqlArr.push(cqlfrag);
@@ -1290,7 +1896,7 @@ function getTextParams(){
             if(stateCqlString) stateCqlString += " OR ";
             if(stateSolrqString) stateSolrqString += " OR ";
             stateCqlString += "(StateProvince = '"+statevals[i]+"')";
-            stateSolrqString += "(StateProvince:"+statevals[i]+")";
+            stateSolrqString += '(StateProvince:"'+statevals[i]+'")';
         }
         cqlfrag = '('+stateCqlString+')';
         cqlArr.push(cqlfrag);
@@ -1487,6 +2093,84 @@ function getTextParams(){
     }
 }
 
+function getTurfPointFeaturesetAll(){
+    var turfFeatureArr = [];
+    var geoJSONFormat = new ol.format.GeoJSON();
+    if(clusterPoints){
+        var clusters = layersArr['pointv'].getSource().getFeatures();
+        for(c in clusters){
+            var cFeatures = clusters[c].get('features');
+            for (f in cFeatures) {
+                var selectedClone = cFeatures[f].clone();
+                var selectiongeometry = selectedClone.getGeometry();
+                var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+                var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+                var pntCoords = JSON.parse(geojsonStr).coordinates;
+                turfFeatureArr.push(turf.point(pntCoords));
+            }
+        }
+    }
+    else{
+        var features = layersArr['pointv'].getSource().getFeatures();
+        for(f in features){
+            var selectedClone = features[f].clone();
+            var selectiongeometry = selectedClone.getGeometry();
+            var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+            var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+            var pntCoords = JSON.parse(geojsonStr).coordinates;
+            turfFeatureArr.push(turf.point(pntCoords));
+        }
+    }
+    if(turfFeatureArr.length >= 3){
+        var turfCollection = turf.featureCollection(turfFeatureArr);
+        return turfCollection;
+    }
+    else{
+        return false;
+    }
+}
+
+function getTurfPointFeaturesetSelected(){
+    var turfFeatureArr = [];
+    var geoJSONFormat = new ol.format.GeoJSON();
+    for(i in selections){
+        var point = '';
+        if(clusterPoints){
+            var cluster = findOccCluster(selections[i]);
+            point = findOccPointInCluster(cluster,selections[i]);
+        }
+        else{
+            point = findOccPoint(selections[i]);
+        }
+        if(point){
+            var selectedClone = point.clone();
+            var selectiongeometry = selectedClone.getGeometry();
+            var fixedselectgeometry = selectiongeometry.transform(mapProjection,wgs84Projection);
+            var geojsonStr = geoJSONFormat.writeGeometry(fixedselectgeometry);
+            var pntCoords = JSON.parse(geojsonStr).coordinates;
+            turfFeatureArr.push(turf.point(pntCoords));
+        }
+    }
+    if(turfFeatureArr.length >= 3){
+        var turfCollection = turf.featureCollection(turfFeatureArr);
+        return turfCollection;
+    }
+    else{
+        return false;
+    }
+}
+
+function getWGS84CirclePoly(center,radius){
+    var turfFeature = '';
+    var edgeCoordinate = [center[0] + radius, center[1]];
+    var wgs84Sphere = new ol.Sphere(6378137);
+    var groundRadius = wgs84Sphere.haversineDistance(center,edgeCoordinate);
+    groundRadius = groundRadius/1000;
+    var ciroptions = {steps:200, units:'kilometers'};
+    turfFeature = turf.circle(center,groundRadius,ciroptions);
+    return turfFeature;
+}
+
 function hexToRgb(hex) {
     var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result ? {
@@ -1506,6 +2190,10 @@ function hideFeature(feature){
         })
     });
     feature.setStyle(invisibleStyle);
+}
+
+function hideWorking(){
+    $('#loadingOverlay').popup('hide');
 }
 
 function imagePostFunction(image, src) {
@@ -1550,6 +2238,7 @@ function imagePostFunction(image, src) {
 
 function lazyLoadPoints(index,callback){
     var startindex = 0;
+    loadingComplete = true;
     if(index > 1) startindex = (index - 1)*lazyLoadCnt;
     var http = new XMLHttpRequest();
     var url = "rpc/SOLRConnector.php";
@@ -1559,6 +2248,8 @@ function lazyLoadPoints(index,callback){
     http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     http.onreadystatechange = function() {
         if(http.readyState == 4 && http.status == 200) {
+            loadingComplete = false;
+            setTimeout(checkLoading,loadingTimer);
             callback(http.responseText);
         }
     };
@@ -1578,11 +2269,13 @@ function loadPoints(){
     cqlString = newcqlString;
     solrqString = newsolrqString;
     if(newsolrqString){
+        showWorking();
         pointvectorsource = new ol.source.Vector({wrapX: false});
         layersArr['pointv'].setSource(pointvectorsource);
         getSOLRRecCnt(false,function(res) {
             if(solrRecCnt){
-                setRecordsTab();
+                loadPointsEvent = true;
+                setLoadingTimer();
                 if(loadVectorPoints){
                     loadPointWFSLayer(0);
                 }
@@ -1590,6 +2283,7 @@ function loadPoints(){
                     loadPointWMSLayer();
                 }
                 //cleanSelectionsLayer();
+                setRecordsTab();
                 changeRecordPage(1);
                 $('#recordstab').tabs({active: 1});
                 $("#accordion").accordion("option","active",1);
@@ -1597,6 +2291,7 @@ function loadPoints(){
                 if(!pointActive){
                     var infoArr = [];
                     infoArr['Name'] = 'pointv';
+                    infoArr['layerType'] = 'vector';
                     infoArr['Title'] = 'Points';
                     infoArr['Abstract'] = '';
                     infoArr['DefaultCRS'] = '';
@@ -1610,6 +2305,8 @@ function loadPoints(){
                     removeLayerToSelList('pointv');
                     pointActive = false;
                 }
+                loadPointsEvent = false;
+                hideWorking();
                 alert('There were no records matching your query.');
             }
         });
@@ -1774,22 +2471,20 @@ function prepareTaxaParams(callback){
                         if(taxaArr[i]["synonyms"]){
                             var synArr = [];
                             synArr = taxaArr[i]["synonyms"];
-                            if(synArr.length > 0){
-                                var tidArr = [];
-                                if(taxontype == 1 || taxontype == 2 || taxontype == 5){
-                                    for (syn in synArr){
-                                        if(synArr[syn].indexOf('aceae') !== -1 || synArr[syn].indexOf('idae') !== -1){
-                                            taxaSolrqString += " OR (family:"+synArr[syn]+")";
-                                            taxaCqlString += " OR family = '"+synArr[syn]+"'";
-                                        }
+                            var tidArr = [];
+                            if(taxontype == 1 || taxontype == 2 || taxontype == 5){
+                                for (syn in synArr){
+                                    if(synArr[syn].indexOf('aceae') !== -1 || synArr[syn].indexOf('idae') !== -1){
+                                        taxaSolrqString += " OR (family:"+synArr[syn]+")";
+                                        taxaCqlString += " OR family = '"+synArr[syn]+"'";
                                     }
                                 }
-                                for (syn in synArr){
-                                    tidArr.push(syn);
-                                }
-                                taxaSolrqString += " OR (tidinterpreted:("+tidArr.join()+"))";
-                                taxaCqlString += " OR tidinterpreted IN("+tidArr.join()+")";
                             }
+                            for (syn in synArr){
+                                tidArr.push(syn);
+                            }
+                            taxaSolrqString += " OR (tidinterpreted:("+tidArr.join(' ')+"))";
+                            taxaCqlString += " OR tidinterpreted IN("+tidArr.join(' ')+")";
                         }
                     }
                 }
@@ -1887,6 +2582,10 @@ function primeSymbologyData(features){
             taxaSymbology[namestring]['tidinterpreted'] = tidinterpreted;
             taxaSymbology[namestring]['family'] = family;
             taxaSymbology[namestring]['color'] = color;
+            taxaSymbology[namestring]['count'] = 1;
+        }
+        else{
+            taxaSymbology[namestring]['count'] = taxaSymbology[namestring]['count'] + 1;
         }
         features[f].set('namestring',namestring,true);
     }
@@ -1924,9 +2623,8 @@ function processDownloadRequest(selection){
     document.getElementById("dh-contentType").value = '';
     document.getElementById("dh-selections").value = '';
     var dlType = (selection?document.getElementById("selectdownloadselect").value:document.getElementById("querydownloadselect").value);
-    var dateTimeString = getDateTimeString();
     if(dlType){
-        var filename = 'spatialdata_'+dateTimeString;
+        var filename = 'spatialdata_'+getDateTimeString();
         var contentType = '';
         if(dlType == 'kml') contentType = 'application/vnd.google-earth.kml+xml';
         else if(dlType == 'geojson') contentType = 'application/vnd.geo+json';
@@ -1948,7 +2646,8 @@ function processDownloadRequest(selection){
             document.getElementById("datadownloadform").submit();
         }
         else if(dlType == 'png'){
-            exportMapPNG();
+            var imagefilename = 'map_'+getDateTimeString()+'.png';
+            exportMapPNG(imagefilename,false);
         }
     }
     else{
@@ -1992,6 +2691,25 @@ function removeDateSlider(){
         document.getElementById("datesliderswitch").checked = false;
         dateSliderActive = false;
     }
+    if(returnClusters && !showHeatMap){
+        returnClusters = false;
+        document.getElementById("clusterswitch").checked = true;
+        changeClusterSetting();
+    }
+    tsOldestDate = '';
+    tsNewestDate = '';
+    document.getElementById("dateslidercontrol").style.display = 'none';
+    document.getElementById("maptoolcontainer").style.top = '10px';
+    document.getElementById("maptoolcontainer").style.left = '50%';
+    document.getElementById("maptoolcontainer").style.bottom = 'initial';
+    document.getElementById("maptoolcontainer").style.right = 'initial';
+    document.getElementById("datesliderearlydate").value = '';
+    document.getElementById("datesliderlatedate").value = '';
+    dsAnimDuration = document.getElementById("datesliderinterduration").value = '';
+    dsAnimTime = document.getElementById("datesliderintertime").value = '';
+    dsAnimImageSave = document.getElementById("dateslideranimimagesave").checked = false;
+    dsAnimReverse = document.getElementById("dateslideranimreverse").checked = false;
+    dsAnimDual = document.getElementById("dateslideranimdual").checked = false;
     layersArr['pointv'].getSource().changed();
 }
 
@@ -2014,6 +2732,15 @@ function removeSelection(c){
         var index = selections.indexOf(Number(c.value));
         selections.splice(index, 1);
         layersArr['pointv'].getSource().changed();
+        if(spiderCluster){
+            var spiderFeatures = layersArr['spider'].getSource().getFeatures();
+            for(f in spiderFeatures){
+                if(spiderFeatures[f].get('features')[0].get('occid') == Number(c.value)){
+                    var style = (spiderFeatures[f].get('features')?setClusterSymbol(spiderFeatures[f]):setSymbol(spiderFeatures[f]));
+                    spiderFeatures[f].setStyle(style);
+                }
+            }
+        }
         adjustSelectionsTab();
     }
 }
@@ -2062,7 +2789,6 @@ function removeUserLayer(layerID){
             var vecindex = vectorizeLayers.indexOf(layerID);
             vectorizeLayers.splice(vecindex, 1);
         }
-        setRasterTools();
     }
     else{
         layersArr[layerID].setSource(blankdragdropsource);
@@ -2095,6 +2821,13 @@ function resetSymbology(){
         buildCollKeyPiece(i);
     }
     layersArr['pointv'].getSource().changed();
+    if(spiderCluster){
+        var spiderFeatures = layersArr['spider'].getSource().getFeatures();
+        for(f in spiderFeatures){
+            var style = (spiderFeatures[f].get('features')?setClusterSymbol(spiderFeatures[f]):setSymbol(spiderFeatures[f]));
+            spiderFeatures[f].setStyle(style);
+        }
+    }
     document.getElementById("symbolizeReset1").disabled = false;
     document.getElementById("symbolizeReset2").disabled = false;
 }
@@ -2241,6 +2974,29 @@ function setClusterSymbol(feature) {
     return style;
 }
 
+function setDownloadFeatures(features){
+    var fixedFeatures = [];
+    for(i in features){
+        var clone = features[i].clone();
+        var geoType = clone.getGeometry().getType();
+        if(geoType == 'Circle'){
+            var geoJSONFormat = new ol.format.GeoJSON();
+            var geometry = clone.getGeometry();
+            var fixedgeometry = geometry.transform(mapProjection,wgs84Projection);
+            var center = fixedgeometry.getCenter();
+            var radius = fixedgeometry.getRadius();
+            var turfCircle = getWGS84CirclePoly(center,radius);
+            var circpoly = geoJSONFormat.readFeature(turfCircle);
+            circpoly.getGeometry().transform(wgs84Projection,mapProjection);
+            fixedFeatures.push(circpoly);
+        }
+        else{
+            fixedFeatures.push(clone);
+        }
+    }
+    return fixedFeatures;
+}
+
 function setDragDropTarget(){
     dragDropTarget = '';
     if(!dragDrop1){
@@ -2262,6 +3018,70 @@ function setDragDropTarget(){
         alert('You may only have 3 uploaded layers at a time. Please remove one of the currently uploaded layers to upload more.');
         return false;
     }
+}
+
+function setDSAnimation(){
+    dsAnimDuration = document.getElementById("datesliderinterduration").value;
+    dsAnimTime = document.getElementById("datesliderintertime").value;
+    if(dsAnimDuration && dsAnimTime){
+        dsAnimStop = false;
+        dsAnimDuration = dsAnimDuration*365.25;
+        dsAnimTime = dsAnimTime*1000;
+        dsAnimImageSave = document.getElementById("dateslideranimimagesave").checked;
+        dsAnimReverse = document.getElementById("dateslideranimreverse").checked;
+        dsAnimDual = document.getElementById("dateslideranimdual").checked;
+        var lowDate = document.getElementById("datesliderearlydate").value;
+        var highDate = document.getElementById("datesliderlatedate").value;
+        dsAnimLow = new Date(lowDate);
+        dsAnimLow = new Date(dsAnimLow.setTime(dsAnimLow.getTime()+86400000));
+        dsAnimHigh = new Date(highDate);
+        dsAnimHigh = new Date(dsAnimHigh.setTime(dsAnimHigh.getTime()+86400000));
+        var lowDateVal = dsAnimLow;
+        var highDateVal = dsAnimHigh;
+        if(dsAnimReverse){
+            if(dsAnimDual) lowDateVal = highDateVal;
+        }
+        else{
+            highDateVal = lowDateVal;
+        }
+        tsOldestDate = lowDateVal;
+        tsNewestDate = highDateVal;
+        var lowDateValStr = getISOStrFromDateObj(lowDateVal);
+        var highDateValStr = getISOStrFromDateObj(highDateVal);
+        $("#sliderdiv").slider('values',0,tsOldestDate.getTime());
+        $("#sliderdiv").slider('values',1,tsNewestDate.getTime());
+        $("#custom-label-min").text(lowDateValStr);
+        $("#custom-label-max").text(highDateValStr);
+        document.getElementById("datesliderearlydate").value = lowDateValStr;
+        document.getElementById("datesliderlatedate").value = highDateValStr;
+        layersArr['pointv'].getSource().changed();
+        if(dsAnimImageSave){
+            zipFile = new JSZip();
+            zipFolder = zipFile.folder("images");
+        }
+        animateDS();
+    }
+    else{
+        dsAnimDuration = '';
+        dsAnimTime = '';
+        alert("Please enter an interval duration and interval time.");
+    }
+}
+
+function setDSValues(){
+    var lowDate = document.getElementById("datesliderearlydate").value;
+    tsOldestDate = new Date(lowDate);
+    tsOldestDate = new Date(tsOldestDate.setTime(tsOldestDate.getTime()+86400000));
+    var hLowDateStr = getISOStrFromDateObj(tsOldestDate);
+    var highDate = document.getElementById("datesliderlatedate").value;
+    tsNewestDate = new Date(highDate);
+    tsNewestDate = new Date(tsNewestDate.setTime(tsNewestDate.getTime()+86400000));
+    var hHighDateStr = getISOStrFromDateObj(tsNewestDate);
+    $("#sliderdiv").slider('values',0,tsOldestDate.getTime());
+    $("#sliderdiv").slider('values',1,tsNewestDate.getTime());
+    $("#custom-label-min").text(hLowDateStr);
+    $("#custom-label-max").text(hHighDateStr);
+    layersArr['pointv'].getSource().changed();
 }
 
 function setLayersTable(){
@@ -2289,7 +3109,6 @@ function setLayersTable(){
                 for(i in layerArr){
                     buildLayerTableRow(layerArr[i],false);
                 }
-                if(rasterLayers.length > 0) setRasterTools();
             }
         }
         toggleLayerTable();
@@ -2297,27 +3116,14 @@ function setLayersTable(){
     http.send();
 }
 
-function setRasterTools(){
-    document.getElementById("reclassifytoollink").style.display = 'block';
-    document.getElementById("reclassifyOutputName").value = "";
-    buildReclassifyDropDown();
-    document.getElementById("reclassifysourcelayer").selectedIndex = 0;
-    setReclassifyTable();
-    /*if(checkObjectNotEmpty(overlayLayers)){
-        document.getElementById("rastercalctoollink").style.display = 'block';
-        buildRasterCalcDropDown();
-    }
-    else{
-        document.getElementById("rastercalctoollink").style.display = 'none';
-    }*/
-    if(checkObjectNotEmpty(vectorizeLayers)){
-        document.getElementById("vectorizeoverlaytoollink").style.display = 'block';
-        buildVectorizeDropDown();
-        document.getElementById("vectorizesourcelayer").selectedIndex = 0;
-    }
-    else{
-        document.getElementById("vectorizeoverlaytoollink").style.display = 'none';
-    }
+function setLoadingTimer(){
+    loadingTimer = 20000;
+    if(solrRecCnt < 200000) loadingTimer = 13000;
+    if(solrRecCnt < 150000) loadingTimer = 10000;
+    if(solrRecCnt < 100000) loadingTimer = 7000;
+    if(solrRecCnt < 50000) loadingTimer = 5000;
+    if(solrRecCnt < 10000) loadingTimer = 3000;
+    if(solrRecCnt < 5000) loadingTimer = 1000;
 }
 
 function setReclassifyTable(){
@@ -2343,10 +3149,6 @@ function setReclassifyTable(){
     newTHeadHead2.setAttribute("style","text-align:center;");
     newTHeadHead2.innerHTML = "Color";
     newTHeadRow.appendChild(newTHeadHead2);
-    var newTHeadHead3 = document.createElement('th');
-    newTHeadHead3.setAttribute("style","text-align:center;");
-    newTHeadHead3.innerHTML = "Reclassify Value";
-    newTHeadRow.appendChild(newTHeadHead3);
     newTHead.appendChild(newTHeadRow);
     newTable.appendChild(newTHead);
     var newTBody = document.createElement('tbody');
@@ -2382,16 +3184,6 @@ function setReclassifyTable(){
     newColorValInput.setAttribute("value","FFFFFF");
     newColorValCell.appendChild(newColorValInput);
     newRow.appendChild(newColorValCell);
-    var newNewValCell = document.createElement('td');
-    newNewValCell.setAttribute("style","width:150px;");
-    var newNewValInput = document.createElement('input');
-    newNewValInput.setAttribute("data-role","none");
-    newNewValInput.setAttribute("type","text");
-    newNewValInput.setAttribute("id","reclassifyNewVal");
-    newNewValInput.setAttribute("style","width:150px;margin-left:10px;");
-    newNewValInput.setAttribute("value","");
-    newNewValCell.appendChild(newNewValInput);
-    newRow.appendChild(newNewValCell);
     newTBody.appendChild(newRow);
     newTable.appendChild(newTBody);
     document.getElementById("reclassifyTableDiv").appendChild(newTable);
@@ -2402,10 +3194,14 @@ function setRecordsTab(){
     if(solrRecCnt > 0){
         document.getElementById("recordsHeader").style.display = "block";
         document.getElementById("recordstab").style.display = "block";
+        document.getElementById("pointToolsNoneDiv").style.display = "none";
+        document.getElementById("pointToolsDiv").style.display = "block";
     }
     else{
         document.getElementById("recordsHeader").style.display = "none";
         document.getElementById("recordstab").style.display = "none";
+        document.getElementById("pointToolsNoneDiv").style.display = "block";
+        document.getElementById("pointToolsDiv").style.display = "none";
     }
 }
 
@@ -2423,7 +3219,7 @@ function setSpatialParamBox(){
 
 function setSymbol(feature){
     var showPoint = true;
-    if(dateSliderActive && !clusterPoints){
+    if(dateSliderActive){
         showPoint = validateFeatureDate(feature);
     }
     var style = '';
@@ -2431,6 +3227,7 @@ function setSymbol(feature){
     var selected = false;
     var cKey = feature.get(clusterKey);
     var recType = feature.get('CollType');
+    if(!recType) recType = 'observation';
     if(selections.length > 0){
         var occid = feature.get('occid');
         if(selections.indexOf(occid) !== -1) selected = true;
@@ -2491,8 +3288,13 @@ function showFeature(feature){
     feature.setStyle(featureStyle);
 }
 
+function showWorking(){
+    $('#loadingOverlay').popup('show');
+}
+
 function spiderifyPoints(features){
     spiderCluster = 1;
+    spiderFeature = '';
     var spiderFeatures = [];
     for(f in features){
         var feature = features[f];
@@ -2517,10 +3319,10 @@ function spiderifyPoints(features){
     var r = pix * 12 * (0.5 + spiderFeatures.length / 4);
     if (spiderFeatures.length <= 10){
         var max = Math.min(spiderFeatures.length, 10);
-        for(i=0; i<max; i++){
+        for(i in spiderFeatures){
             var a = 2*Math.PI*i/max;
             if (max==2 || max == 4) a += Math.PI/4;
-            var p = [ center[0]+r*Math.sin(a), center[1]+r*Math.cos(a) ];
+            var p = [center[0]+r*Math.sin(a), center[1]+r*Math.cos(a)];
             var cf = new ol.Feature({
                 'features':[spiderFeatures[i]],
                 geometry: new ol.geom.Point(p)
@@ -2537,12 +3339,12 @@ function spiderifyPoints(features){
         var features = new Array();
         var links = new Array();
         var max = Math.min (60, spiderFeatures.length);
-        for(i=0; i<max; i++){
+        for(i in spiderFeatures){
             r = d/2 + d*a/(2*Math.PI);
             a = a + (d+0.1)/r;
             var dx = pix*r*Math.sin(a)
             var dy = pix*r*Math.cos(a)
-            var p = [ center[0]+dx, center[1]+dy ];
+            var p = [center[0]+dx, center[1]+dy];
             var cf = new ol.Feature({
                 'features':[spiderFeatures[i]],
                 geometry: new ol.geom.Point(p)
@@ -2552,6 +3354,29 @@ function spiderifyPoints(features){
             source.addFeature(cf);
         }
     }
+}
+
+function stopDSAnimation(){
+    dsAnimStop = true;
+    /*tsOldestDate = dsAnimLow;
+    tsNewestDate = dsAnimHigh;
+    var lowDateValStr = getISOStrFromDateObj(dsAnimLow);
+    var highDateValStr = getISOStrFromDateObj(dsAnimHigh);
+    $("#sliderdiv").slider('values',0,tsOldestDate.getTime());
+    $("#sliderdiv").slider('values',1,tsNewestDate.getTime());
+    $("#custom-label-min").text(lowDateValStr);
+    $("#custom-label-max").text(highDateValStr);
+    document.getElementById("datesliderearlydate").value = lowDateValStr;
+    document.getElementById("datesliderlatedate").value = highDateValStr;
+    layersArr['pointv'].getSource().changed();*/
+    dsAnimDuration = '';
+    dsAnimTime = '';
+    dsAnimImageSave = false;
+    dsAnimReverse = false;
+    dsAnimDual = false;
+    dsAnimLow = '';
+    dsAnimHigh = '';
+    dsAnimation = '';
 }
 
 function toggle(target){
@@ -2589,21 +3414,27 @@ function toggleCat(catid){
 function toggleDateSlider(){
     dateSliderActive = document.getElementById("datesliderswitch").checked;
     if(dateSliderActive){
-        if(!clusterPoints){
-            if(dsOldestDate && dsNewestDate){
-                if(dsOldestDate != dsNewestDate){
-                    var dual = document.getElementById("dsdualtype").checked;
-                    createDateSlider(dual);
+        if(dsOldestDate && dsNewestDate){
+            if(dsOldestDate != dsNewestDate){
+                if(!clusterPoints){
+                    //var dual = document.getElementById("dsdualtype").checked;
+                    createDateSlider(true);
                 }
                 else{
-                    alert('The current records on the map do not have a range of dates for the Date Slider to populate.');
+                    returnClusters = true;
+                    document.getElementById("clusterswitch").checked = false;
+                    changeClusterSetting();
+                    createDateSlider(true);
                 }
+            }
+            else{
+                alert('The current records on the map do not have a range of dates for the Date Slider to populate.');
             }
         }
         else{
             document.getElementById("datesliderswitch").checked = false;
             dateSliderActive = false;
-            alert('The Date Slider cannot be displayed while points are set to cluster. Please turn off clustering in the Settings panel to display the Date Slider.');
+            alert('Points must be loaded onto the map to use the Date Slider.');
         }
     }
     else{
@@ -2618,6 +3449,11 @@ function toggleHeatMap(){
         layersArr['heat'].setVisible(true);
     }
     else{
+        if(returnClusters && !dateSliderActive){
+            returnClusters = false;
+            document.getElementById("clusterswitch").checked = true;
+            changeClusterSetting();
+        }
         layersArr['heat'].setVisible(false);
         layersArr['pointv'].setVisible(true);
     }

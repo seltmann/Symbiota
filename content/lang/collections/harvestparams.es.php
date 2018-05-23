@@ -1,17 +1,19 @@
-<?php 
+<?php
 /*
 ------------------
-Language: Español (Spanish)
+Language: Espaï¿½ol (Spanish)
 ------------------
 */
- 
+
 include_once('sharedterms.es.php');
- 
+
 $LANG['PAGE_TITLE'] = 'Par&aacute;metros de B&uacute;squeda de Colecciones';
 $LANG['PAGE_HEADER'] = 'Formulario de B&uacute;squeda';
 $LANG['GENERAL_TEXT_1'] = 'Ingrese uno o m&aacute;s de los criterios de consulta siguientes y haga click en el bot&oacute;n &quot;Search&quot; para ver los resultados.';
 $LANG['TAXON_HEADER'] = 'Criterios Taxonomicos:';
+$LANG['TAXON_INPUT'] = 'Taxa:';
 $LANG['GENERAL_TEXT_2'] = 'Incluir Sin&oacute;nimos del Thesaurus Taxonomico';
+$LANG['GENERAL_TEXT_2_MAP'] = 'Incluir Sin&oacute;nimos';
 $LANG['SELECT_1-1'] = 'Familia o Nombre Cientifico';
 $LANG['SELECT_1-2'] = 'Familia Solamente';
 $LANG['SELECT_1-3'] = 'Nombre Cientifico Solamente';
@@ -23,8 +25,9 @@ $LANG['COUNTRY_INPUT'] = 'Pa&iacute;s:';
 $LANG['STATE_INPUT'] = 'Estado/Provincia:';
 $LANG['COUNTY_INPUT'] = 'Municipio:';
 $LANG['LOCALITY_INPUT'] = 'Localidad:';
-$LANG['ELEV_INPUT_1'] = 'Elevaci&oacute;n:';
+$LANG['ELEV_INPUT_1'] = 'Elevaci&oacute;n (m):';
 $LANG['ELEV_INPUT_2'] = 'a';
+$LANG['ASSOC_HOST_INPUT'] = 'HuÃ©sped:';
 $LANG['LAT_LNG_HEADER'] = 'Latitud y Longitud:';
 $LANG['LL_BOUND_TEXT'] = 'Coordenadas extremas en grados decimales';
 $LANG['LL_BOUND_NLAT'] = 'Latitud Norte:';
@@ -52,12 +55,13 @@ $LANG['TITLE_TEXT_4'] = 'Fecha final del per&iacute;odo; dejar en blanco si busc
 $LANG['SPECIMEN_HEADER'] = 'Cat&aacute;logo de la Colecci&oacute;n:';
 $LANG['CATALOG_NUMBER'] = 'N&uacute;mero de Cat&aacute;logo:';
 $LANG['INCLUDE_OTHER_CATNUM'] = 'Includa todos n&uacute;meros de cat&eacute;logo y GUIDs';
+$LANG['OTHER_CATNUM'] = 'Otro N&uacute;mero de Cat&aacute;logo:';
 $LANG['TYPE'] = 'Limitar Solamente a Ejemplares Tipo';
 $LANG['HAS_IMAGE'] = 'Limitar Solamente a Ejemplares con Im&aacute;genes';
-$LANG['HAS_GENETIC'] = 'Limitar Solamente a Ejemplares con datos genéticos';
+$LANG['HAS_GENETIC'] = 'Limitar Solamente a Ejemplares con datos gen&eacute;ticos';
 
 //Following used in mapboundingbox.php
-$LANG['MBB_TITLE'] = 'Mapeador de Coordenadas'; 
+$LANG['MBB_TITLE'] = 'Mapeador de Coordenadas';
 $LANG['MBB_INSTRUCTIONS'] = 'Click para comenzar a dibujar y otra vez para terminar el rect&aacute;ngulo. Click sobre el bot&oacute;n Enviar para transferir Coordenadas.';
 $LANG['MBB_NORTHERN'] = 'Latitud Norte';
 $LANG['MBB_EASTERN'] = 'Longitud Este';
@@ -65,9 +69,9 @@ $LANG['MBB_SOUTHERN'] = 'Latitud Sur';
 $LANG['MBB_WESTERN'] = 'Longitud Oeste';
 
 //Following used in mappointradius.php
-$LANG['MPR_TITLE'] = 'Mapeador de Coordenadas'; 
+$LANG['MPR_TITLE'] = 'Mapeador de Coordenadas';
 $LANG['MPR_INSTRUCTIONS'] = 'Click para capturar coordenadas. Click en el bot&oacute;n Enviar Coordenadas para transferir Coordenadas.';
-$LANG['MPR_LAT'] = 'Latitud'; 
+$LANG['MPR_LAT'] = 'Latitud';
 $LANG['MPR_LNG'] = 'Longitud';
 $LANG['SUBMIT'] = 'Enviar';
 ?>

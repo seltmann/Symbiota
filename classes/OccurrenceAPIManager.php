@@ -12,6 +12,7 @@ class OccurrenceAPIManager{
     private $dbpk = '';
     private $catNum = '';
     private $occLUWhere = '';
+    protected $serverDomain;
 
 	function __construct(){
 		$this->conn = MySQLiConnectionFactory::getCon("readonly");
@@ -98,7 +99,7 @@ class OccurrenceAPIManager{
     }
 
     public function processImageUpload($pArr){
-        global $PARAMS_ARR;
+        global $PARAMS_ARR, $SOLR_MODE;
         $occManager = new OccurrenceEditorImages();
         $occId = 0;
         $occId = ($pArr["occid"]?$pArr["occid"]:$this->getOccFromCatNum($pArr["collid"],$pArr["catnum"]));
@@ -130,7 +131,8 @@ class OccurrenceAPIManager{
     }
 
     public function processImageUploadDetermination($occId,$pArr){
-        $prevDet = '';
+        global $PARAMS_ARR, $SOLR_MODE;
+	    $prevDet = '';
         $detTidAccepted = 0;
         $detFamily = '';
         $detSciNameAuthor = '';
@@ -226,7 +228,7 @@ class OccurrenceAPIManager{
         return $occId;
     }
 
-	public function setCollID($val){
+    public function setCollID($val){
         $this->collId = $this->cleanInStr($val);
     }
 
@@ -240,6 +242,13 @@ class OccurrenceAPIManager{
 
     public function setCatNum($val){
         $this->catNum = $this->cleanInStr($val);
+    }
+
+    public function setServerDomain(){
+        $this->serverDomain = "http://";
+        if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $this->serverDomain = "https://";
+        $this->serverDomain .= $_SERVER["SERVER_NAME"];
+        if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $this->serverDomain .= ':'.$_SERVER["SERVER_PORT"];
     }
 
     protected function cleanInStr($str){

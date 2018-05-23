@@ -147,7 +147,7 @@ class SpatialModuleManager{
                 $accArr[] = $r2->tid;
                 $rankId = $r2->rankid;
                 //Put in synonym array if not target
-                if(!in_array($r2->tid,$targetTidArr)) $synArr[$r2->tid] = $r2->sciname;
+                $synArr[$r2->tid] = $r2->sciname;
             }
             $rs2->free();
 
@@ -158,7 +158,7 @@ class SpatialModuleManager{
                     'WHERE (ts.taxauthid = ' . $taxAuthId . ') AND (ts.tidaccepted IN(' . implode('', $accArr) . ')) ';
                 $rs3 = $this->conn->query($sql3);
                 while ($r3 = $rs3->fetch_object()) {
-                    if (!in_array($r3->tid, $targetTidArr)) $synArr[$r3->tid] = $r3->sciname;
+                    $synArr[$r3->tid] = $r3->sciname;
                 }
                 $rs3->free();
 
@@ -199,7 +199,7 @@ class SpatialModuleManager{
                             </a>
                         </td>
                         <td>
-                            <input id="cat<?php echo $idStr; ?>Input" data-role="none" name="cat[]" value="<?php echo $catid; ?>" type="checkbox" onclick="selectAllCat(this,'cat-<?php echo $idStr; ?>')" checked />
+                            <input id="cat<?php echo $idStr; ?>Input" data-role="none" name="cat[]" value="<?php echo $catid; ?>" type="checkbox" onchange="buildQueryStrings();" onclick="selectAllCat(this,'cat-<?php echo $idStr; ?>')" checked />
                         </td>
                         <td>
 			    		<span style='text-decoration:none;color:black;font-size:14px;font-weight:bold;'>
@@ -228,7 +228,7 @@ class SpatialModuleManager{
                                                 ?>
                                             </td>
                                             <td style="padding:6px">
-                                                <input name="db[]" value="<?php echo $collid; ?>" data-role="none" type="checkbox" class="cat-<?php echo $idStr; ?>" onchange="buildQueryStrings();" onclick="unselectCat('cat<?php echo $catid; ?>Input')" checked />
+                                                <input name="db[]" value="<?php echo $collid; ?>" data-role="none" type="checkbox" class="cat-<?php echo $idStr; ?>" onchange="buildQueryStrings();" onclick="unselectCat('cat<?php echo $idStr; ?>Input')" checked />
                                             </td>
                                             <td style="padding:6px">
                                                 <a href = '<?php echo $CLIENT_ROOT; ?>/collections/misc/collprofiles.php?collid=<?php echo $collid; ?>' style='text-decoration:none;color:black;font-size:14px;' target="_blank" >

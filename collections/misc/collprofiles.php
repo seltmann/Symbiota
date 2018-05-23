@@ -2,7 +2,9 @@
 include_once('../../config/symbini.php');
 include_once($SERVER_ROOT.'/content/lang/collections/misc/collprofiles.'.$LANG_TAG.'.php');
 include_once($SERVER_ROOT.'/classes/OccurrenceCollectionProfile.php');
+include_once($SERVER_ROOT.'/classes/SOLRManager.php');
 header("Content-Type: text/html; charset=".$CHARSET);
+ini_set('max_execution_time', 180); //180 seconds = 3 minutes
 
 $collid = ((array_key_exists("collid",$_REQUEST) && is_numeric($_REQUEST["collid"]))?$_REQUEST["collid"]:0);
 $action = array_key_exists("action",$_REQUEST)?htmlspecialchars($_REQUEST["action"]):"";
@@ -13,9 +15,33 @@ if($eMode && !$SYMB_UID){
 }
 
 $collManager = new OccurrenceCollectionProfile();
+if($SOLR_MODE) $solrManager = new SOLRManager();
 if(!$collManager->setCollid($collid)) $collid = '';
 
 $collData = $collManager->getCollectionMetadata();
+
+$collPubArr = array();
+$publishGBIF = false;
+$publishIDIGBIO = false;
+if($collid && isset($GBIF_USERNAME) && isset($GBIF_PASSWORD) && isset($GBIF_ORG_KEY)){
+    $collPubArr = $collManager->getCollPubArr($collid);
+    if($collPubArr[$collid]['publishToGbif']){
+        $publishGBIF = true;
+    }
+    if($collPubArr[$collid]['publishToIdigbio']){
+        $publishIDIGBIO = true;
+    }
+    $installationKey = $collManager->getInstallationKey();
+    $datasetKey = $collManager->getDatasetKey();
+    $endpointKey = $collManager->getEndpointKey();
+    $idigbioKey = $collManager->getIdigbioKey();
+    if($publishIDIGBIO && !$idigbioKey){
+        $idigbioKey = $collManager->findIdigbioKey($collPubArr[$collid]['collectionguid']);
+        if($idigbioKey){
+            $collManager->updateAggKeys($collid);
+        }
+    }
+}
 
 $editCode = 0;		//0 = no permissions; 1 = CollEditor; 2 = CollAdmin; 3 = SuperAdmin
 if($SYMB_UID){
@@ -85,6 +111,11 @@ if($SYMB_UID){
 				$collManager->updateStatistics(true);
 				echo '<hr/>';
 			}
+            if($action == 'cleanSOLR'){
+                echo '<h2> '.$LANG['CLEAN_SOLR'].'</h2>';
+                $solrManager->cleanSOLRIndex($collid);
+                echo '<hr/>';
+            }
 		}
 		if($editCode > 0 && $collid){
 			?>
@@ -201,7 +232,16 @@ if($SYMB_UID){
 										<?php echo $LANG['MANAGE_PERMISSIONS']; ?>
 									</a>
 								</li>
-								<?php 
+								<?php
+                                if($FIELDGUIDE_ACTIVE){
+                                    ?>
+                                    <li>
+                                        <a href="fgbatch.php?collid=<?php echo $collid; ?>" >
+                                            <?php echo (isset($LANG['FIELDGUIDE_BATCH'])?$LANG['FIELDGUIDE_BATCH']:'Fieldguide Batch Image Processing'); ?>
+                                        </a>
+                                    </li>
+                                    <?php
+                                }
 								if($collData['colltype'] != 'General Observations'){
 									?>
 									<li>
@@ -244,7 +284,7 @@ if($SYMB_UID){
 											<?php echo (isset($LANG['CREATE_PROFILE'])?$LANG['CREATE_PROFILE']:'Create a new Import Profile'); ?>
 										</a>
 									</li>
-									<?php 
+									<?php
 									if($collData['managementtype'] != 'Aggregate'){
 										?>
 										<li>
@@ -265,8 +305,13 @@ if($SYMB_UID){
 											<?php echo $LANG['REVIEW_SPEC_EDITS']; ?>
 										</a>
 									</li>
+									<li>
+										<a href="../reports/accessreport.php?collid=<?php echo $collid; ?>">
+											<?php echo (isset($LANG['ACCESS_REPORT'])?$LANG['ACCESS_REPORT']:'View Access Statistics'); ?>
+										</a>
+									</li>
 									<?php
-								} 
+								}
 								?>
 								<li>
 									<a href="../datasets/duplicatemanager.php?collid=<?php echo $collid; ?>">
@@ -276,7 +321,7 @@ if($SYMB_UID){
 								<li>
 									<?php echo $LANG['MAINTENANCE_TASKS']; ?>
 								</li>
-								<?php 
+								<?php
 								if($collData['colltype'] != 'General Observations'){
 									?>
 									<li style="margin-left:10px;">
@@ -285,7 +330,7 @@ if($SYMB_UID){
 										</a>
 									</li>
 									<?php
-								} 
+								}
 								?>
 								<li style="margin-left:10px;">
 									<a href="#" onclick="newWindow = window.open('collbackup.php?collid=<?php echo $collid; ?>','bucollid','scrollbars=1,toolbar=0,resizable=1,width=600,height=250,left=20,top=20');">
@@ -302,6 +347,17 @@ if($SYMB_UID){
 										<?php echo $LANG['UPDATE_STATS'];?>
 									</a>
 								</li>
+                                <?php
+                                if($SOLR_MODE){
+                                    ?>
+                                    <li style="margin-left:10px;">
+                                        <a href="collprofiles.php?collid=<?php echo $collid; ?>&action=cleanSOLR">
+                                            <?php echo $LANG['CLEAN_SOLR']; ?>
+                                        </a>
+                                    </li>
+                                    <?php
+                                }
+                                ?>
 							</ul>
 						</fieldset>
 						<?php
@@ -312,9 +368,26 @@ if($SYMB_UID){
 			}
 			?>
 			<div style='margin:10px;'>
-				<?php 
+				<?php
 				echo $collManager->getMetadataHtml($collData, $LANG);
-				if($addrArr = $collManager->getAddress()){
+                if($publishGBIF && $datasetKey){
+                    $dataUrl = 'http://www.gbif.org/dataset/'.$datasetKey;
+                    ?>
+                    <div style="margin-top:5px;">
+                        <div><b>GBIF Dataset page:</b> <a href="<?php echo $dataUrl; ?>"
+                                                          target="_blank"><?php echo $dataUrl; ?></a></div>
+                    </div>
+                    <?php
+                }
+                if($publishIDIGBIO && $idigbioKey){
+                    $dataUrl = 'https://www.idigbio.org/portal/recordsets/'.$idigbioKey;
+                    ?>
+                    <div style="margin-top:5px;">
+                        <div><b>iDigBio Dataset page:</b> <a href="<?php echo $dataUrl; ?>" target="_blank"><?php echo $dataUrl; ?></a></div>
+                    </div>
+                    <?php
+                }
+                if($addrArr = $collManager->getAddress()){
 					?>
 					<div style="margin-top:5px;">
 						<div style="float:left;font-weight:bold;">Address:</div>
@@ -336,7 +409,7 @@ if($SYMB_UID){
 					</div>
 					<?php
 				}
-				//Collection Statistics 
+				//Collection Statistics
 				$statsArr = $collManager->getBasicStats();
 				$extrastatsArr = Array();
 				$georefPerc = 0;
@@ -397,7 +470,7 @@ if($SYMB_UID){
 			?>
 			<h2><?php echo $DEFAULT_TITLE; ?> Natural History Collections and Observation Projects</h2>
 			<div style='margin:10px;clear:both;'>
-				<?php 
+				<?php
 				$serverDomain = "http://";
 				if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $serverDomain = "https://";
 				$serverDomain .= $_SERVER["SERVER_NAME"];
@@ -431,7 +504,7 @@ if($SYMB_UID){
 								</a>
 							</h3>
 							<div style='margin:10px;'>
-								<?php 
+								<?php
 								echo $collManager->getMetadataHtml($collArr, $LANG);
 								?>
 							</div>

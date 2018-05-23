@@ -172,10 +172,10 @@ if($SYMB_UID){
 			}
 			elseif($action == 'Delete Occurrence'){
 				if($occManager->deleteOccurrence($occId)){
-					$occId = 0;
+                    if($SOLR_MODE) $solrManager->deleteSOLRDocument($occId);
+				    $occId = 0;
 					$occManager->setOccId(0);
-                    if($SOLR_MODE) $solrManager->updateSOLR();
-				}
+                }
 				else{
 					$statusStr = $occManager->getErrorStr();
 				}
@@ -239,7 +239,7 @@ if($SYMB_UID){
 				else{
 					$statusStr = 'ERROR disassociating image: '.$occManager->getErrorStr();
 				}
-				
+
 			}
 			elseif($action == "Apply Determination"){
 				$makeCurrent = 0;
@@ -395,7 +395,7 @@ if($SYMB_UID){
 
 	$isLocked = false;
 	if($occId) $isLocked = $occManager->getLock();
-	
+
 }
 else{
 	header('Location: ../../profile/index.php?refurl=../collections/editor/occurrenceeditor.php?'.$_SERVER['QUERY_STRING']);
@@ -409,7 +409,7 @@ else{
     <?php
     if($crowdSourceMode == 1){
 		?>
-		<link href="includes/config/occureditorcrowdsource.css?ver=170601" type="text/css" rel="stylesheet" id="editorCssLink" />
+		<link href="includes/config/occureditorcrowdsource.css?ver=1802" type="text/css" rel="stylesheet" id="editorCssLink" />
 		<?php
     }
     else{
@@ -438,7 +438,7 @@ else{
 		var imgArr = [];
 		var imgLgArr = [];
 		var localityAutoLookup = 1;
-		<?php 
+		<?php
 		if($imgArr){
 			foreach($imgArr as $iCnt => $iArr){
 				echo 'imgArr['.$iCnt.'] = "'.$iArr['web'].'";'."\n";
@@ -466,7 +466,7 @@ else{
 	<script type="text/javascript" src="../../js/symb/collections.occureditormain.js?ver=20170503"></script>
 	<script type="text/javascript" src="../../js/symb/collections.occureditortools.js?ver=170104"></script>
 	<script type="text/javascript" src="../../js/symb/collections.occureditorimgtools.js?ver=170310"></script>
-	<script type="text/javascript" src="../../js/symb/collections.occureditorshare.js?ver=170302"></script>
+	<script type="text/javascript" src="../../js/symb/collections.occureditorshare.js?ver=171127"></script>
 </head>
 <body>
 	<!-- inner text -->
@@ -519,7 +519,7 @@ else{
 						<?php
 						if($crowdSourceMode){
 							?>
-							<a href="../specprocessor/crowdsource/central.php">Crowd Sourcing Central</a> &gt;&gt;
+							<a href="../specprocessor/crowdsource/index.php">Crowd Sourcing Central</a> &gt;&gt;
 							<?php
 						}
 						else{
@@ -682,7 +682,7 @@ else{
 													<?php echo (defined('OTHERCATALOGNUMBERSLABEL')?OTHERCATALOGNUMBERSLABEL:'Other Cat. #s'); ?>
 													<a href="#" onclick="return dwcDoc('otherCatalogNumbers')"><img class="docimg" src="../../images/qmark.png" /></a>
 													<br/>
-													<input type="text" name="othercatalognumbers" tabindex="4" maxlength="255" value="<?php echo array_key_exists('othercatalognumbers',$occArr)?$occArr['othercatalognumbers']:''; ?>" onchange="fieldChanged('othercatalognumbers');<?php if(defined('OTHERCATNUMDUPECHECK') && OTHERCATNUMDUPECHECK) echo 'searchDupesOtherCatalogNumbers(this.form)'; ?>" />
+													<input type="text" name="othercatalognumbers" tabindex="4" maxlength="255" value="<?php echo array_key_exists('othercatalognumbers',$occArr)?$occArr['othercatalognumbers']:''; ?>" onchange="fieldChanged('othercatalognumbers');<?php if(!defined('OTHERCATNUMDUPECHECK') || OTHERCATNUMDUPECHECK) echo 'searchDupesOtherCatalogNumbers(this.form)'; ?>" />
 												</div>
 												<div id="recordedByDiv">
 													<?php echo (defined('RECORDEDBYLABEL')?RECORDEDBYLABEL:'Collector'); ?>
@@ -794,14 +794,14 @@ else{
 													<?php echo (defined('SCIENTIFICNAMELABEL')?SCIENTIFICNAMELABEL:'Scientific Name'); ?>
 													<a href="#" onclick="return dwcDoc('scientificName')"><img class="docimg" src="../../images/qmark.png" /></a>
 													<br/>
-													<input type="text" id="ffsciname" name="sciname" maxlength="250" tabindex="28" value="<?php echo array_key_exists('sciname',$occArr)?$occArr['sciname']:''; ?>" onchange="fieldChanged('sciname');" <?php if((!$isEditor || $isEditor == 3) && $occArr['sciname']) echo 'disabled '; ?> />
+													<input type="text" id="ffsciname" name="sciname" maxlength="250" tabindex="28" value="<?php echo array_key_exists('sciname',$occArr)?$occArr['sciname']:''; ?>" onchange="fieldChanged('sciname');" <?php if(!$isEditor || $isEditor == 3) echo 'disabled '; ?> />
 													<input type="hidden" id="tidinterpreted" name="tidinterpreted" value="<?php echo array_key_exists('tidinterpreted',$occArr)?$occArr['tidinterpreted']:''; ?>" />
 													<?php
-													if(!$isEditor && isset($occArr['sciname']) && $occArr['sciname'] != ''){
+													if(!$isEditor){
 														echo '<div style="clear:both;color:red;margin-left:5px;">Note: Full editing permissions are needed to edit an identification</div>';
 													}
 													elseif($isEditor == 3){
-														echo '<div style="clear:both;color:red;margin-left:5px;">Limited editing right: use determination tab to edit identification</div>';
+														echo '<div style="clear:both;color:red;margin-left:5px;">Limited editing rights: use determination tab to edit identification</div>';
 													}
 													?>
 												</div>
@@ -813,10 +813,10 @@ else{
 												</div>
 											</div>
 											<div style="clear:both;padding:3px 0px 0px 10px;">
-												<?php 
+												<?php
 												if(!$occId){
 													echo '<div id="idRankDiv">';
-													echo (defined('IDCONFIDENCELABEL')?IDCONFIDENCELABEL:'ID Confidence'); 
+													echo (defined('IDCONFIDENCELABEL')?IDCONFIDENCELABEL:'ID Confidence');
 													echo ' <a href="#" onclick="return dwcDoc(\'idConfidence\')"><img class="docimg" src="../../images/qmark.png" /></a> ';
 													echo '<select name="confidenceranking" onchange="fieldChanged(\'confidenceranking\')">';
 													echo '<option value="">Undefined</option>';
@@ -927,7 +927,7 @@ else{
 												echo '<input name="localautodeactivated" type="checkbox" value="1" onchange="localAutoChanged(this)" '.(defined('LOCALITYAUTOLOOKUP') && LOCALITYAUTOLOOKUP==2?'checked':'').' /> ';
 												echo 'Deactivate Locality Lookup</div>';
 											}
-											$lsHasValue = array_key_exists("localitysecurity",$occArr)&&$occArr["localitysecurity"]?1:0; 
+											$lsHasValue = array_key_exists("localitysecurity",$occArr)&&$occArr["localitysecurity"]?1:0;
 											$lsrValue = array_key_exists('localitysecurityreason',$occArr)?$occArr['localitysecurityreason']:'';
 											?>
 											<div id="localSecurityDiv">
@@ -938,8 +938,8 @@ else{
 												</div>
 												<div id="locsecreason" style="margin-left:5px;border:2px solid gray;float:left;display:<?php echo ($lsrValue?'inline':'none') ?>;padding:3px">
 													<div ><input name="lockLocalitySecurity" type="checkbox" onchange="securityLockChanged(this)"  <?php echo ($lsrValue?'checked':'') ?> /> Lock Security Setting</div>
-													<?php 
-													echo (defined('LOCALITYSECURITYREASONLABEL')?LOCALITYSECURITYREASONLABEL:'Reason'); 
+													<?php
+													echo (defined('LOCALITYSECURITYREASONLABEL')?LOCALITYSECURITYREASONLABEL:'Reason');
 													?>:
 													<input type="text" name="localitysecurityreason" tabindex="0" onchange="localitySecurityReasonChanged();" value="<?php echo $lsrValue; ?>" title="Entering any text will lock security status on or off; leave blank to accept default security status" />
 												</div>
@@ -1264,7 +1264,7 @@ else{
 														else{
 															$extraBOR = $occArr['basisofrecord'];
 														}
-													} 
+													}
 													if(!isset($occArr['basisofrecord']) || !$occArr['basisofrecord']){
 														if($collMap['colltype']=='General Observations' || $collMap['colltype']=='Observations'){
 															$targetBOR = 'HumanObservation';
@@ -1272,10 +1272,10 @@ else{
 														elseif($collMap['colltype']=='Preserved Specimens'){
 															$targetBOR = 'PreservedSpecimen';
 														}
-													} 
+													}
 													?>
 													<select name="basisofrecord" tabindex="109" onchange="fieldChanged('basisofrecord');">
-														<?php 
+														<?php
 														foreach($borArr as $bValue){
 															echo '<option '.($bValue == $targetBOR?'SELECTED':'').'>'.$bValue.'</option>';
 														}
@@ -1352,11 +1352,11 @@ else{
 														<?php if(array_key_exists('datelastmodified',$occArr)) echo 'Modified: '.$occArr['datelastmodified']; ?>
 													</div>
 													<div style="float:left;margin-left:50px;">
-														<?php 
+														<?php
 														if(array_key_exists('recordenteredby',$occArr)){
 															echo 'Entered by: '.($occArr['recordenteredby']?$occArr['recordenteredby']:'not recorded');
 														}
-														if(isset($occArr['dateentered']) && $occArr['dateentered']) echo ' ['.$occArr['dateentered'].']'; 
+														if(isset($occArr['dateentered']) && $occArr['dateentered']) echo ' ['.$occArr['dateentered'].']';
 														?>
 													</div>
 												</div>
@@ -1424,11 +1424,11 @@ else{
 													?>
 													<fieldset>
 														<legend><b>Checklist Voucher</b></legend>
-														Link Occurrence to Checklist: 
+														Link Occurrence to Checklist:
 														<select name="clidvoucher">
 															<option value="">No Checklist Selected</option>
 															<option value="">---------------------------------------------</option>
-															<?php 
+															<?php
 															foreach($userChecklists as $clid => $clName){
 																echo '<option value="'.$clid.'">'.$clName.'</option>';
 															}
@@ -1452,7 +1452,7 @@ else{
 														<input type="radio" name="gotomode" value="0" <?php echo (!$goToMode?'CHECKED':''); ?> /> Remain on Editing Page (add images, determinations, etc)
 													</div>
 												</div>
-												
+
 												<?php
 											}
 											?>

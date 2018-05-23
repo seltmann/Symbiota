@@ -1,11 +1,16 @@
 <?php
 include_once('../config/symbini.php');
+include_once($SERVER_ROOT.'/config/includes/searchVarDefault.php');
 include_once($SERVER_ROOT.'/classes/SpatialModuleManager.php');
 header("Content-Type: text/html; charset=".$CHARSET);
 header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
 header('Pragma: no-cache'); // HTTP 1.0.
 header('Expires: 0'); // Proxies.
 ini_set('max_execution_time', 180); //180 seconds = 3 minutes
+
+if(file_exists($SERVER_ROOT.'/config/includes/searchVarCustom.php')){
+    include($SERVER_ROOT.'/config/includes/searchVarCustom.php');
+}
 
 $mapCenter = '[-110.90713, 32.21976]';
 if(isset($SPATIAL_INITIAL_CENTER)) $mapCenter = $SPATIAL_INITIAL_CENTER;
@@ -27,14 +32,14 @@ $dbArr = Array();
 <head>
     <title><?php echo $DEFAULT_TITLE; ?> Spatial Module</title>
     <link href="<?php echo $CLIENT_ROOT; ?>/css/base.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
-    <link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION; ?>" type="text/css" rel="stylesheet" />
+    <link href="<?php echo $CLIENT_ROOT; ?>/css/main.css?<?php echo $CSS_VERSION_LOCAL; ?>" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/bootstrap.css" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/jquery.mobile-1.4.0.min.css" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/jquery.symbiota.css" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/jquery-ui_accordian.css" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/jquery-ui.css" type="text/css" rel="stylesheet" />
     <link href="<?php echo $CLIENT_ROOT; ?>/css/ol.css" type="text/css" rel="stylesheet" />
-    <link href="<?php echo $CLIENT_ROOT; ?>/css/spatialbase.css?ver=11" type="text/css" rel="stylesheet" />
+    <link href="<?php echo $CLIENT_ROOT; ?>/css/spatialbase.css?ver=15" type="text/css" rel="stylesheet" />
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery-ui.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery-1.10.2.min.js" type="text/javascript"></script>
@@ -42,15 +47,16 @@ $dbArr = Array();
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery-1.9.1.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery-ui-1.10.4.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jquery.popupoverlay.js" type="text/javascript"></script>
-    <script src="<?php echo $CLIENT_ROOT; ?>/js/ol-symbiota-ext.js?ver=27" type="text/javascript"></script>
-    <script src="https://npmcdn.com/@turf/turf/turf.min.js" type="text/javascript"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/ol-symbiota-ext.js?ver=29" type="text/javascript"></script>
+    <script src="https://npmcdn.com/@turf/turf@5.0.4/turf.min.js" type="text/javascript"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/jszip.min.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/jscolor/jscolor.js?ver=2" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/stream.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/shapefile.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/dbf.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/FileSaver.min.js" type="text/javascript"></script>
     <script src="<?php echo $CLIENT_ROOT; ?>/js/html2canvas.min.js" type="text/javascript"></script>
-    <script src="<?php echo $CLIENT_ROOT; ?>/js/symb/spatial.module.js?ver=195" type="text/javascript"></script>
+    <script src="<?php echo $CLIENT_ROOT; ?>/js/symb/spatial.module.js?ver=252" type="text/javascript"></script>
     <script type="text/javascript">
         $(function() {
             var winHeight = $(window).height();
@@ -70,6 +76,11 @@ $dbArr = Array();
                 }
             });
             $('#recordstab').tabs({
+                beforeLoad: function( event, ui ) {
+                    $(ui.panel).html("<p>Loading...</p>");
+                }
+            });
+            $('#vectortoolstab').tabs({
                 beforeLoad: function( event, ui ) {
                     $(ui.panel).html("<p>Loading...</p>");
                 }
@@ -105,6 +116,13 @@ $dbArr = Array();
                 scrolllock: true,
                 blur: false
             });
+            $('#loadingOverlay').popup({
+                transition: 'all 0.3s',
+                scrolllock: true,
+                opacity:0.6,
+                color:'white',
+                blur: false
+            });
         });
     </script>
 </head>
@@ -122,8 +140,7 @@ $dbArr = Array();
                     <div id="criteriatab">
                         <ul>
                             <li><a class="tabtitle" href="#searchcriteria">Criteria</a></li>
-                            <li><a class="tabtitle" href="#searchcollections">Collections</a></li>
-                            <!-- <li><a class="tabtitle" href="#maptools">Map Tools</a></li> -->
+                            <li id="spatialCollectionsTab"><a class="tabtitle" href="#searchcollections">Collections</a></li>
                         </ul>
                         <div id="searchcollections">
                             <div class="mapinterface">
@@ -158,8 +175,6 @@ $dbArr = Array();
                         </div>
                         <div id="searchcriteria">
                             <div name="spatialcriteriasearchform" id="spatialcriteriasearchform">
-
-
                                 <div style="height:25px;">
                                     <div style="float:right;">
                                         <button data-role="none" type=button id="resetform" name="resetform" onclick='window.open("index.php", "_self");' >Reset</button>
@@ -168,36 +183,36 @@ $dbArr = Array();
                                 </div>
                                 <div style="margin:5 0 5 0;"><hr /></div>
                                 <div>
-                                    <span style=""><input data-role="none" type='checkbox' name='thes' id='thes' onchange="buildQueryStrings();" value='1'>Include Synonyms</span>
+                                    <span style=""><input data-role="none" type='checkbox' name='thes' id='thes' onchange="buildQueryStrings();" value='1' CHECKED><?php echo $SEARCHTEXT['GENERAL_TEXT_2_MAP']; ?></span>
                                 </div>
                                 <div id="taxonSearch0">
                                     <div id="taxa_autocomplete" >
                                         <div style="margin-top:5px;">
                                             <select data-role="none" id="taxontype" name="type" onchange="buildQueryStrings();">
-                                                <option id='familysciname' value='1'>Family or Scientific Name</option>
-                                                <option id='family' value='2'>Family only</option>
-                                                <option id='sciname' value='3'>Scientific Name only</option>
-                                                <option id='highertaxon' value='4'>Higher Taxonomy</option>
-                                                <option id='commonname' value='5'>Common Name</option>
+                                                <option id='familysciname' value='1'><?php echo $SEARCHTEXT['SELECT_1-1']; ?></option>
+                                                <option id='family' value='2'><?php echo $SEARCHTEXT['SELECT_1-2']; ?></option>
+                                                <option id='sciname' value='3'><?php echo $SEARCHTEXT['SELECT_1-3']; ?></option>
+                                                <option id='highertaxon' value='4'><?php echo $SEARCHTEXT['SELECT_1-4']; ?></option>
+                                                <option id='commonname' value='5'><?php echo $SEARCHTEXT['SELECT_1-5']; ?></option>
                                             </select>
                                         </div>
                                         <div style="margin-top:5px;">
-                                            Taxa: <input data-role="none" id="taxa" type="text" style="width:275px;" name="taxa" value="" onchange="buildQueryStrings();" title="Separate multiple taxa w/ commas" />
+                                            <?php echo $SEARCHTEXT['TAXON_INPUT']; ?> <input data-role="none" id="taxa" type="text" style="width:275px;" name="taxa" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_1']; ?>" />
                                         </div>
                                     </div>
                                 </div>
                                 <div style="margin:5 0 5 0;"><hr /></div>
                                 <div>
-                                    Country: <input data-role="none" type="text" id="country" style="width:225px;" name="country" value="" onchange="buildQueryStrings();" title="Separate multiple terms w/ commas" />
+                                    <?php echo $SEARCHTEXT['COUNTRY_INPUT']; ?> <input data-role="none" type="text" id="country" style="width:225px;" name="country" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_1']; ?>" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    State/Province: <input data-role="none" type="text" id="state" style="width:150px;" name="state" value="" onchange="buildQueryStrings();" title="Separate multiple terms w/ commas" />
+                                    <?php echo $SEARCHTEXT['STATE_INPUT']; ?> <input data-role="none" type="text" id="state" style="width:150px;" name="state" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_1']; ?>" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    County: <input data-role="none" type="text" id="county" style="width:225px;"  name="county" value="" onchange="buildQueryStrings();" title="Separate multiple terms w/ commas" />
+                                    <?php echo $SEARCHTEXT['COUNTY_INPUT']; ?> <input data-role="none" type="text" id="county" style="width:225px;"  name="county" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_1']; ?>" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    Locality: <input data-role="none" type="text" id="locality" style="width:225px;" name="local" onchange="buildQueryStrings();" value="" />
+                                    <?php echo $SEARCHTEXT['LOCALITY_INPUT']; ?> <input data-role="none" type="text" id="locality" style="width:225px;" name="local" onchange="buildQueryStrings();" value="" />
                                 </div>
                                 <div style="margin:5 0 5 0;"><hr /></div>
                                 <div id="shapecriteriabox">
@@ -210,35 +225,35 @@ $dbArr = Array();
                                 </div>
                                 <div style="margin:5 0 5 0;"><hr /></div>
                                 <div>
-                                    Collector's Last Name:
+                                    <?php echo $SEARCHTEXT['COLLECTOR_LASTNAME']; ?>
                                     <input data-role="none" type="text" id="collector" style="width:125px;" name="collector" value="" onchange="buildQueryStrings();" title="" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    Collector's Number:
-                                    <input data-role="none" type="text" id="collnum" style="width:125px;" name="collnum" value="" onchange="buildQueryStrings();" title="Separate multiple terms by commas and ranges by ' - ' (space before and after dash required), e.g.: 3542,3602,3700 - 3750" />
+                                    <?php echo $SEARCHTEXT['COLLECTOR_NUMBER']; ?>
+                                    <input data-role="none" type="text" id="collnum" style="width:125px;" name="collnum" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_2']; ?>" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    Collection Date:
-                                    <input data-role="none" type="text" id="eventdate1" style="width:100px;" name="eventdate1" value="" onchange="buildQueryStrings();" title="Single date or start date of range" /> -
-                                    <input data-role="none" type="text" id="eventdate2" style="width:100px;" name="eventdate2" value="" onchange="buildQueryStrings();" title="End date of range; leave blank if searching for single date" />
+                                    <?php echo $SEARCHTEXT['COLLECTOR_DATE']; ?>
+                                    <input data-role="none" type="text" id="eventdate1" style="width:100px;" name="eventdate1" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_3']; ?>" /> -
+                                    <input data-role="none" type="text" id="eventdate2" style="width:100px;" name="eventdate2" value="" onchange="buildQueryStrings();" title="<?php echo $SEARCHTEXT['TITLE_TEXT_4']; ?>" />
                                 </div>
                                 <div style="margin:10 0 10 0;"><hr></div>
                                 <div>
-                                    Catalog Number:
+                                    <?php echo $SEARCHTEXT['CATALOG_NUMBER']; ?>
                                     <input data-role="none" type="text" id="catnum" style="width:150px;" name="catnum" value="" onchange="buildQueryStrings();" title="" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    Other Catalog Number:
+                                    <?php echo $SEARCHTEXT['OTHER_CATNUM']; ?>
                                     <input data-role="none" type="text" id="othercatnum" style="width:150px;" name="othercatnum" value="" onchange="buildQueryStrings();" title="" />
                                 </div>
                                 <div style="margin-top:5px;">
-                                    <input data-role="none" type='checkbox' name='typestatus' id='typestatus' value='1' onchange="buildQueryStrings();"> Limit to Type Specimens Only
+                                    <input data-role="none" type='checkbox' name='typestatus' id='typestatus' value='1' onchange="buildQueryStrings();"> <?php echo $SEARCHTEXT['TYPE']; ?>
                                 </div>
                                 <div style="margin-top:5px;">
-                                    <input data-role="none" type='checkbox' name='hasimages' id='hasimages' value='1' onchange="buildQueryStrings();"> Limit to Specimens with Images Only
+                                    <input data-role="none" type='checkbox' name='hasimages' id='hasimages' value='1' onchange="buildQueryStrings();"> <?php echo $SEARCHTEXT['HAS_IMAGE']; ?>
                                 </div>
-                                <div style="margin-top:5px;">
-                                    <input data-role="none" type='checkbox' name='hasgenetic' id='hasgenetic' value='1' onchange="buildQueryStrings();"> Limit to Specimens with Genetic Data Only
+                                <div id="searchGeneticCheckbox" style="margin-top:5px;">
+                                    <input data-role="none" type='checkbox' name='hasgenetic' id='hasgenetic' value='1' onchange="buildQueryStrings();"> <?php echo $SEARCHTEXT['HAS_GENETIC']; ?>
                                 </div>
                                 <div><hr></div>
                             </div>
@@ -273,13 +288,13 @@ $dbArr = Array();
                                 </div>
                                 <div id="symbolizeResetButt" style='float:right;margin-bottom:5px;' >
                                     <div>
-                                        <button data-role="none" id="symbolizeReset1" name="symbolizeReset1" onclick='resetSymbology();' >Reset Symbology</button>
+                                        <button data-role="none" id="symbolizeReset1" onclick='resetSymbology();' >Reset Symbology</button>
                                     </div>
                                     <div style="margin-top:5px;">
-                                        <button data-role="none" id="randomColorColl" name="randomColorColl" onclick='autoColorColl();' >Auto Color</button>
+                                        <button data-role="none" id="randomColorColl" onclick='autoColorColl();' >Auto Color</button>
                                     </div>
                                     <div style="margin-top:5px;">
-                                        <button data-role="none" id="saveCollKeyImage" name="saveCollKeyImage" onclick='saveKeyImage();' >Save Image</button>
+                                        <button data-role="none" id="saveCollKeyImage" onclick='saveKeyImage();' >Save Image</button>
                                     </div>
                                 </div>
                             </div>
@@ -335,18 +350,24 @@ $dbArr = Array();
                                 </div>
                                 <div id="symbolizeResetButt" style='float:right;margin-bottom:5px;' >
                                     <div>
-                                        <button data-role="none" id="symbolizeReset2" name="symbolizeReset2" onclick='resetSymbology();' >Reset Symbology</button>
+                                        <button data-role="none" id="symbolizeReset2" onclick='resetSymbology();' >Reset Symbology</button>
                                     </div>
                                     <div style="margin-top:5px;">
-                                        <button data-role="none" id="randomColorTaxa" name="randomColorTaxa" onclick='autoColorTaxa();' >Auto Color</button>
+                                        <button data-role="none" id="randomColorTaxa" onclick='autoColorTaxa();' >Auto Color</button>
                                     </div>
                                     <div style="margin-top:5px;">
-                                        <button data-role="none" id="saveTaxaKeyImage" name="saveTaxaKeyImage" onclick='saveKeyImage();' >Save Image</button>
+                                        <button data-role="none" id="saveTaxaKeyImage" onclick='saveKeyImage();' >Save Image</button>
                                     </div>
                                 </div>
                             </div>
                             <div style="margin:5 0 5 0;clear:both;"><hr /></div>
-                            <div style='font-weight:bold;'>Taxa Count: <span id="taxaCountNum">0</span></div>
+                            <div style="margin-bottom:30px;">
+                                <div style='font-weight:bold;float:left;margin-bottom:5px;'>Taxa Count: <span id="taxaCountNum">0</span></div>
+                                <div style="float:right;margin-bottom:5px;">
+                                    <button data-role="none" id="taxacsvdownload" onclick="exportTaxaCSV();" >Download CSV</button>
+                                </div>
+                            </div>
+                            <div style="margin:5 0 5 0;clear:both;"><hr /></div>
                             <div id="taxasymbologykeysbox" style="background-color:white;"></div>
                         </div>
 
@@ -399,7 +420,76 @@ $dbArr = Array();
                                 <tbody id="selectiontbody"></tbody>
                             </table>
                         </div>
+                    </div>
 
+                    <h3 class="tabtitle">Vector Tools</h3>
+                    <div id="vectortoolstab" style="width:379px;padding:0px;">
+                        <ul>
+                            <li><a class="tabtitle" href="#polycalculatortab">Shapes</a></li>
+                            <li><a class="tabtitle" href="#pointscalculatortab">Points</a></li>
+                        </ul>
+                        <div id="polycalculatortab" style="width:379px;padding:0px;">
+                            <div style="padding:10px">
+                                <div style="height:45px;">
+                                    <div style="float:right;">
+                                        Total area of selected shapes (sq/km)
+                                    </div>
+                                    <div style="float:right;margin-top:5px;">
+                                        <input data-role="none" type="text" id="polyarea" style="width:250px;border:2px solid black;text-align:center;font-weight:bold;color:black;" value="0" disabled />
+                                    </div>
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <b>Download Shapes</b> <select data-role="none" id="shapesdownloadselect">
+                                        <option value="">Download Type</option>
+                                        <option value="kml">KML</option>
+                                        <option value="geojson">GeoJSON</option>
+                                    </select>
+                                    <button data-role="none" style="margin-left:5px;" type="button" onclick='downloadShapesLayer();' >Download</button>
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <button data-role="none" onclick="createBuffers();" >Buffer</button> Creates buffer polygon of <input data-role="none" type="text" id="bufferSize" style="width:50px;" value="" /> km around selected features.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <button data-role="none" onclick="createPolyDifference();" >Difference</button> Returns a new polygon with the area of the polygon or circle selected first, exluding the area of the polygon or circle selected second.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <button data-role="none" onclick="createPolyIntersect();" >Intersect</button> Returns a new polygon with the area overlapping of both selected polygons or circles.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <button data-role="none" onclick="createPolyUnion();" >Union</button> Returns a new polygon with the combined area of two or more selected polygons or circles. *Note new polygon will replace all selected shapes.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                            </div>
+                        </div>
+
+                        <div id="pointscalculatortab" style="width:379px;padding:0px;">
+                            <div id="pointToolsNoneDiv" style="padding:10px;margin-top:10px;display:block;">
+                                There are no points loaded on the map.
+                            </div>
+                            <div id="pointToolsDiv" style="padding:10px;display:none;">
+                                <div style="">
+                                    <button data-role="none" onclick="createConcavePoly();" >Concave Hull Polygon</button> Creates a concave hull polygon or multipolygon for
+                                    <select data-role="none" id="concavepolysource" style="margin-top:3px;" onchange="checkPointToolSource('concavepolysource');">
+                                        <option value="all">all</option>
+                                        <option value="selected">selected</option>
+                                    </select> points with a maximum edge length of <input data-role="none" type="text" id="concaveMaxEdgeSize" style="width:75px;margin-top:3px;" value="" /> kilometers.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                                <div style="margin-top:10px;">
+                                    <button data-role="none" onclick="createConvexPoly();" >Convex Hull Polygon</button> Creates a convex hull polygon for
+                                    <select data-role="none" id="convexpolysource" style="margin-top:3px;" onchange="checkPointToolSource('convexpolysource');">
+                                        <option value="all">all</option>
+                                        <option value="selected">selected</option>
+                                    </select> points.
+                                </div>
+                                <div style="margin:5 0 5 0;"><hr /></div>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -435,19 +525,21 @@ $dbArr = Array();
                 <option value="None">None</option>
                 <option value="Polygon">Polygon</option>
                 <option value="Circle">Circle</option>
+                <option value="LineString">Line</option>
+                <option value="Point">Point</option>
             </select>
         </div>
         <div id="basecontrol">
             <span class="maptext">Base Layer</span>
             <select data-role="none" id="base-map" onchange="changeBaseMap();">
-                <option value="worldtopo">World Topo</option>
+                <option value="worldtopo">ESRI World Topo</option>
                 <option value="openstreet">OpenStreetMap</option>
-                <option value="blackwhite">Black &amp; White</option>
-                <option value="worldimagery">World Imagery</option>
-                <option value="ocean">Ocean</option>
-                <option value="ngstopo">NGS Topo</option>
-                <option value="natgeoworld">NGS World</option>
-                <option value="esristreet">ESRI StreetMap World</option>
+                <option value="blackwhite">Stamen Design Black &amp; White</option>
+                <option value="worldimagery">ESRI World Imagery</option>
+                <option value="ocean">ESRI Ocean</option>
+                <option value="ngstopo">National Geographic Topo</option>
+                <option value="natgeoworld">National Geographic World</option>
+                <option value="esristreet">ESRI StreetMap</option>
             </select>
         </div>
         <div style="clear:both;"></div>
@@ -469,6 +561,48 @@ $dbArr = Array();
         </div>
         <div id="deleteSelections" style="margin-left:60px;float:left;">
             <button data-role="none" type="button" onclick='deleteSelections();' >Delete Shapes</button>
+        </div>
+        <div style="clear:both;"></div>
+        <div id="dateslidercontrol" style="margin-top:5px;display:none;">
+            <div style="margin:5 0 5 0;color:white;"><hr /></div>
+            <div id="setdatediv" style="">
+                <span class="maptext">Earliest</span>
+                <input data-role="none" type="text" id="datesliderearlydate" style="width:100px;margin-right:5px;" value="" onchange="checkDSLowDate();" />
+                <span class="maptext">Latest</span>
+                <input data-role="none" type="text" id="datesliderlatedate" style="width:100px;margin-right:25px;" value="" onchange="checkDSHighDate();" />
+                <button data-role="none" type="button" onclick="setDSValues();" >Set</button>
+            </div>
+            <div style="margin:5 0 5 0;color:white;"><hr /></div>
+            <div id="animatediv" style="">
+                <div>
+                    <span class="maptext">Interval Duration (years)</span>
+                    <input data-role="none" type="text" id="datesliderinterduration" style="width:40px;margin-right:5px;" value="" onchange="checkDSAnimDuration();" />
+                    <span class="maptext">Interval Time (seconds)</span>
+                    <input data-role="none" type="text" id="datesliderintertime" style="width:40px;margin-right:10px;" value="" onchange="checkDSAnimTime();" />
+                </div>
+                <div style="clear:both;"></div>
+                <div style="margin-top:3px;">
+                    <div style="float:left;">
+                        <span style="margin-right:5px;">
+                            <span class="maptext">Save Images</span>
+                            <input data-role="none" type='checkbox' id='dateslideranimimagesave' onchange="checkDSSaveImage();" value='1'>
+                        </span>
+                        <span style="margin-right:5px;">
+                            <span class="maptext">Reverse</span>
+                            <input data-role="none" type='checkbox' id='dateslideranimreverse' value='1'>
+                        </span>
+                        <span>
+                            <span class="maptext">Dual</span>
+                            <input data-role="none" type='checkbox' id='dateslideranimdual' value='1'>
+                        </span>
+                    </div>
+                    <div style="float:right;">
+                        <button data-role="none" type="button" onclick="setDSAnimation();" >Start</button>
+                        <button data-role="none" type="button" onclick="stopDSAnimation();" >Stop</button>
+                    </div>
+                </div>
+                <div style="clear:both;"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -498,6 +632,7 @@ $dbArr = Array();
     var taxontype = '';
     var thes = false;
     var loadVectorPoints = true;
+    var loadPointsEvent = false;
     var taxaCnt = 0;
     var lazyLoadCnt = 20000;
     var clusterDistance = 50;
@@ -513,7 +648,9 @@ $dbArr = Array();
     var shapeActive = false;
     var pointActive = false;
     var spiderCluster;
+    var spiderFeature;
     var hiddenClusters = [];
+    var clickedFeatures = [];
     var dragDrop1 = false;
     var dragDrop2 = false;
     var dragDrop3 = false;
@@ -529,6 +666,20 @@ $dbArr = Array();
     var rasterLayers = [];
     var overlayLayers = [];
     var vectorizeLayers = [];
+    var loadingTimer = 0;
+    var loadingComplete = true;
+    var returnClusters = false;
+    var dsAnimDuration = '';
+    var dsAnimTime = '';
+    var dsAnimImageSave = false;
+    var dsAnimReverse = false;
+    var dsAnimDual = false;
+    var dsAnimLow = '';
+    var dsAnimHigh = '';
+    var dsAnimStop = true;
+    var dsAnimation = '';
+    var zipFile = '';
+    var zipFolder = '';
     var SOLRFields = 'occid,collid,catalogNumber,otherCatalogNumbers,family,sciname,tidinterpreted,scientificNameAuthorship,identifiedBy,' +
         'dateIdentified,typeStatus,recordedBy,recordNumber,eventDate,displayDate,coll_year,coll_month,coll_day,habitat,associatedTaxa,' +
         'cultivationStatus,country,StateProvince,county,municipality,locality,localitySecurity,localitySecurityReason,geo,minimumElevationInMeters,' +
@@ -655,7 +806,26 @@ $dbArr = Array();
 
     var selectsource = new ol.source.Vector({wrapX: false});
     var selectlayer = new ol.layer.Vector({
-        source: selectsource
+        source: selectsource,
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgba(255,255,255,0.4)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#3399CC',
+                width: 2
+            }),
+            image: new ol.style.Circle({
+                radius: 7,
+                stroke: new ol.style.Stroke({
+                    color: '#3399CC',
+                    width: 2
+                }),
+                fill: new ol.style.Fill({
+                    color: 'rgba(255,255,255,0.4)'
+                })
+            })
+        })
     });
 
     var pointvectorsource = new ol.source.Vector({wrapX: false});
@@ -720,38 +890,78 @@ $dbArr = Array();
             ol.format.TopoJSON
         ]
     });
+
     var selectInteraction = new ol.interaction.Select({
         layers: [layersArr['select']],
         condition: function(evt) {
             return (evt.type == 'click' && activeLayer == 'select' && !evt.originalEvent.altKey);
         },
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgba(255,255,255,0.5)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: 'rgba(0,153,255,1)',
+                width: 5
+            }),
+            image: new ol.style.Circle({
+                radius: 7,
+                stroke: new ol.style.Stroke({
+                    color: 'rgba(0,153,255,1)',
+                    width: 2
+                }),
+                fill: new ol.style.Fill({
+                    color: 'rgba(0,153,255,1)'
+                })
+            })
+        }),
         toggleCondition: ol.events.condition.click
     });
+
     var pointInteraction = new ol.interaction.Select({
         layers: [layersArr['pointv'],layersArr['spider']],
         condition: function(evt) {
-            if(evt.type == 'click' && activeLayer == 'pointv' && !evt.originalEvent.altKey){
-                if(spiderCluster){
-                    var spiderclick = map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
-                        if(feature && layer === layersArr['spider']){
-                            return feature;
+            if(evt.type == 'click' && activeLayer == 'pointv'){
+                if(!evt.originalEvent.altKey){
+                    if(spiderCluster){
+                        var spiderclick = map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
+                            spiderFeature = feature;
+                            if(feature && layer === layersArr['spider']){
+                                return feature;
+                            }
+                        });
+                        if(!spiderclick){
+                            var blankSource = new ol.source.Vector({
+                                features: new ol.Collection(),
+                                useSpatialIndex: true
+                            });
+                            layersArr['spider'].setSource(blankSource);
+                            for(i in hiddenClusters){
+                                showFeature(hiddenClusters[i]);
+                            }
+                            hiddenClusters = [];
+                            spiderCluster = false;
+                            spiderFeature = '';
+                            layersArr['pointv'].getSource().changed();
+                        }
+                    }
+                    return true;
+                }
+                else if(evt.originalEvent.altKey){
+                    map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
+                        if(feature){
+                            if(spiderCluster && layer === layersArr['spider']){
+                                clickedFeatures.push(feature);
+                                return feature;
+                            }
+                            else if(layer === layersArr['pointv']){
+                                clickedFeatures.push(feature);
+                                return feature;
+                            }
                         }
                     });
-                    if(!spiderclick){
-                        var blankSource = new ol.source.Vector({
-                            features: new ol.Collection(),
-                            useSpatialIndex: true
-                        });
-                        layersArr['spider'].setSource(blankSource);
-                        for(i in hiddenClusters){
-                            showFeature(hiddenClusters[i]);
-                        }
-                        hiddenClusters = [];
-                        spiderCluster = '';
-                        layersArr['pointv'].getSource().changed();
-                    }
+                    return false;
                 }
-                return true;
             }
             else{
                 return false;
@@ -792,6 +1002,7 @@ $dbArr = Array();
     }
 
     function vectorizeRaster(){
+        showWorking();
         var overlay = document.getElementById("vectorizesourcelayer").value;
         var overlaySource = overlayLayers[overlay]['source'];
         var overlayName = '<?php echo $GEOSERVER_LAYER_WORKSPACE; ?>:'+overlay;
@@ -810,11 +1021,15 @@ $dbArr = Array();
         http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
         http.onreadystatechange = function() {
             if(http.readyState == 4 && http.status == 200) {
+                //console.log(http.responseText);
                 var features = geoJSONFormat.readFeatures(http.responseText, {
                     featureProjection: 'EPSG:3857'
                 });
                 selectsource.addFeatures(features);
+                document.getElementById("selectlayerselect").value = 'select';
+                setActiveLayer();
             }
+            hideWorking();
         };
         http.send(params);
     }
@@ -886,11 +1101,11 @@ $dbArr = Array();
         refreshLayerOrder();
         var infoArr = [];
         infoArr['Name'] = outputName;
+        infoArr['layerType'] = 'raster';
         infoArr['Title'] = outputName;
         infoArr['Abstract'] = '';
         infoArr['DefaultCRS'] = '';
         buildLayerTableRow(infoArr,true);
-        setRasterTools();
     }
 
     function clearRasterCalcForm() {
@@ -912,7 +1127,6 @@ $dbArr = Array();
         overlayLayers[outputName]['values']['rasmin'] = document.getElementById('reclassifyRasterMin').value;
         overlayLayers[outputName]['values']['rasmax'] = document.getElementById('reclassifyRasterMax').value;
         overlayLayers[outputName]['values']['color'] = document.getElementById('reclassifyColorVal').value;
-        overlayLayers[outputName]['values']['newval'] = document.getElementById('reclassifyNewVal').value;
 
         var layerName = '<?php echo $GEOSERVER_LAYER_WORKSPACE; ?>:'+rasterLayer;
         var layerTileSourceName = outputName+'Source';
@@ -931,27 +1145,22 @@ $dbArr = Array();
             sources: [layersArr[layerTileSourceName]],
             operationType: 'pixel',
             operation: function (pixels, data) {
-                var value = data.reclassVal;
                 var inputPixel = pixels[0];
                 if((inputPixel[0] && inputPixel[1] && inputPixel[2])){
                     var pixr = inputPixel[0];
                     var pixg = inputPixel[1];
                     var pixb = inputPixel[2];
                     if(pixr == 255 && pixg == 255 && pixb == 255){
-                        return [0, 0, 0, 0, 0];
+                        return [0, 0, 0, 0];
                     }
                     else if(pixr == 0 && pixg == 0 && pixb == 0){
-                        return [0, 0, 0, 0, 0];
+                        return [0, 0, 0, 0];
                     }
                     else{
-                        inputPixel[4] = value;
                         return inputPixel;
                     }
                 }
-                return [0, 0, 0, 0, 0];
-            },
-            beforeoperations: function(event) {
-                event.data['reclassVal'] = overlayLayers[outputName]['values']['newval'];
+                return [0, 0, 0, 0];
             }
         });
         layersArr[outputName] = new ol.layer.Image({
@@ -963,12 +1172,12 @@ $dbArr = Array();
         refreshLayerOrder();
         var infoArr = [];
         infoArr['Name'] = outputName;
+        infoArr['raster'] = 'vector';
         infoArr['Title'] = outputName;
         infoArr['Abstract'] = '';
         infoArr['DefaultCRS'] = '';
         buildLayerTableRow(infoArr,true);
         vectorizeLayers[outputName] = outputName;
-        setRasterTools();
     }
 
     function editRasterLayers(c,title){
@@ -1033,7 +1242,7 @@ $dbArr = Array();
             layersArr['spider']
         ],
         overlays: [popupoverlay,finderpopupoverlay],
-        renderer: 'webgl'
+        renderer: 'canvas'
     });
 
     var mousePositionControl = new ol.control.MousePosition({
@@ -1067,6 +1276,8 @@ $dbArr = Array();
 
     map.getView().on('change:resolution', function(event) {
         if(spiderCluster){
+            var source = layersArr['spider'].getSource();
+            source.clear();
             var blankSource = new ol.source.Vector({
                 features: new ol.Collection(),
                 useSpatialIndex: true
@@ -1090,12 +1301,18 @@ $dbArr = Array();
                 if(setDragDropTarget()){
                     var infoArr = [];
                     infoArr['Name'] = dragDropTarget;
+                    infoArr['layerType'] = 'vector';
                     infoArr['Title'] = filename;
                     infoArr['Abstract'] = '';
                     infoArr['DefaultCRS'] = '';
                     var sourceIndex = dragDropTarget+'Source';
+                    var features = event.features;
+                    if(fileType == 'kml'){
+                        var geoJSONFormat = new ol.format.GeoJSON();
+                        features = geoJSONFormat.readFeatures(geoJSONFormat.writeFeatures(features));
+                    }
                     layersArr[sourceIndex] = new ol.source.Vector({
-                        features: event.features
+                        features: features
                     });
                     layersArr[dragDropTarget].setStyle(getDragDropStyle);
                     layersArr[dragDropTarget].setSource(layersArr[sourceIndex]);
@@ -1121,6 +1338,7 @@ $dbArr = Array();
                             },function (data){
                                 var infoArr = [];
                                 infoArr['Name'] = dragDropTarget;
+                                infoArr['layerType'] = 'vector';
                                 infoArr['Title'] = filename;
                                 infoArr['Abstract'] = '';
                                 infoArr['DefaultCRS'] = '';
@@ -1195,19 +1413,24 @@ $dbArr = Array();
                 }
             }
             else {
-                if (newfeatures.length > 1) {
-                    for (n in newfeatures) {
-                        var nfeature = newfeatures[n];
-                        pointInteraction.getFeatures().remove(nfeature);
+                if (newfeatures.length > 1 && !spiderFeature) {
+                    pointInteraction.getFeatures().clear();
+                    if(!spiderCluster){
+                        spiderifyPoints(newfeatures);
                     }
-                    spiderifyPoints(newfeatures);
                 }
                 else {
-                    var newfeature = newfeatures[0];
-                    pointInteraction.getFeatures().remove(newfeature);
+                    if(spiderFeature){
+                        var newfeature = spiderFeature;
+                        spiderFeature = '';
+                    }
+                    else{
+                        var newfeature = newfeatures[0];
+                    }
+                    pointInteraction.getFeatures().clear();
                     if (newfeature.get('features')) {
                         var clusterCnt = newfeatures[0].get('features').length;
-                        if (clusterCnt > 1) {
+                        if (clusterCnt > 1 && !spiderCluster) {
                             spiderifyPoints(newfeatures);
                         }
                         else {
@@ -1239,6 +1462,7 @@ $dbArr = Array();
                 if(!shapeActive){
                     var infoArr = [];
                     infoArr['Name'] = 'select';
+                    infoArr['layerType'] = 'vector';
                     infoArr['Title'] = 'Shapes';
                     infoArr['Abstract'] = '';
                     infoArr['DefaultCRS'] = '';
@@ -1267,8 +1491,10 @@ $dbArr = Array();
                         });
                         primeSymbologyData(features);
                         pointvectorsource.addFeatures(features);
-                        var pointextent = pointvectorsource.getExtent();
-                        map.getView().fit(pointextent,map.getSize());
+                        if(loadPointsEvent){
+                            var pointextent = pointvectorsource.getExtent();
+                            map.getView().fit(pointextent,map.getSize());
+                        }
                     });
                     processed = processed + lazyLoadCnt;
                     index++;
@@ -1376,27 +1602,23 @@ $dbArr = Array();
             }
             else if(activeLayer == 'pointv'){
                 var infoHTML = '';
-                var clickedFeatures = [];
-                var singleFeature = false;
-                map.forEachFeatureAtPixel(evt.pixel, function(feature, layer){
-                    if(layer === layersArr['spider'] || layer === layersArr['pointv']){
-                        if(feature.get('features') || feature.get('occid')){
-                            clickedFeatures.push(feature);
-                        }
-                    }
-                });
+                var targetFeature = '';
+                var iFeature = '';
                 if(clickedFeatures.length == 1){
-                    if(clusterPoints){
-                        if(clickedFeatures[0].get('features') && clickedFeatures[0].get('features').length == 1){
-                            singleFeature = true;
-                        }
+                    targetFeature = clickedFeatures[0];
+                }
+                if(targetFeature){
+                    if(clusterPoints && targetFeature.get('features').length == 1){
+                        iFeature = targetFeature.get('features')[0];
                     }
-                    else{
-                        singleFeature = true;
+                    else if(!clusterPoints){
+                        iFeature = targetFeature;
                     }
                 }
-                if(singleFeature){
-                    var iFeature = (clusterPoints?clickedFeatures[0].get('features')[0]:clickedFeatures[0]);
+                else{
+                    return;
+                }
+                if(iFeature){
                     infoHTML += '<b>occid:</b> '+iFeature.get('occid')+'<br />';
                     infoHTML += '<b>CollectionName:</b> '+(iFeature.get('CollectionName')?iFeature.get('CollectionName'):'')+'<br />';
                     infoHTML += '<b>catalogNumber:</b> '+(iFeature.get('catalogNumber')?iFeature.get('catalogNumber'):'')+'<br />';
@@ -1419,9 +1641,10 @@ $dbArr = Array();
                     popupcontent.innerHTML = infoHTML;
                     popupoverlay.setPosition(evt.coordinate);
                 }
-                else if(clickedFeatures.length > 1 || clickedFeatures[0].get('features').length > 1){
-                    alert('You clicked on multiple points. Info window can only display data for a single point.')
+                else{
+                    alert('You clicked on multiple points. The info window can only display data for a single point.');
                 }
+                clickedFeatures = [];
             }
         }
         else{
@@ -1430,7 +1653,14 @@ $dbArr = Array();
                 if(activeLayer == 'dragdrop1' || activeLayer == 'dragdrop2' || activeLayer == 'dragdrop3'){
                     map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
                         if(layer === layersArr[activeLayer]){
-                            selectsource.addFeature(feature);
+                            try{
+                                selectsource.addFeature(feature);
+                                document.getElementById("selectlayerselect").value = 'select';
+                                setActiveLayer();
+                            }
+                            catch(e){
+                                alert('Feature has already been added to Shapes layer.');
+                            }
                         }
                     });
                 }
@@ -1455,7 +1685,11 @@ $dbArr = Array();
                 var url = 'rpc/GeoServerConnector.php?SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&typename=<?php echo $GEOSERVER_LAYER_WORKSPACE; ?>:'+selectLayer+'&featureid='+objID+'&outputFormat=application/json&srsname=EPSG:3857';
                 $.get(url, function(data){
                     var features = new ol.format.GeoJSON().readFeatures(data);
-                    selectsource.addFeatures(features);
+                    if(features){
+                        selectsource.addFeatures(features);
+                        document.getElementById("selectlayerselect").value = 'select';
+                        setActiveLayer();
+                    }
                 });
             }
         });
@@ -1501,6 +1735,10 @@ $dbArr = Array();
         <input id="zipcsv" name="zipcsv" type="hidden" value="" />
         <input id="csetcsv" name="csetcsv" type="hidden" value="" />
     </form>
+</div>
+
+<div id="loadingOverlay" data-role="popup" style="width:100%;position:relative;">
+    <div id="loader"></div>
 </div>
 </body>
 </html>

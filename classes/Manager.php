@@ -50,6 +50,17 @@ class Manager  {
 		}
 	}
 
+    public function checkFieldExists($table, $field){
+        $exists = false;
+        $this->__construct(null,'readonly');
+        $sql = 'SELECT '.$field.' FROM '.$table.' LIMIT 1 ';
+        //echo "<div>SQL: ".$sql."</div>";
+        if($result = $this->conn->query($sql)){
+            $exists = true;
+        }
+        return $exists;
+    }
+
 	public function setVerboseMode($c){
 		$this->verboseMode = $c;
 	}
