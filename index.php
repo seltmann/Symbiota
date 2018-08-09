@@ -41,7 +41,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 		<div style="padding: 0px 15px;">
 			<h1><i>Aphanogmus</i> Collaboration Portal </h1>
 			<h2><div style="margin:50px 130px 130px 150px;">
-			All things <i>Aphanogmus</i> (Ceraphronidae)
+			<!-- This is where you would put front page text -->
 			</div><h2>
 		</div>
 	</div>
