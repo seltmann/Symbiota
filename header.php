@@ -78,9 +78,9 @@ if (top.frames.length!=0)
 						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Projects</a>
 						<ul>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=5" >Encyrtidae of NCOS</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=5" >Species</a>
 							</li>
-							<li>
+						<!--<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of Goleta and Isla Vista</a>
 							</li>
 							<li>
@@ -94,7 +94,7 @@ if (top.frames.length!=0)
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=checklist" >Dynamic Checklist</a>
 							</li>
-							<!--<li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=key" >Dynamic Key</a>
 							</li>-->
 						</ul> 
