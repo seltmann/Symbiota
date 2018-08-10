@@ -15,9 +15,9 @@ $TEMP_DIR_ROOT = $SERVER_ROOT.'/content';				//Must be writable by Apache; will 
 $LOG_PATH = $SERVER_ROOT.'/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/content/logs';					//Must be writable by Apache; will use <SYMBIOTA_ROOT>/temp/logs if not specified
 
 //the root for the image directory
-$IMAGE_DOMAIN = 'http://symbiota.begoniasociety.org/Aphanogmus/content/specimenImages';				//Domain path to images, if different from portal
-$IMAGE_ROOT_URL = '/Aphanogmus/content/specimenImages';				//URL path to images
-$IMAGE_ROOT_PATH = '/Aphanogmus/content/specimenImages';			//Writable path to images, especially needed for downloading images
+$IMAGE_DOMAIN = '';				//Domain path to images, if different from portal
+$IMAGE_ROOT_URL = '';				//URL path to images
+$IMAGE_ROOT_PATH = '';			//Writable path to images, especially needed for downloading images
 
 //Pixel width of web images
 $IMG_WEB_WIDTH = 1400;
