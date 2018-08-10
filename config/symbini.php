@@ -11,7 +11,7 @@ $SECURITY_KEY = '';				//Typically a UUID used to verify access to certain web s
 
 $CLIENT_ROOT = '/Aphanogmus';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet')
 $SERVER_ROOT = '/home/seltmann/symbiota.begoniasociety.org/Aphanogmus';				//Full path to Symbiota project root folder
-$TEMP_DIR_ROOT = $SERVER_ROOT.'/content';				//Must be writable by Apache; will use system default if not specified
+$TEMP_DIR_ROOT = $SERVER_ROOT.'/Aphanogmus/content';				//Must be writable by Apache; will use system default if not specified
 $LOG_PATH = $SERVER_ROOT.'/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/content/logs';					//Must be writable by Apache; will use <SYMBIOTA_ROOT>/temp/logs if not specified
 
 //the root for the image directory
