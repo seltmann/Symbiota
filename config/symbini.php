@@ -9,8 +9,8 @@ $CHARSET = 'UTF-8';					//ISO-8859-1 or UTF-8
 $PORTAL_GUID = '097f50dd-df9c-4298-ba32-2ac3aad2b6f1';				//Typically a UUID
 $SECURITY_KEY = '';				//Typically a UUID used to verify access to certain web service
 
-$CLIENT_ROOT = '/';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet')
-$SERVER_ROOT = '/';				//Full path to Symbiota project root folder
+$CLIENT_ROOT = '/Aphanogmus';				//URL path to project root folder (relative path w/o domain, e.g. '/seinet')
+$SERVER_ROOT = '/home/seltmann/symbiota.begoniasociety.org';				//Full path to Symbiota project root folder
 $TEMP_DIR_ROOT = $SERVER_ROOT.'/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/content';				//Must be writable by Apache; will use system default if not specified
 $LOG_PATH = $SERVER_ROOT.'/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/content/logs';					//Must be writable by Apache; will use <SYMBIOTA_ROOT>/temp/logs if not specified
 
