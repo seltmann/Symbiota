@@ -17,7 +17,7 @@ $LOG_PATH = $SERVER_ROOT.'/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/
 //the root for the image directory
 $IMAGE_DOMAIN = 'http://symbiota.begoniasociety.org/Aphanogmus/content/specimenImages';				//Domain path to images, if different from portal
 $IMAGE_ROOT_URL = '/Aphanogmus/content/specimenImages';				//URL path to images
-$IMAGE_ROOT_PATH = '/home/seltmann/symbiota.begoniasociety.org/Aphanogmus/content/specimenImages';			//Writable path to images, especially needed for downloading images
+$IMAGE_ROOT_PATH = '/Aphanogmus/content/specimenImages';			//Writable path to images, especially needed for downloading images
 
 //Pixel width of web images
 $IMG_WEB_WIDTH = 1400;
