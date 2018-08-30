@@ -78,6 +78,9 @@ if (top.frames.length!=0)
 						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Projects</a>
 						<ul>
 							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=10" >Insects of UCSB and nearby</a>
+							</li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=5" >Encyrtidae of NCOS</a>
 							</li>
 							<li>
