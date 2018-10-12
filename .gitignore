@@ -4,6 +4,7 @@ webservices/dwc/rss.xml
 .project
 .settings/org.eclipse.wst.jsdt.ui.superType.container
 .buildpath
+webservices/dwc/rss.xml
 config/dbconnection.php
 config/symbini.php
 .settings/org.eclipse.php.core.prefs
