@@ -104,7 +104,7 @@ class OccurrenceIndividualManager extends Manager{
 			'o.occurrenceid, o.catalognumber, o.occurrenceremarks, o.tidinterpreted, o.family, o.sciname, '.
 			'o.scientificnameauthorship, o.identificationqualifier, o.identificationremarks, o.identificationreferences, o.taxonremarks, '.
 			'o.identifiedby, o.dateidentified, o.recordedby, o.associatedcollectors, o.recordnumber, o.eventdate, MAKEDATE(YEAR(o.eventDate),o.enddayofyear) AS eventdateend, '.
-			'o.verbatimeventdate, o.country, o.stateprovince, o.county, o.municipality, o.locality, '.
+			'o.verbatimeventdate, o.country, o.stateprovince, o.county, o.municipality, o.locality, o.fieldnotes, '.
 			'o.minimumelevationinmeters, o.maximumelevationinmeters, o.verbatimelevation, o.localitysecurity, o.localitysecurityreason, '.
 			'o.decimallatitude, o.decimallongitude, o.geodeticdatum, o.coordinateuncertaintyinmeters, o.verbatimcoordinates, '.
 			'o.georeferenceremarks, o.verbatimattributes, o.locationremarks, o.lifestage, o.sex, o.individualcount, o.samplingprotocol, o.preparations, '.
@@ -129,12 +129,15 @@ class OccurrenceIndividualManager extends Manager{
 				if(!$this->occid) $this->occid = $this->occArr['occid'];
 				if(!$this->collid) $this->collid = $this->occArr['collid'];
 				$this->loadMetadata();
-				//Set occurrenceId according to guidsource \
-				if($this->metadataArr['guidtarget'] == 'catalogNumber'){
-					$this->occArr['occurrenceid'] = $this->occArr['catalognumber'];
-				}
-				elseif($this->metadataArr['guidtarget'] == 'symbiotaUUID'){
-					$this->occArr['occurrenceid'] = $this->occArr['guid'];
+
+				if(!$this->occArr['occurrenceid']){
+					//Set occurrence GUID based on GUID target, but only if occurrenceID field isn't already populated
+					if($this->metadataArr['guidtarget'] == 'catalogNumber'){
+						$this->occArr['occurrenceid'] = $this->occArr['catalognumber'];
+					}
+					elseif($this->metadataArr['guidtarget'] == 'symbiotaUUID'){
+						$this->occArr['occurrenceid'] = $this->occArr['guid'];
+					}
 				}
 
 				if($this->occArr['secondaryinstcode'] && $this->occArr['secondaryinstcode'] != $this->metadataArr['institutioncode']){

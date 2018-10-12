@@ -58,6 +58,7 @@ if(isset($_SESSION['userrights'])){
 
 $CSS_VERSION = '6';
 if(!isset($CSS_VERSION_LOCAL)) $CSS_VERSION_LOCAL = $CSS_VERSION;
+if(!isset($EML_PROJECT_ADDITIONS)) $EML_PROJECT_ADDITIONS = array();
 $USER_DISPLAY_NAME = (array_key_exists("dn",$PARAMS_ARR)?$PARAMS_ARR["dn"]:"");
 $USERNAME = (array_key_exists("un",$PARAMS_ARR)?$PARAMS_ARR["un"]:0);
 $SYMB_UID = (array_key_exists("uid",$PARAMS_ARR)?$PARAMS_ARR["uid"]:0);
@@ -185,6 +186,11 @@ $RIGHTS_TERMS_DEFS = array(
         'title' => 'CC BY-NC (Attribution-Non-Commercial)',
         'url' => 'http://creativecommons.org/licenses/by-nc/4.0/legalcode',
         'def' => 'Users can copy, redistribute the material in any medium or format, remix, transform, and build upon the material. The licensor cannot revoke these freedoms as long as you follow the license terms.'
+    ),
+    'http://creativecommons.org/licenses/by-nc-nd/4.0/' => array(
+        'title' => 'CC BY-NC-ND 4.0 (Attribution-NonCommercial-NoDerivatives 4.0 International)',
+        'url' => 'http://creativecommons.org/licenses/by-nc-nd/4.0/legalcode',
+        'def' => 'Users can copy and redistribute the material in any medium or format. The licensor cannot revoke these freedoms as long as you follow the license terms.'
     )
 );
 ?>
