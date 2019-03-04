@@ -84,6 +84,9 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of UCSB and Isla Vista</a>
 							</li>
 							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=11" >Ants of Santa Barbara County</a>
+							</li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=7" >Ophioninae of Coastal California</a>
 							</li>
 						</ul>
