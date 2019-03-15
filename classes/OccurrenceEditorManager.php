@@ -566,16 +566,15 @@ class OccurrenceEditorManager {
 		if($this->crowdSourceMode){
 			$sqlWhere .= 'AND (q.reviewstatus = 0) ';
 		}
-        if($this->collId) $sqlWhere .= 'AND (o2.collid = '.$this->collId.') ';
-		if($sqlWhere){
-            if(strpos($str, "OR") === 0){
+        if($sqlWhere){
+            if(strpos($sqlWhere, "OR") === 0){
                 $sqlWhere = 'WHERE ('.substr($sqlWhere,3).') ';
             }
             else{
             	$sqlWhere = 'WHERE ('.substr($sqlWhere,4).') ';
             }
         }
-
+		if($this->collId) $sqlWhere .= ($sqlWhere?'AND (o2.collid = '.$this->collId.') ':'WHERE (o2.collid = '.$this->collId.') ');
 		if(isset($this->qryArr['orderby'])){
 			$sqlOrderBy = '';
 			$orderBy = $this->cleanInStr($this->qryArr['orderby']);
@@ -677,9 +676,9 @@ class OccurrenceEditorManager {
 			$rs->free();
 			if($retArr && count($retArr) == 1){
 				if(!$this->occid) $this->occid = $occid;
-				if(!$retArr[$occid]['institutioncode']) $retArr[$occid]['institutioncode'] = $this->collMap['institutioncode'];
-				if(!$retArr[$occid]['collectioncode']) $retArr[$occid]['collectioncode'] = $this->collMap['collectioncode'];
-				if(!$retArr[$occid]['ownerinstitutioncode']) $retArr[$occid]['ownerinstitutioncode'] = $this->collMap['institutioncode'];
+				if(!array_key_exists("institutioncode",$retArr[$occid])) $retArr[$occid]['institutioncode'] = $this->collMap['institutioncode'];
+				if(!array_key_exists("collectioncode",$retArr[$occid])) $retArr[$occid]['collectioncode'] = $this->collMap['collectioncode'];
+				if(!array_key_exists("ownerinstitutioncode",$retArr[$occid])) $retArr[$occid]['ownerinstitutioncode'] = $this->collMap['institutioncode'];
 			}
 			$this->occurrenceMap = $this->cleanOutArr($retArr);
 			if($this->occid){
@@ -1996,10 +1995,11 @@ class OccurrenceEditorManager {
 	public function getCollectionList(){
 		$retArr = array();
 		$collArr = array('0');
+		$collEditorArr = array();
 		if(isset($GLOBALS['USER_RIGHTS']['CollAdmin'])) $collArr = $GLOBALS['USER_RIGHTS']['CollAdmin'];
 		$sql = 'SELECT collid, collectionname FROM omcollections '.
 			'WHERE (collid IN('.implode(',',$collArr).')) ';
-		$collEditorArr = $GLOBALS['USER_RIGHTS']['CollEditor'];
+		if(array_key_exists("CollEditor",$GLOBALS['USER_RIGHTS'])) $collEditorArr = $GLOBALS['USER_RIGHTS']['CollEditor'];
 		if($collEditorArr){
 			$sql .= 'OR (collid IN('.implode(',',$collEditorArr).') AND colltype = "General Observations")';
 		}
