@@ -427,6 +427,7 @@ else{
 						<div>
 							<table class="header" align="center">
 								<tr>
+									<td><img src="Loan-form-IZC-header.jpg" alt="Loan Header"></td>
 									<td><?php echo $addressArr['institutionname']; ?> (<?php echo $addressArr['institutioncode']; ?>)</td>
 								</tr>
 								<?php if($addressArr['institutionname2']){ ?>
