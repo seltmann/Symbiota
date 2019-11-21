@@ -10,12 +10,12 @@ $refArr = '';
 
 $statusStr = '';
 if($formSubmit){
-	if($formSubmit == 'Create Reference'){
+	if($formSubmit === 'Create Reference'){
 		$statusStr = $refManager->createReference($_POST);
 		$refId = $refManager->getRefId();
 	}
-	elseif($formSubmit == 'Edit Reference'){
-		if($_POST['refGroup'] == 1){
+	elseif($formSubmit === 'Edit Reference'){
+		/*if($_POST['refGroup'] == 1){
 			$statusStr = $refManager->editBookReference($_POST);
 		}
 		elseif($_POST['refGroup'] == 2){
@@ -23,7 +23,8 @@ if($formSubmit){
 		}
 		else{
 			$statusStr = $refManager->editReference($_POST);
-		}
+		}*/
+        $statusStr = $refManager->editReference($_POST);
 	}
 }
 $refGroup = 0;
@@ -41,17 +42,17 @@ if($refId){
 	if($refArr["ReferenceTypeId"] == 3 || $refArr["ReferenceTypeId"] == 4 || $refArr["ReferenceTypeId"] == 6 || $refArr["ReferenceTypeId"] == 27){
 		$refGroup = 1;
 		$parentChild = 1;
-		if($refArr["ReferenceTypeId"] == 4){
+		if($refArr["ReferenceTypeId"] === 4){
 			$refRank = 1;
 		}
-		if($refArr["ReferenceTypeId"] == 3 || $refArr["ReferenceTypeId"] == 6){
+		if($refArr["ReferenceTypeId"] === 3 || $refArr["ReferenceTypeId"] === 6){
 			$refRank = 2;
 		}
-		if($refArr["ReferenceTypeId"] == 27){
+		if($refArr["ReferenceTypeId"] === 27){
 			$refRank = 3;
 		}
 	}
-	if($refArr["ReferenceTypeId"] == 2 || $refArr["ReferenceTypeId"] == 7 || $refArr["ReferenceTypeId"] == 8 || $refArr["ReferenceTypeId"] == 30){
+	if($refArr["ReferenceTypeId"] === 2 || $refArr["ReferenceTypeId"] === 7 || $refArr["ReferenceTypeId"] === 8 || $refArr["ReferenceTypeId"] === 30){
 		$refGroup = 2;
 		$parentChild = 1;
 		if($refArr["ReferenceTypeId"] == 2 || $refArr["ReferenceTypeId"] == 7 || $refArr["ReferenceTypeId"] == 8){
@@ -87,11 +88,10 @@ header("Content-Type: text/html; charset=".$charset);
 	</style>
 	<script type="text/javascript" src="../js/jquery.js"></script>
 	<script type="text/javascript" src="../js/jquery-ui.js"></script>
-	<script type="text/javascript" src="../js/symb/references.index.js"></script>
+	<script type="text/javascript" src="../js/symb/references.index.js?ver=3"></script>
 	<script type="text/javascript">
 		var refid = <?php echo $refId; ?>;
-		var parentChild = false;
-		
+
 		<?php
 		if($parentChild){
 			echo 'parentChild = true;';
@@ -144,7 +144,7 @@ header("Content-Type: text/html; charset=".$charset);
 				
 				<div id="refdetaildiv" style="">
 					<div style="width:300px;float:right;">
-						<form name='authorform' id='authorform' action='index.php' method='post'>
+						<form name='authorform' id='authorform' action='refdetails.php' method='post' onsubmit="addAuthorToRef();">
 							<fieldset>
 								<legend><b>Authors</b></legend>
 								<div>
@@ -154,6 +154,7 @@ header("Content-Type: text/html; charset=".$charset);
 									<div>
 										<input type="text" name="addauthorsearch" id="addauthorsearch" style="width:200px;" value="" size="20" />
 										<input id="refauthorid" name="refauthorid" type="hidden" value="" />
+                                        <input name="refid" type="hidden" value="<?php echo $refId; ?>" />
 									</div>
 								</div>
 								<hr />

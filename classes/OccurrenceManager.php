@@ -588,7 +588,7 @@ class OccurrenceManager{
 			'FROM omcollections c INNER JOIN omcollectionstats s ON c.collid = s.collid '.
 			'LEFT JOIN omcollcatlink ccl ON c.collid = ccl.collid '.
 			'LEFT JOIN omcollcategories cat ON ccl.ccpk = cat.ccpk '.
-			'WHERE s.recordcnt > 0 AND (cat.inclusive IS NULL OR cat.inclusive = 1 OR cat.ccpk = 1) '.
+			'WHERE (cat.inclusive IS NULL OR cat.inclusive = 1 OR cat.ccpk = 1) '.
 			'ORDER BY ccl.sortsequence, cat.category, c.sortseq, c.CollectionName ';
 		//echo "<div>SQL: ".$sql."</div>";
 		$result = $this->conn->query($sql);
@@ -884,10 +884,10 @@ class OccurrenceManager{
 		foreach($this->taxaArr as $taxonName => $taxonArr){
 			$str = $taxonName;
 			if(array_key_exists("sciname",$taxonArr)){
-				$str .= " => ".implode(",",$taxonArr["sciname"]);
+				$str .= " => ".implode(", ",$taxonArr["sciname"]);
 			}
 			if(array_key_exists("synonyms",$taxonArr)){
-				$str .= " (".implode(",",$taxonArr["synonyms"]).")";
+				$str .= " (".implode(", ",$taxonArr["synonyms"]).")";
 			}
 			$returnArr[] = $str;
 		}
