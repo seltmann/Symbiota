@@ -98,7 +98,7 @@ if (top.frames.length!=0)
 						</ul>
 					</li>
 					<li>
-						<a href="<?php echo $clientRoot; ?>/projects/index.php" >UCSB Natural Researve Checklists</a>
+						<a href="<?php echo $clientRoot; ?>/projects/index.php" >UCSB Natural Reserve Checklists</a>
 						<ul>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=27" >Santa Cruz Island Reserve Plants</a>
