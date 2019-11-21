@@ -81,13 +81,28 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=10" >Insects of UCSB and Nearby</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of UCSB and Isla Vista</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=25" >Insects of North Campus Open Space</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of UCSB and Nearby</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=28" >Ichneumonoidea of UCSB and Nearby</a>
 							</li>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=11" >Ants of Santa Barbara County</a>
 							</li>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=7" >Ophioninae of Coastal California</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=27" >Santa Cruz Island Reserve Plants</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=24" >Santa Cruz Island Reserve Lichen</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=23" >Santa Cruz Island Reserve Fungi</a>
 							</li>
 						</ul>
 					</li>
