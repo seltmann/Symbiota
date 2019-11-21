@@ -34,6 +34,7 @@ $collArr = $occManager->getCollectionArr($IS_ADMIN?'all':$collEditorArr);
 	<script type="text/javascript">
 	    function updateParentForm(occId) {
 	        opener.document.getElementById("<?php echo $targetId;?>").value = occId;
+            if(opener.document.getElementById("<?php echo $targetId;?>").hasAttribute("onchange")) opener.document.getElementById("<?php echo $targetId;?>").onchange();
 	        self.close();
 	        return false;
 	    }
@@ -88,11 +89,11 @@ $collArr = $occManager->getCollectionArr($IS_ADMIN?'all':$collEditorArr);
 	    }
 	</script>
 </head>
-<body>
+<body style="background-color: white;">
 	<!-- This is inner text! -->
 	<div id="innertext">
 		<?php 
-		if($collEditorArr){
+		if($isAdmin || $collEditorArr){
 			?>
 			<form name="occform" action="occurrencesearch.php" method="post" onsubmit="return verifyOccurSearchForm(this)" >
 				<fieldset style="width:650px;">

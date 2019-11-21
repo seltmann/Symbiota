@@ -42,7 +42,7 @@ class OccurrenceCollectionProfile {
 			$sql .= 'WHERE (c.collid = '.$this->collid.') ';
 		}
 		else{
-			$sql .= 'WHERE s.recordcnt > 0 ORDER BY c.SortSeq, c.CollectionName';
+			$sql .= 'ORDER BY c.SortSeq, c.CollectionName';
 		}
 		//echo $sql;
 		$rs = $this->conn->query($sql);
@@ -408,7 +408,7 @@ class OccurrenceCollectionProfile {
 		$urlBase = $GLOBALS['CLIENT_ROOT'].'/content/collicon/';
 		$urlPrefix = "http://";
 		if((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443) $urlPrefix = "https://";
-		$urlPrefix .= $_SERVER["SERVER_NAME"];
+		$urlPrefix .= $_SERVER["HTTP_HOST"];
 		if($_SERVER["SERVER_PORT"] && $_SERVER["SERVER_PORT"] != 80) $urlPrefix .= ':'.$_SERVER["SERVER_PORT"];
 		$urlBase = $urlPrefix.$urlBase;
 
