@@ -75,7 +75,7 @@ if (top.frames.length!=0)
 						</ul>
 					</li>
 					<li>
-						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Projects</a>
+						<a href="<?php echo $clientRoot; ?>/projects/index.php" >Insect Checklists</a>
 						<ul>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=10" >Insects of UCSB and Nearby</a>
@@ -95,6 +95,11 @@ if (top.frames.length!=0)
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=7" >Ophioninae of Coastal California</a>
 							</li>
+						</ul>
+					</li>
+					<li>
+						<a href="<?php echo $clientRoot; ?>/projects/index.php" >UCSB Natural Researve Checklists</a>
+						<ul>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=27" >Santa Cruz Island Reserve Plants</a>
 							</li>
