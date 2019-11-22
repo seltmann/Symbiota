@@ -109,6 +109,9 @@ if (top.frames.length!=0)
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=23" >Santa Cruz Island Reserve Fungi</a>
 							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=29" >Santa Cruz Island Reserve Invertebrates</a>
+							</li>
 						</ul>
 					</li>
 					<li>
