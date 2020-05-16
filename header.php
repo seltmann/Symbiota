@@ -87,6 +87,9 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of UCSB and Nearby</a>
 							</li>
 							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=33" >Bees of Santa Cruz Island</a>
+							</li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=28" >Ichneumonoidea of UCSB and Nearby</a>
 							</li>
 							<li>
