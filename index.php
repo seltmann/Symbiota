@@ -41,7 +41,7 @@ header("Content-Type: text/html; charset=".$CHARSET);
 		<div style="padding: 0px 15px;">
 			<h1>Welcome to the University of California, Santa Barbara Natural History Data Portal </h1>
 			<h2><div style="margin:50px 130px 130px 150px;">
-			The UCSB Natural History Data Portal was created to serve as a gateway to distributed data resources within the University of California Santa Barbara and UCSB Natural Reserve System and UCSB Center for Biodiversity and Ecological Restoration. Through a common web interface, we offer tools to locate, access and work with a variety of data. This portal is more than just a web site - it is a suite of data access technologies and a distributed network of collections across UCSB, or outside collections that have holdings from UCSB and UCSB NRS locations.
+			The UC Santa Barbara Collection Network Natural History Data Portal serves as a gateway for natural history data resources for the University of California Santa Barbara, UCSB Natural Reserve System and UCSB Center for Biodiversity and Ecological Restoration. Through a common web interface we offer tools to locate, access and work with a variety of natrual history data including specimens found in collections and observations from citizen science and research. This portal is more than just a web site - it is a suite of data access technologies and a distributed network of collections across UCSB or outside collections that have holdings from UCSB and UCSB NRS locations.
 			</div><h2>
 		</div>
 	</div>
