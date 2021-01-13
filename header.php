@@ -117,13 +117,13 @@ if (top.frames.length!=0)
 							</li>
 						</ul>
 					</li>
-					<li>
+					<!--<li>
 						<a href="#" >Interactive Tools</a>
 						<ul>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=checklist" >Dynamic Checklist</a>
 							</li>
-							<!--<li>
+							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/dynamicmap.php?interface=key" >Dynamic Key</a>
 							</li>-->
 						</ul> 
