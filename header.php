@@ -87,9 +87,6 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=6" >Bees of UCSB and Nearby</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=33" >Bees of Santa Cruz Island</a>
-							</li>
-							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=28" >Ichneumonoidea of UCSB and Nearby</a>
 							</li>
 							<li>
@@ -113,7 +110,10 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=23" >Santa Cruz Island Reserve Fungi</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=29" >Santa Cruz Island Reserve Invertebrates</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=33" >Bees of Santa Cruz Island</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=46" >Coal Oil Point Reserve Plant Voucher Checklist</a>
 							</li>
 						</ul>
 					</li>
