@@ -116,13 +116,13 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=61" >Coal Oil Point Reserve Plant Voucher Checklist</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=53" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=53" >Coal Oil Point Reserve Plant Observation Checklist</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=57" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=57" >Coal Oil Point Reserve Arthropod Voucher Checklist</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=56" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=56" >Coal Oil Point Reserve Arthropod Observation Checklist</a>
 							</li>
 						</ul>
 					</li>
