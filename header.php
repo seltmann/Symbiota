@@ -104,16 +104,25 @@ if (top.frames.length!=0)
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=27" >Santa Cruz Island Reserve Plants</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=24" >Santa Cruz Island Reserve Lichen</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=24" >Santa Cruz Island Reserve Lichens</a>
 							</li>
 							<li>
 								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=23" >Santa Cruz Island Reserve Fungi</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=33" >Bees of Santa Cruz Island</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=33" >Santa Cruz Island Bees</a>
 							</li>
 							<li>
-								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=46" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=61" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=53" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=57" >Coal Oil Point Reserve Plant Voucher Checklist</a>
+							</li>
+							<li>
+								<a href="<?php echo $clientRoot; ?>/checklists/checklist.php?cl=56" >Coal Oil Point Reserve Plant Voucher Checklist</a>
 							</li>
 						</ul>
 					</li>
